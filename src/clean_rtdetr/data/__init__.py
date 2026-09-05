@@ -8,13 +8,13 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, TypeAlias
 
 import torch
-from jaxtyping import Float, Int64  # noqa: TC002
+from jaxtyping import Float, Int64, Shaped, UInt8  # noqa: TC002
 from torch import Tensor
 
 if TYPE_CHECKING:
     from PIL import Image
 
-    ImageInput: TypeAlias = Image.Image | Tensor
+    ImageInput: TypeAlias = Image.Image | UInt8[Tensor, "3 height width"]
 else:
     # Keep Pillow optional at runtime; the concrete alias is for type checkers.
     ImageInput: TypeAlias = object
@@ -51,7 +51,7 @@ def preprocess_images(images: Sequence[ImageInput]) -> PreprocessedImages:
         msg = "preprocess_images requires Pillow; install clean-rtdetr[inference]"
         raise ImportError(msg) from error
 
-    processed: list[Tensor] = []
+    processed: list[UInt8[Tensor, "3 height width"]] = []
     sizes: list[tuple[int, int]] = []
     for image in images:
         if isinstance(image, Tensor):
@@ -82,7 +82,7 @@ def preprocess_images(images: Sequence[ImageInput]) -> PreprocessedImages:
     )
 
 
-def _validate_tensor_image(image: Tensor) -> None:
+def _validate_tensor_image(image: Shaped[Tensor, ...]) -> None:
     if image.device.type != "cpu":
         msg = "tensor images must be on CPU"
         raise ValueError(msg)
@@ -97,7 +97,9 @@ def _validate_tensor_image(image: Tensor) -> None:
         raise ValueError(msg)
 
 
-def _pillow_to_tensor(image_bytes: bytes, width: int, height: int) -> Tensor:
+def _pillow_to_tensor(
+    image_bytes: bytes, width: int, height: int
+) -> UInt8[Tensor, "3 height width"]:
     """Read RGB bytes without introducing a NumPy dependency."""
     return (
         torch.frombuffer(bytearray(image_bytes), dtype=torch.uint8)

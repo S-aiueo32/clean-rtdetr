@@ -12,6 +12,7 @@ from itertools import pairwise
 from typing import cast
 
 import torch
+from jaxtyping import Bool, Float, Int64
 from torch import Tensor, nn
 from torch.nn import functional
 
@@ -78,7 +79,9 @@ class _MLP(nn.Module):
         )
         self.activation = activation
 
-    def forward(self, values: Tensor) -> Tensor:
+    def forward(
+        self, values: Float[Tensor, "*batch channels"]
+    ) -> Float[Tensor, "*batch channels_out"]:
         """Apply the configured linear layers."""
         for layer in self.layers[:-1]:
             values = self.activation(layer(values))
@@ -116,13 +119,13 @@ class DecoderLayer(nn.Module):
 
     def forward(  # noqa: PLR0913, PLR0917
         self,
-        target: Tensor,
-        reference_points: Tensor,
-        memory: Tensor,
-        spatial_shapes: Tensor,
-        query_position: Tensor,
-        attention_mask: Tensor | None,
-    ) -> Tensor:
+        target: Float[Tensor, "batch queries channels"],
+        reference_points: Float[Tensor, "batch queries _levels coordinates"],
+        memory: Float[Tensor, "batch sequence channels"],
+        spatial_shapes: Int64[Tensor, "_levels 2"],
+        query_position: Float[Tensor, "batch queries channels"],
+        attention_mask: Bool[Tensor, "total_queries total_queries"] | None,
+    ) -> Float[Tensor, "batch queries channels"]:
         """Update query content while preserving upstream residual/norm ordering."""
         positioned = target + query_position
         attended, _ = self.self_attn(

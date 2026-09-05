@@ -8,7 +8,7 @@ from importlib.metadata import version
 from pathlib import Path
 
 import torch
-from jaxtyping import Float32
+from jaxtyping import Float32, Shaped
 from torch import Tensor
 
 from clean_rtdetr.export.adapter import DEFAULT_SHAPE, FixedShapeRTDETR
@@ -31,7 +31,7 @@ class ExportVerificationError(RuntimeError):
         self.report = report
 
 
-def _tensor_hash(tensor: Tensor) -> str:
+def _tensor_hash(tensor: Shaped[Tensor, "..."]) -> str:
     return hashlib.sha256(tensor.detach().contiguous().numpy().tobytes()).hexdigest()
 
 

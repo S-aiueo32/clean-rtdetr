@@ -11,7 +11,7 @@ and eager boundary validation. See ``third_party/RT-DETR`` for provenance.
 from dataclasses import dataclass
 
 import torch
-from jaxtyping import Float, Int64
+from jaxtyping import Float, Int64, Shaped
 from torch import Tensor
 
 from clean_rtdetr.core.contracts import DetectionOutput
@@ -33,7 +33,7 @@ class Detections:
 
 
 def _validate_inputs(
-    predictions: DetectionOutput, original_sizes_wh: Tensor
+    predictions: DetectionOutput, original_sizes_wh: Shaped[Tensor, "batch dimensions"]
 ) -> tuple[int, int, int]:
     """Validate postprocessing inputs and return batch/query/class dimensions."""
     logits = predictions.logits
@@ -71,7 +71,7 @@ def _validate_inputs(
 
 def postprocess(
     predictions: DetectionOutput,
-    original_sizes_wh: Tensor,
+    original_sizes_wh: Shaped[Tensor, "batch dimensions"],
     *,
     top_k: int = 300,
 ) -> Detections:

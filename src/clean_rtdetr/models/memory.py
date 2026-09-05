@@ -8,7 +8,8 @@ from collections import OrderedDict
 from itertools import pairwise
 
 import torch
-from torch import nn
+from jaxtyping import Float, Int64  # noqa: TC002
+from torch import Tensor, nn
 
 from clean_rtdetr.core.contracts import EncodedFeatures, FeatureSpec, MultiScaleFeatures
 
@@ -47,8 +48,10 @@ class MemoryProjector(nn.Module):
             projection(level)
             for projection, level in zip(self.input_proj, features.levels, strict=True)
         ]
-        memory = torch.cat([level.flatten(2).transpose(1, 2) for level in projected], dim=1)
-        shapes = torch.tensor(
+        memory: Float[Tensor, "batch sequence channels"] = torch.cat(
+            [level.flatten(2).transpose(1, 2) for level in projected], dim=1
+        )
+        shapes: Int64[Tensor, "levels 2"] = torch.tensor(
             [level.shape[-2:] for level in projected], dtype=torch.int64, device=memory.device
         )
         sizes = shapes.prod(dim=1)
