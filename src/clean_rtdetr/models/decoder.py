@@ -204,7 +204,16 @@ class Decoder(nn.Module):
         if not 1 <= executed_layers <= config.num_layers:
             msg = "Decoder plan num_layers must select a nonempty configured prefix"
             raise ValueError(msg)
+        return self._decode(queries, features, executed_layers, selected_plan)
 
+    def _decode(
+        self,
+        queries: DecoderInput,
+        features: EncodedFeatures,
+        executed_layers: int,
+        selected_plan: DecoderPlan,
+    ) -> DecoderOutput:
+        """Share refinement arithmetic after boundary and execution-plan validation."""
         output = queries.content
         detached_reference = queries.ref_logits.sigmoid()
         previous_reference = detached_reference

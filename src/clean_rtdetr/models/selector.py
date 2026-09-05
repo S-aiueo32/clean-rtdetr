@@ -9,7 +9,7 @@ import math
 from dataclasses import dataclass
 
 import torch
-from jaxtyping import Float
+from jaxtyping import Bool, Float
 from torch import Tensor, nn
 
 from clean_rtdetr.core.contracts import EncodedFeatures, QuerySet, SelectionOutput
@@ -94,7 +94,7 @@ class QuerySelector(nn.Module):
         """Select positions and preserve the separate query/auxiliary gradient routes."""
         features.validate()
         memory = features.memory
-        batch, sequence, channels = memory.shape
+        _, sequence, channels = memory.shape
         cfg = self.config
         if channels != cfg.hidden_dim:
             msg = "Memory channels do not match the selector hidden dimension"
@@ -104,6 +104,17 @@ class QuerySelector(nn.Module):
             raise ValueError(msg)
         shapes = tuple(tuple(shape) for shape in features.spatial_shapes.tolist())
         anchors, valid = generate_anchors(shapes, device=memory.device, eps=cfg.anchor_eps)
+        return self._select(memory, anchors, valid)
+
+    def _select(
+        self,
+        memory: Float[Tensor, "batch sequence channels"],
+        anchors: Float[Tensor, "1 sequence 4"],
+        valid: Bool[Tensor, "1 sequence 1"],
+    ) -> SelectionOutput:
+        """Share selection arithmetic with validated, shape-specialized callers."""
+        batch, sequence, _ = memory.shape
+        cfg = self.config
         # Upstream masks memory, not scores: LayerNorm/linear biases still contribute.
         encoded = self.enc_output(memory * valid.to(memory.dtype))
         logits = self.enc_score_head(encoded)
