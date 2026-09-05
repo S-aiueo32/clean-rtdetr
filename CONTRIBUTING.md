@@ -114,6 +114,13 @@ check scope.
 
 ## Implementation notes
 
+COCO prediction generation must work without pycocotools. Keep its imports and
+foreign object types inside the private evaluation adapter; public interfaces
+use project-owned records and plain metric dictionaries. Run the optional
+metric tests with `uv sync --locked --extra evaluation` followed by
+`uv run pytest tests/test_coco.py tests/test_coco_cli.py`. The extra uses wheels
+only under the committed uv configuration. See [evaluation](docs/evaluation.md).
+
 Validators use eager checks and host-visible shape metadata. The fixed-shape
 export adapter validates a copied model before capture, then reuses internal
 attention, selection, and refinement arithmetic with specialized metadata.
