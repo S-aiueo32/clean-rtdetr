@@ -16,10 +16,18 @@ scope separately so a passing small-stage test cannot imply complete reproductio
 
 ## Next increment
 
-1. Add PResNet and HybridEncoder, then extend strict checkpoint conversion to complete R50vd.
-2. Bring up PResNet and HybridEncoder, including an explicit AIFI feature boundary.
-3. Establish complete-model checkpoint/stage parity before claiming an inference baseline.
-4. Add fixed-shape export, then DN, criterion, training/resume and composition.
+- [x] Add PResNet and HybridEncoder, including a differentiable AIFI boundary.
+- [x] Connect image inputs to decoder predictions and load every inference-stage checkpoint tensor.
+- [x] Validate CPU FP32 image-to-prediction stage parity at 640×640 with the official EMA checkpoint.
+
+1. Add preprocessing/postprocessing and capture full R50vd fixtures, COCO AP, and
+   latency in a fixed GPU environment before claiming an evaluated inference baseline.
+2. Add fixed-shape export, then DN, criterion, training/resume and composition.
+
+PResNet, HybridEncoder (including the AIFI boundary), and strict R50vd model
+checkpoint loading are implemented. The model API is `build_rtdetr_r50vd()` and
+accepts RGB float tensors in `[0, 1]` without mean/std normalization;
+preprocessing remains outside the package. Stage parity does not establish COCO AP.
 
 ## Research acceptance
 

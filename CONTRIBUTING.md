@@ -101,7 +101,7 @@ claims require the corresponding implementation and fixtures.
 Ruff selects `ALL`, with documented exceptions for formatter/docstring
 conflicts, pytest assertions and upstream private-method access, and example
 output. The hash-verified oracle loader has one local `S102` exemption for
-executing the pinned methods. The three modules with jaxtyping shape strings
+executing the pinned methods. Modules with jaxtyping shape strings
 exempt `F722` because these strings are not Python forward references; `F821`
 remains enabled. ty checks `src`, `tests`, and `examples` without rule
 suppressions. The unchanged vendored upstream source is outside both tools'

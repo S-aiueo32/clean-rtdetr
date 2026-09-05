@@ -4,7 +4,12 @@
     "repository": "https://github.com/lyuwenyu/RT-DETR",
     "commit": "068dfde65f2667ad6555883c69d73de886518cad",
     "config": "rtdetr_pytorch/configs/rtdetr/rtdetr_r50vd_6x_coco.yml",
-    "oracle_sha256": "c2837740cb66f128b72e802463db57ee3653e15d964baa3b9cf58cc27a817588"
+    "oracle_sha256": "c2837740cb66f128b72e802463db57ee3653e15d964baa3b9cf58cc27a817588",
+    "additional_sources_sha256": {
+      "rtdetr_pytorch/src/nn/backbone/presnet.py": "1faef37155a38d504e2ce3d569e09d8fbbf737c549d1fbb125cee9111fc7bc28",
+      "rtdetr_pytorch/src/nn/backbone/common.py": "29ca34ee34f53ccab66e4a1d985df08ede3df9a686d4f84f861010b8f7513d44",
+      "rtdetr_pytorch/src/zoo/rtdetr/hybrid_encoder.py": "3dff40011e125107fd1de2606429f04bc05d52a3d88e742b7ed655c5a07742c5"
+    }
   },
   "model": {
     "name": "rtdetr_r50vd",
@@ -21,5 +26,6 @@
   },
   "evaluation": null,
   "latency": null,
-  "status": "implemented-stage-checkpoint-parity; full baseline capture pending"
+  "stage_parity_report": "benchmarks/r50vd-stage-parity.json",
+  "status": "image-to-prediction CPU FP32 checkpoint parity; GPU fixtures, AP and latency pending"
 }
