@@ -183,7 +183,7 @@ class PResNet(nn.Module):
             else:
                 self._freeze_norm(child)
 
-    def forward(self, x: Float[Tensor, "batch _channels _height _width"]) -> MultiScaleFeatures:
+    def forward(self, x: Float[Tensor, "batch channels height width"]) -> MultiScaleFeatures:
         """Extract stride 8, 16 and 32 feature maps from an image batch."""
         input_msg = "Input must be a nonempty floating-point [B, 3, H, W] tensor"
         if (
