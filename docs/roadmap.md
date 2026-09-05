@@ -21,7 +21,8 @@ scope separately so a passing small-stage test cannot imply complete reproductio
 3. [x] Validate CPU FP32 complete-model checkpoint/stage parity with the pinned official artifact.
 4. [x] Add Pillow/uint8 preprocessing, top-k postprocessing, and an image inference example.
 5. [ ] Capture COCO AP in a fixed evaluation environment, including category-ID mapping.
-6. [ ] Add fixed-shape export, then DN, criterion, training/resume and composition.
+6. [x] Add fixed-shape ONNX export and CPU FP32 runtime parity.
+7. [ ] Add DN, criterion, training/resume, and composition.
 
 The image-to-prediction API returns raw class logits and normalized cxcywh boxes.
 Separate image I/O accepts Pillow images or CPU uint8 RGB tensors using the same
@@ -34,6 +35,10 @@ weights on a seeded synthetic 640×640 input. That comparison is separate from
 dataset evaluation, GPU fixture capture, and latency measurement.
 The [recorded parity result](../benchmarks/full-model-parity.json) includes source
 hashes, checkpoint provenance, input hash, environment, and per-stage errors.
+The [fixed-shape export result](../benchmarks/onnx-parity.json) records a separate
+CPU FP32 ONNX Runtime gate for seeds 41 and 42, with exporter and runtime graph
+optimizations disabled. This does not complete the broader deployment phase or establish AP,
+latency, dynamic-shape, or TensorRT support.
 
 ## Research acceptance
 

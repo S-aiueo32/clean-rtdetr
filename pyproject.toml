@@ -14,6 +14,7 @@ dependencies = ["jaxtyping>=0.3,<1", "torch>=2.6,<3"]
 
 [project.optional-dependencies]
 inference = ["pillow>=11,<13"]
+export = ["onnx>=1.18,<2", "onnxscript>=0.5,<1", "onnxruntime>=1.22,<2"]
 
 [dependency-groups]
 dev = [
@@ -57,6 +58,7 @@ ignore = ["COM812", "D203", "D213"]
 "src/clean_rtdetr/models/selector.py" = ["F722"]
 "src/clean_rtdetr/data/__init__.py" = ["F722"]
 "src/clean_rtdetr/postprocessing.py" = ["F722"]
+"src/clean_rtdetr/export/*.py" = ["F722"]
 # Pytest assertions and calls into the pinned upstream private stage methods.
 "tests/**" = ["S101", "SLF001"]
 # The executable example intentionally displays tensor shapes.

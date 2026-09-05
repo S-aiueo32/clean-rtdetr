@@ -20,9 +20,12 @@ projected memory → selected queries → iterative decoder predictions** in PyT
 - An explicit R50vd factory and component-injected `RTDETR`, with optional AIFI features.
 - Strict official checkpoint loading for all inference stages, with a reproducible parity example.
 - Shared Pillow/uint8 image preprocessing and upstream-compatible top-k postprocessing.
+- Fixed-shape ONNX export through the `FixedShapeRTDETR` wrapper, with CPU FP32
+  ONNX Runtime parity verification.
 
-Denoising construction, training criteria, COCO
-evaluation, and export remain to be implemented. No AP or latency is claimed.
+Denoising construction, training criteria, and COCO evaluation remain to be
+implemented. No AP or latency is claimed; export is limited to the fixed
+batch-1 640×640 CPU FP32 profile described below.
 `examples/query_selection.py` continues to demonstrate the component path using
 synthetic features and randomly initialized weights.
 
@@ -43,7 +46,8 @@ for their contracts, image conversion, official weights, and parity commands.
 
 ## Image preprocessing and detections
 
-Install Pillow support with `uv sync --locked --extra inference`, then run the
+Install Pillow support with `uv sync --locked --extra inference` (or combine it
+with export as `uv sync --locked --extra export --extra inference`), then run the
 complete path with local official weights:
 
 ```sh
@@ -56,6 +60,40 @@ uv run python examples/image_inference.py image.jpg \
 See [inference I/O](docs/inference.md) for the Python API, tensor contracts, and
 postprocessing semantics. The example does not download artifacts or establish
 COCO AP or latency.
+
+## Fixed-shape ONNX export
+
+Install the export dependencies with `uv sync --locked --extra export`. The
+`export_onnx` API exports a `FixedShapeRTDETR` graph with raw logits
+`[1,300,80]` and normalized cxcywh boxes `[1,300,4]`:
+
+```python
+from pathlib import Path
+from clean_rtdetr import build_rtdetr_r50vd
+from clean_rtdetr.export import export_onnx
+
+model = build_rtdetr_r50vd().eval()  # Random weights; load a checkpoint for trained predictions.
+report = export_onnx(model, Path("outputs/rtdetr.onnx"))
+```
+
+For a checkpoint-backed export, use the CLI. It requires a local official
+checkpoint and its SHA-256; weights are never downloaded:
+
+```sh
+uv run python examples/export_onnx.py \
+  --checkpoint checkpoints/rtdetr_r50vd_6x_coco_from_paddle.pth \
+  --source ema \
+  --expected-sha256 dfaafa5a3d29958a360c35f1fad553a6f287bfae9967e8ee007e65cff21ddf45 \
+  --output outputs/rtdetr.onnx \
+  --report outputs/rtdetr.json
+```
+
+The exporter uses fixed batch 1 and 640×640 CPU FP32, ONNX opset 18, and
+compares eager and ONNX Runtime outputs for seeds 41 and 42 (`atol=1e-5`,
+`rtol=1e-4`). Both exporter and Runtime graph optimizations are disabled in
+the validated profile; see [runtime settings](docs/inference.md#fixed-shape-onnx-export).
+The [official-weight report](benchmarks/onnx-parity.json) records errors and
+reproducibility metadata. Dynamic shapes, TensorRT, AP, and latency are not supported.
 
 ## Contributing
 

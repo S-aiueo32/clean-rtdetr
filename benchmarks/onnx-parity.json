@@ -1,0 +1,201 @@
+{
+  "checkpoint": {
+    "expected_sha256": "dfaafa5a3d29958a360c35f1fad553a6f287bfae9967e8ee007e65cff21ddf45",
+    "path": "checkpoints/rtdetr_r50vd_6x_coco_from_paddle.pth",
+    "sha256": "dfaafa5a3d29958a360c35f1fad553a6f287bfae9967e8ee007e65cff21ddf45",
+    "source": "ema"
+  },
+  "checkpoint_load": {
+    "excluded_keys": {
+      "decoder.denoising_class_embed.weight": "Training denoising embedding is not implemented"
+    },
+    "mapped_key_count": 735,
+    "sha256": "dfaafa5a3d29958a360c35f1fad553a6f287bfae9967e8ee007e65cff21ddf45",
+    "source": "ema",
+    "synthesized_keys": []
+  },
+  "cli_sha256": "638379d801d86febcf42d88b56286c8a95b7730c5cb4345b9ca437adbfc5b5e1",
+  "device": "cpu",
+  "export": {
+    "artifact": "outputs/rtdetr-r50vd.onnx",
+    "artifact_sha256": "5c3e0142b9cc9074d946194d3653a805be1bcecdaf9a55a1e51f00e603449f68",
+    "atol": 1e-05,
+    "box_format": "normalized cxcywh",
+    "checks": [
+      {
+        "adapter": {
+          "actual_sha256": "98a261608fd1feb6d723b6a82310194d96c2d8c3bf76090491fd1f94c64294b1",
+          "expected_sha256": "98a261608fd1feb6d723b6a82310194d96c2d8c3bf76090491fd1f94c64294b1",
+          "max_abs": 0.0,
+          "max_rel": 0.0,
+          "passed": true,
+          "shape": [
+            1,
+            300,
+            80
+          ]
+        },
+        "input_sha256": "2b8f7b76a4f4f5f90d3f00d76dad2f8718be02d875b6af54cffde831b670e712",
+        "name": "logits",
+        "runtime": {
+          "actual_sha256": "fbdb0bca267f0b5662a428b06049c61f59c11fe2b0f23a74d186eee6c96b0fa9",
+          "expected_sha256": "98a261608fd1feb6d723b6a82310194d96c2d8c3bf76090491fd1f94c64294b1",
+          "max_abs": 0.00012302398681640625,
+          "max_rel": 2.6397454348625615e-05,
+          "passed": true,
+          "shape": [
+            1,
+            300,
+            80
+          ]
+        },
+        "seed": 41
+      },
+      {
+        "adapter": {
+          "actual_sha256": "56262e8b40fd6bb8ad47c63a984b4929d4defb630b744405dae1fe18060043f6",
+          "expected_sha256": "56262e8b40fd6bb8ad47c63a984b4929d4defb630b744405dae1fe18060043f6",
+          "max_abs": 0.0,
+          "max_rel": 0.0,
+          "passed": true,
+          "shape": [
+            1,
+            300,
+            4
+          ]
+        },
+        "input_sha256": "2b8f7b76a4f4f5f90d3f00d76dad2f8718be02d875b6af54cffde831b670e712",
+        "name": "boxes",
+        "runtime": {
+          "actual_sha256": "195ac39618b83dbc91f3f10bf90464f1e618d2346666cbf57ed5d7be5b880f13",
+          "expected_sha256": "56262e8b40fd6bb8ad47c63a984b4929d4defb630b744405dae1fe18060043f6",
+          "max_abs": 2.187490463256836e-05,
+          "max_rel": 3.011630178662017e-05,
+          "passed": true,
+          "shape": [
+            1,
+            300,
+            4
+          ]
+        },
+        "seed": 41
+      },
+      {
+        "adapter": {
+          "actual_sha256": "4b5f86732ef305e7c36c60cd16daa3b492c5f74c4e6dd90209577c935276c4d7",
+          "expected_sha256": "4b5f86732ef305e7c36c60cd16daa3b492c5f74c4e6dd90209577c935276c4d7",
+          "max_abs": 0.0,
+          "max_rel": 0.0,
+          "passed": true,
+          "shape": [
+            1,
+            300,
+            80
+          ]
+        },
+        "input_sha256": "5c88144ab63084ec3f729f096057b4efa202848ded2caa2049631e56f43411a2",
+        "name": "logits",
+        "runtime": {
+          "actual_sha256": "e4ab45047f3beb5c37ae8db13ae60bd709228e5b16362bc737d69ab884891bc7",
+          "expected_sha256": "4b5f86732ef305e7c36c60cd16daa3b492c5f74c4e6dd90209577c935276c4d7",
+          "max_abs": 0.0002503395080566406,
+          "max_rel": 9.250224684365094e-05,
+          "passed": true,
+          "shape": [
+            1,
+            300,
+            80
+          ]
+        },
+        "seed": 42
+      },
+      {
+        "adapter": {
+          "actual_sha256": "38e4fb74c3c1bb1dfe5c6263763aa25cbcf87f05e14cfbb1f6ccccf2aebaeaec",
+          "expected_sha256": "38e4fb74c3c1bb1dfe5c6263763aa25cbcf87f05e14cfbb1f6ccccf2aebaeaec",
+          "max_abs": 0.0,
+          "max_rel": 0.0,
+          "passed": true,
+          "shape": [
+            1,
+            300,
+            4
+          ]
+        },
+        "input_sha256": "5c88144ab63084ec3f729f096057b4efa202848ded2caa2049631e56f43411a2",
+        "name": "boxes",
+        "runtime": {
+          "actual_sha256": "3c7f740f98800cea8cbe3c143aee11520a70f970b86b7727875e3f1037d21df3",
+          "expected_sha256": "38e4fb74c3c1bb1dfe5c6263763aa25cbcf87f05e14cfbb1f6ccccf2aebaeaec",
+          "max_abs": 1.4722347259521484e-05,
+          "max_rel": 2.9990000257384963e-05,
+          "passed": true,
+          "shape": [
+            1,
+            300,
+            4
+          ]
+        },
+        "seed": 42
+      }
+    ],
+    "decoder_layers": 6,
+    "export_optimization": false,
+    "input_dtype": "float32",
+    "input_shape": [
+      1,
+      3,
+      640,
+      640
+    ],
+    "opset": 18,
+    "outputs": [
+      "logits",
+      "boxes"
+    ],
+    "passed": true,
+    "provider": "CPUExecutionProvider",
+    "rtol": 0.0001,
+    "runtime_optimization": "ORT_DISABLE_ALL",
+    "schema_version": 1,
+    "torch_num_threads": 4,
+    "validation_scope": "Seeded synthetic CPU FP32 output parity; AP and latency unmeasured",
+    "versions": {
+      "onnx": "1.22.0",
+      "onnxruntime": "1.29.0",
+      "onnxscript": "0.7.1",
+      "torch": "2.14.0"
+    }
+  },
+  "git_diff_sha256": "9ac5678bc4ef34c633dbc333edf3acf29abf64f340979d357dfa2929a6bff717",
+  "git_revision": "6d8060d7e3a4ddae69dfeea332ac8fd413549aa9",
+  "implementation_sha256": {
+    "src/clean_rtdetr/__init__.py": "54a83793c0762714231157598aef6df50f7b4da95dd759fc3acdf3235bb040bd",
+    "src/clean_rtdetr/compatibility/__init__.py": "5f14cd228b509804fa578e4d034ca298e2cc910604c58fd44866f85032ec4d24",
+    "src/clean_rtdetr/compatibility/checkpoint.py": "78c765ee2d8b54085ba2d6ad6f983ca271e6d9b95ac2b9d963ab08cba95742d1",
+    "src/clean_rtdetr/core/__init__.py": "df7b8b86ac70ece3bd83ef2b6f27ec583e44efc5333623ac4c05868d4944544a",
+    "src/clean_rtdetr/core/contracts.py": "7b3e8755dc1246423e2903bdf6be0b95547f65c70f0b76c1b7fb01ea1f15bace",
+    "src/clean_rtdetr/core/geometry.py": "6f215bf030177f75f6dfb3bdd0e67678a526a65160756937e0bb8d02c188b3e7",
+    "src/clean_rtdetr/data/__init__.py": "11f2ffbf1ae24104a14815ad994cb8ec2de7d401b5038ac17185c0bd5a6066cc",
+    "src/clean_rtdetr/export/__init__.py": "395e97b2d9fef041238acd1ca74e465e1c56482d9387c749bff3abb002efbe85",
+    "src/clean_rtdetr/export/adapter.py": "e0679cbc53f39d9d3fe169a9604e7ec71c5c6f7f9423e6bc86b809cbbd9746f0",
+    "src/clean_rtdetr/export/onnx.py": "5d97950106c95c8dfb32ac4b4d6e40399657da1affa301ceeab02865e315fe2d",
+    "src/clean_rtdetr/models/__init__.py": "cf6ad3f14d7f0ed4ca6953766deb3e1d0a2a188fb05c208631601c6f0aa58639",
+    "src/clean_rtdetr/models/attention.py": "ed9905bcfdcdca7144e32f17063159409801e9c99d9e7a73ff7e02f6e188e472",
+    "src/clean_rtdetr/models/backbone.py": "fcf63f2a3b6405f53cb8ed7ad7fd9a4f7a06cd4685d72f49a96890a1c2784ed9",
+    "src/clean_rtdetr/models/decoder.py": "48c813a0366c15b49ac2ac53501546377363d11906d466dea71471dd6f71d5d2",
+    "src/clean_rtdetr/models/encoder.py": "9dd5cb2f327fd1bbcd8f109bc359c70a30b56ca5ccbd16be9a6aea452b71f3c0",
+    "src/clean_rtdetr/models/memory.py": "69fb9e3a3cff334e4ffdd54c3248e0632cfcbd5ff0dbcfb59175bf0d15e23af5",
+    "src/clean_rtdetr/models/queries.py": "c0f7a10e9fb7d9d1bcbdeabb68607014e707ddffbaf8a90085b9767ab91709df",
+    "src/clean_rtdetr/models/rtdetr.py": "20685f911c74cca7654244904094b3f6f2120413f45f96dd7a3e0e7232c968f5",
+    "src/clean_rtdetr/models/selector.py": "0c1799b08581ea22fdcd0fa01a689706a9a3054ba633f8e1939054514252c210",
+    "src/clean_rtdetr/postprocessing.py": "fccbc857f2e9e26fb88a607ad80340348ed6d57f845251564ee208b69c5c4a0f"
+  },
+  "output": "outputs/rtdetr-r50vd.onnx",
+  "platform": "macOS-26.0.1-arm64-arm-64bit-Mach-O",
+  "python": "3.14.7",
+  "torch": "2.14.0",
+  "torch_num_threads": 4,
+  "uv_lock_sha256": "8db363d1f42266b714457e81a99baff0d9dd4a12135855f0a0e572114193009f",
+  "worktree_dirty": true
+}

@@ -8,7 +8,7 @@ See third_party/RT-DETR/README.md.
 import math
 
 import torch
-from jaxtyping import Float
+from jaxtyping import Float, Int64
 from torch import Tensor, nn
 from torch.nn import functional
 
@@ -17,14 +17,24 @@ from clean_rtdetr.core.contracts import BOX_COORDINATES, SPATIAL_DIMENSIONS
 
 def deformable_attention_core(
     value: Float[Tensor, "batch sequence heads head_dim"],
-    spatial_shapes: Tensor,
+    spatial_shapes: Int64[Tensor, "feature_levels 2"],
     sampling_locations: Float[Tensor, "batch queries heads levels points coordinates"],
     attention_weights: Float[Tensor, "batch queries heads levels points"],
 ) -> Float[Tensor, "batch queries channels"]:
     """Sample flattened feature levels with upstream bilinear-grid semantics."""
+    shapes = tuple((int(height), int(width)) for height, width in spatial_shapes.tolist())
+    return _deformable_attention(value, shapes, sampling_locations, attention_weights)
+
+
+def _deformable_attention(
+    value: Float[Tensor, "batch sequence heads head_dim"],
+    shapes: tuple[tuple[int, int], ...],
+    sampling_locations: Float[Tensor, "batch queries heads levels points coordinates"],
+    attention_weights: Float[Tensor, "batch queries heads levels points"],
+) -> Float[Tensor, "batch queries channels"]:
+    """Share sampling arithmetic with callers holding validated Python metadata."""
     batch, _, num_heads, head_dim = value.shape
     _, queries, _, num_levels, num_points, _ = sampling_locations.shape
-    shapes = tuple((int(height), int(width)) for height, width in spatial_shapes.tolist())
     values_by_level = value.split([height * width for height, width in shapes], dim=1)
     sampling_grids = 2 * sampling_locations - 1
     sampled = []
@@ -102,10 +112,9 @@ class MultiScaleDeformableAttention(nn.Module):
         query: Float[Tensor, "batch queries channels"],
         reference_points: Float[Tensor, "batch queries levels coordinates"],
         value: Float[Tensor, "batch sequence channels"],
-        spatial_shapes: Tensor,
+        spatial_shapes: Int64[Tensor, "feature_levels 2"],
     ) -> Float[Tensor, "batch queries channels"]:
         """Attend to memory around normalized two- or four-coordinate references."""
-        batch, queries, _ = query.shape
         sequence = value.shape[1]
         if spatial_shapes.shape != (self.num_levels, SPATIAL_DIMENSIONS):
             msg = "Spatial shapes must match the attention level count"
@@ -113,6 +122,20 @@ class MultiScaleDeformableAttention(nn.Module):
         if int(spatial_shapes.prod(dim=1).sum()) != sequence:
             msg = "Memory length must equal the summed attention level areas"
             raise ValueError(msg)
+        shapes = tuple((int(height), int(width)) for height, width in spatial_shapes.tolist())
+        return self._attend(query, reference_points, value, spatial_shapes, shapes)
+
+    def _attend(
+        self,
+        query: Float[Tensor, "batch queries channels"],
+        reference_points: Float[Tensor, "batch queries levels coordinates"],
+        value: Float[Tensor, "batch sequence channels"],
+        spatial_shapes: Int64[Tensor, "feature_levels 2"],
+        shapes: tuple[tuple[int, int], ...],
+    ) -> Float[Tensor, "batch queries channels"]:
+        """Apply attention after the caller validates the spatial metadata."""
+        batch, queries, _ = query.shape
+        sequence = value.shape[1]
         value = self.value_proj(value).reshape(batch, sequence, self.num_heads, self.head_dim)
         offsets = self.sampling_offsets(query).reshape(
             batch,
@@ -149,6 +172,4 @@ class MultiScaleDeformableAttention(nn.Module):
         else:
             msg = "Reference points must end in two or four coordinates"
             raise ValueError(msg)
-        return self.output_proj(
-            deformable_attention_core(value, spatial_shapes, locations, weights)
-        )
+        return self.output_proj(_deformable_attention(value, shapes, locations, weights))

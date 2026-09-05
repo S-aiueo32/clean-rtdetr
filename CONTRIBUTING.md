@@ -97,14 +97,16 @@ When updating pinned upstream source, update its commit and SHA-256 in
 notices, and re-run all parity tests. Do not rewrite the oracle implementation
 into the package under test.
 
-CI runs the same checks on Python 3.13 and 3.14. A local pass does not justify
+CI runs the same checks on Python 3.13 and 3.14, plus a Python 3.13 export job
+with `uv sync --locked --extra export` and `uv run pytest tests/test_export.py`.
+A local pass does not justify
 claiming complete-detector AP, latency, checkpoint, or export support; those
 claims require the corresponding implementation and fixtures.
 
 Ruff selects `ALL`, with documented exceptions for formatter/docstring
 conflicts, pytest assertions and upstream private-method access, and example
 output. The hash-verified oracle loader has one local `S102` exemption for
-executing the pinned methods. The three modules with jaxtyping shape strings
+executing the pinned methods. Modules with jaxtyping shape strings
 exempt `F722` because these strings are not Python forward references; `F821`
 remains enabled. ty checks `src`, `tests`, and `examples` without rule
 suppressions. The unchanged vendored upstream source is outside both tools'
@@ -112,8 +114,12 @@ check scope.
 
 ## Implementation notes
 
-Validators currently use eager checks and host-visible shape metadata. Export
-will have a separate tensor-only boundary; this slice is not export-ready.
+Validators use eager checks and host-visible shape metadata. The fixed-shape
+export adapter validates a copied model before capture, then reuses internal
+attention, selection, and refinement arithmetic with specialized metadata.
+Keep eager validation intact when changing those shared functions. See
+[the export profile](docs/inference.md#fixed-shape-onnx-export) for supported
+shapes and the required unoptimized CPU FP32 runtime settings.
 
 Tensor boundaries use annotations such as `Float[Tensor, "batch queries 4"]` and
 `Int64[Tensor, "batch queries"]`. ty checks Python types, while the pytest hook

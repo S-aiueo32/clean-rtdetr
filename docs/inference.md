@@ -6,6 +6,9 @@ Pillow is an optional dependency. Install image support with:
 uv sync --locked --extra inference
 ```
 
+For ONNX export and its CPU ONNX Runtime verifier, install the separate export
+extra with `uv sync --locked --extra export`.
+
 ## Model tensors
 
 `RTDETR` accepts preprocessed floating-point RGB tensors in `[B,3,H,W]` layout.
@@ -61,6 +64,47 @@ between 1 and the number of query/class pairs.
 checkpoint, its selected source, and expected SHA-256. It prints all 300
 detections per image as JSON and runs all six decoder layers by default. The
 example does not download images or weights; `--device` defaults to `cpu`.
+
+## Fixed-shape ONNX export
+
+`clean_rtdetr.export` exposes the `FixedShapeRTDETR` tensor-only wrapper and
+the `export_onnx(model, destination, *, input_shape=(1, 3, 640, 640))` API.
+The default profile is batch 1, 640×640, CPU FP32, and ONNX opset 18. It emits
+raw class logits `[1,300,80]` and normalized cxcywh boxes `[1,300,4]`, then
+checks ONNX Runtime parity against eager PyTorch for seeds 41 and 42 with
+`atol=1e-5` and `rtol=1e-4`. The tested profile uses `optimize=False` during
+export and disables ONNX Runtime graph optimizations. Default automatic
+optimizations failed the numerical gate on the same inputs; this profile does
+not validate optimized execution.
+
+The wrapper owns an eval CPU FP32 copy and preserves the source model's weights
+and training state. `Float32` jaxtyping annotations describe its input and output
+tensors; explicit checks also reject wrong shapes, dtypes, and training mode.
+Lowering requires the built-in selector and decoder types, so overriding their
+forward methods cannot silently change the exported behavior. Smaller fixed
+shapes are accepted for regression tests; the recorded R50vd profile is 640×640.
+
+To run the artifact with the validated settings:
+
+```python
+import onnxruntime as ort
+
+options = ort.SessionOptions()
+options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_DISABLE_ALL
+options.intra_op_num_threads = 4
+options.inter_op_num_threads = 1
+session = ort.InferenceSession(
+    "outputs/rtdetr.onnx", sess_options=options, providers=["CPUExecutionProvider"]
+)
+# images: CPU float32 [1,3,640,640], RGB in [0,1].
+logits, boxes = session.run(["logits", "boxes"], {"images": images.numpy()})
+```
+
+The CLI equivalent is `examples/export_onnx.py`; `--checkpoint`, `--source`,
+`--expected-sha256`, and `--output` are required. `--report` optionally selects
+the JSON report path (default: output with a `.json` suffix). It loads only a
+local, SHA-256-verified official checkpoint and does not download weights.
+Variable/dynamic shapes, TensorRT, AP, and latency are out of scope.
 
 ## Official weights and parity
 
