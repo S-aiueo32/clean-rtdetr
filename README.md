@@ -19,8 +19,9 @@ projected memory → selected queries → iterative decoder predictions** in PyT
 - Forward and gradient parity tests against SHA-256-pinned upstream methods.
 - An explicit R50vd factory and component-injected `RTDETR`, with optional AIFI features.
 - Strict official checkpoint loading for all inference stages, with a reproducible parity example.
+- Shared Pillow/uint8 image preprocessing and upstream-compatible top-k postprocessing.
 
-Preprocessing, postprocessing, denoising construction, training criteria, COCO
+Denoising construction, training criteria, COCO
 evaluation, and export remain to be implemented. No AP or latency is claimed.
 `examples/query_selection.py` continues to demonstrate the component path using
 synthetic features and randomly initialized weights.
@@ -33,46 +34,28 @@ from clean_rtdetr import DecoderPlan, build_rtdetr_r50vd
 
 model = build_rtdetr_r50vd().eval()  # Random weights; no automatic download.
 with torch.inference_mode():
-    output = model(
-        torch.rand(1, 3, 640, 640),
-        plan=DecoderPlan(collect_intermediate=False),
-        collect_aifi=True,
-    )
-print(output.final.logits.shape)  # [1, 300, 80], raw class logits
-print(output.final.boxes.shape)  # [1, 300, 4], normalized cxcywh
+    output = model(torch.rand(1, 3, 640, 640), plan=DecoderPlan(collect_intermediate=False))
+print(output.final.logits.shape, output.final.boxes.shape)  # [1,300,80], [1,300,4]
 ```
 
-Inputs are preprocessed floating-point RGB tensors in `[B, 3, H, W]` layout.
-Height and width must be multiples of 32, and the resulting memory must have at
-least 300 positions for the default query count. The model does not resize or
-normalize images. The output always contains `decoder`, differentiable
-`encoder_aux`, and optional `after_aifi` fields; `final` selects the last executed
-decoder layer. `DecoderPlan()` collects all six layers by default in both modes.
+Inputs and outputs are raw model tensors. See [inference I/O](docs/inference.md)
+for their contracts, image conversion, official weights, and parity commands.
 
-Use `clean_rtdetr.compatibility.load_official_model_weights` with explicit
-`model`, `source`, and `expected_sha256` arguments to load an official artifact.
-The existing `load_official_stage_weights` API remains available for the three
-decoder-side components. Both loaders validate all weights before changing any
-component and report key mappings, exclusions, and synthesized BatchNorm counters.
+## Image preprocessing and detections
 
-To compare every inference stage against the pinned upstream implementation,
-obtain the artifact identified in `benchmarks/baseline.json`, then run:
+Install Pillow support with `uv sync --locked --extra inference`, then run the
+complete path with local official weights:
 
 ```sh
-uv run python examples/checkpoint_parity.py \
-  checkpoints/rtdetr_r50vd_6x_coco_from_paddle.pth \
+uv run python examples/image_inference.py image.jpg \
+  --checkpoint checkpoints/rtdetr_r50vd_6x_coco_from_paddle.pth \
   --source ema \
-  --expected-sha256 dfaafa5a3d29958a360c35f1fad553a6f287bfae9967e8ee007e65cff21ddf45 \
-  --full-model --report outputs/full-model-parity.json
+  --expected-sha256 dfaafa5a3d29958a360c35f1fad553a6f287bfae9967e8ee007e65cff21ddf45
 ```
 
-Create the report's parent directory before running. This compares a seeded
-synthetic 640×640 input in FP32 eager execution; it does not measure detection
-accuracy on a dataset. Omitting `--full-model` retains the synthetic-feature
-stage comparison. Checkpoints and generated reports are local artifacts.
-The [recorded CPU FP32 result](benchmarks/full-model-parity.json) matches every
-compared stage exactly for this synthetic input and includes source hashes for
-the implementation used in the run.
+See [inference I/O](docs/inference.md) for the Python API, tensor contracts, and
+postprocessing semantics. The example does not download artifacts or establish
+COCO AP or latency.
 
 ## Contributing
 

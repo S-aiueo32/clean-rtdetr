@@ -12,10 +12,14 @@ classifiers = ["License :: OSI Approved :: Apache Software License"]
 requires-python = ">=3.13"
 dependencies = ["jaxtyping>=0.3,<1", "torch>=2.6,<3"]
 
+[project.optional-dependencies]
+inference = ["pillow>=11,<13"]
+
 [dependency-groups]
 dev = [
     "beartype>=0.20,<1",
     "hypothesis>=6,<7",
+    "pillow>=11,<13",
     "pre-commit>=4,<5",
     "pytest>=8,<10",
     "pytest-cov>=6,<8",
@@ -51,6 +55,8 @@ ignore = ["COM812", "D203", "D213"]
 "src/clean_rtdetr/models/attention.py" = ["F722"]
 "src/clean_rtdetr/models/backbone.py" = ["F722"]
 "src/clean_rtdetr/models/selector.py" = ["F722"]
+"src/clean_rtdetr/data/__init__.py" = ["F722"]
+"src/clean_rtdetr/postprocessing.py" = ["F722"]
 # Pytest assertions and calls into the pinned upstream private stage methods.
 "tests/**" = ["S101", "SLF001"]
 # The executable example intentionally displays tensor shapes.
