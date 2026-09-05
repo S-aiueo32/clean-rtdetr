@@ -77,43 +77,8 @@ the implementation used in the run.
 
 ## Image preprocessing and detections
 
-Install image support with `uv sync --locked --extra inference`. Pillow is an
-optional inference dependency; the base package and postprocessing do not import
-it. Development installations include Pillow for the image tests.
-
-```python
-from PIL import Image
-from clean_rtdetr.data import preprocess_images
-from clean_rtdetr.postprocessing import postprocess
-
-with Image.open("image.jpg") as image:
-    batch = preprocess_images([image])
-with torch.inference_mode():
-    output = model(batch.images, plan=DecoderPlan(collect_intermediate=False))
-detections = postprocess(output.final, batch.original_sizes_wh)
-print(detections.labels.shape)  # [B, 300], zero-based class indices
-print(detections.scores.shape)  # [B, 300], sigmoid probabilities
-print(detections.boxes_xyxy.shape)  # [B, 300, 4], original-image pixels
-```
-
-`preprocess_images` accepts a nonempty sequence of Pillow images and/or CPU
-RGB `uint8 [3,H,W]` tensors, including images of different sizes. Both paths
-use Pillow RGB conversion and bilinear resize to 640×640, then conversion to
-CPU FP32 `[0,1]`. There is no letterbox, mean/std normalization, or EXIF rotation.
-The returned `PreprocessedImages` carries `images[B,3,640,640]` and
-int64 `original_sizes_wh[B,2]` in **W,H** order. Move `images` to the model device
-explicitly; postprocessing accepts CPU sizes and transfers them as needed.
-Tensor input deliberately uses the same Pillow path, not a GPU resize path.
-
-`postprocess(predictions, original_sizes_wh, top_k=300)` consumes a
-`DetectionOutput` and returns `Detections`. It selects the largest sigmoid
-scores over all query/class pairs, so one query can produce multiple labels.
-Boxes are converted from normalized cxcywh to xyxy and scaled by the original
-width and height. Scores are sorted descending; tie ordering follows PyTorch.
-There is no NMS, score threshold, or box clipping. Labels are class indices,
-not COCO category IDs. `top_k` must be between 1 and the query/class pair count.
-
-Run the complete path with local official weights and one or more image paths:
+Install Pillow support with `uv sync --locked --extra inference`, then run the
+complete path with local official weights:
 
 ```sh
 uv run python examples/image_inference.py image.jpg \
@@ -122,9 +87,9 @@ uv run python examples/image_inference.py image.jpg \
   --expected-sha256 dfaafa5a3d29958a360c35f1fad553a6f287bfae9967e8ee007e65cff21ddf45
 ```
 
-The example prints JSON with all 300 detections per image and executes all six
-decoder layers. `--device` defaults to `cpu`. It does not download weights or
-images. This image inference path does not establish COCO AP or latency.
+See [inference I/O](docs/inference.md) for the Python API, tensor contracts, and
+postprocessing semantics. The example does not download artifacts or establish
+COCO AP or latency.
 
 ## Contributing
 
