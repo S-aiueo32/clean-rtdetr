@@ -11,7 +11,10 @@
     "num_classes": 80,
     "num_queries": 300,
     "decoder_layers": 6,
-    "eval_image_size_hw": [640, 640]
+    "eval_image_size_hw": [
+      640,
+      640
+    ]
   },
   "checkpoint": {
     "url": "https://github.com/lyuwenyu/storage/releases/download/v0.1/rtdetr_r50vd_6x_coco_from_paddle.pth",
@@ -21,5 +24,12 @@
   },
   "evaluation": null,
   "latency": null,
-  "status": "implemented-stage-checkpoint-parity; full baseline capture pending"
+  "status": "full-model-cpu-fp32-checkpoint-parity; dataset evaluation and GPU baseline capture pending",
+  "stage_parity": {
+    "report": "benchmarks/full-model-parity.json",
+    "device": "cpu",
+    "dtype": "float32",
+    "input": "seeded synthetic 1x3x640x640",
+    "source": "ema"
+  }
 }

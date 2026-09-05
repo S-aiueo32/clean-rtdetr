@@ -1,0 +1,291 @@
+{
+  "atol": 1e-05,
+  "checkpoint": "checkpoints/rtdetr_r50vd_6x_coco_from_paddle.pth",
+  "checks": [
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "wrapper_decoder_logits",
+      "shape": [
+        6,
+        1,
+        300,
+        80
+      ]
+    },
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "wrapper_decoder_boxes",
+      "shape": [
+        6,
+        1,
+        300,
+        4
+      ]
+    },
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "wrapper_encoder_logits",
+      "shape": [
+        1,
+        300,
+        80
+      ]
+    },
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "wrapper_encoder_boxes",
+      "shape": [
+        1,
+        300,
+        4
+      ]
+    },
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "wrapper_after_aifi",
+      "shape": [
+        1,
+        256,
+        20,
+        20
+      ]
+    },
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "backbone_level_0",
+      "shape": [
+        1,
+        512,
+        80,
+        80
+      ]
+    },
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "backbone_level_1",
+      "shape": [
+        1,
+        1024,
+        40,
+        40
+      ]
+    },
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "backbone_level_2",
+      "shape": [
+        1,
+        2048,
+        20,
+        20
+      ]
+    },
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "encoder_level_0",
+      "shape": [
+        1,
+        256,
+        80,
+        80
+      ]
+    },
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "encoder_level_1",
+      "shape": [
+        1,
+        256,
+        40,
+        40
+      ]
+    },
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "encoder_level_2",
+      "shape": [
+        1,
+        256,
+        20,
+        20
+      ]
+    },
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "after_aifi",
+      "shape": [
+        1,
+        256,
+        20,
+        20
+      ]
+    },
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "memory",
+      "shape": [
+        1,
+        8400,
+        256
+      ]
+    },
+    {
+      "exact": true,
+      "name": "indices",
+      "shape": [
+        1,
+        300
+      ]
+    },
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "query",
+      "shape": [
+        1,
+        300,
+        256
+      ]
+    },
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "references",
+      "shape": [
+        1,
+        300,
+        4
+      ]
+    },
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "encoder_boxes",
+      "shape": [
+        1,
+        300,
+        4
+      ]
+    },
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "encoder_logits",
+      "shape": [
+        1,
+        300,
+        80
+      ]
+    },
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "logits",
+      "shape": [
+        6,
+        1,
+        300,
+        80
+      ]
+    },
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "boxes",
+      "shape": [
+        6,
+        1,
+        300,
+        4
+      ]
+    }
+  ],
+  "device": "cpu",
+  "excluded_keys": {
+    "decoder.denoising_class_embed.weight": "Training denoising embedding is not implemented"
+  },
+  "full_model": true,
+  "git_revision": "91d99d5fdc649c21cf87ebf61505716e28a700a1",
+  "implementation_sha256": {
+    "examples/checkpoint_parity.py": "c5b9ccbe3125d882d9a9936256db66da82e747705cebcf6aaa3e231673474f43",
+    "src/clean_rtdetr/__init__.py": "45331af83b061f7f65464979cd0301825e006f376aa4b887c7e4a6d3806314ff",
+    "src/clean_rtdetr/compatibility/__init__.py": "5f14cd228b509804fa578e4d034ca298e2cc910604c58fd44866f85032ec4d24",
+    "src/clean_rtdetr/compatibility/checkpoint.py": "78c765ee2d8b54085ba2d6ad6f983ca271e6d9b95ac2b9d963ab08cba95742d1",
+    "src/clean_rtdetr/core/__init__.py": "df7b8b86ac70ece3bd83ef2b6f27ec583e44efc5333623ac4c05868d4944544a",
+    "src/clean_rtdetr/core/contracts.py": "1140ac910b0c45256555f47095bb2cd09d117d2db031396f8c204d52fa01eb7e",
+    "src/clean_rtdetr/core/geometry.py": "6f215bf030177f75f6dfb3bdd0e67678a526a65160756937e0bb8d02c188b3e7",
+    "src/clean_rtdetr/models/__init__.py": "cf6ad3f14d7f0ed4ca6953766deb3e1d0a2a188fb05c208631601c6f0aa58639",
+    "src/clean_rtdetr/models/attention.py": "62a81aba483250c758574e4bb10e4dbe80d9770838bf315f1839ee9e58ca83a8",
+    "src/clean_rtdetr/models/backbone.py": "fcf63f2a3b6405f53cb8ed7ad7fd9a4f7a06cd4685d72f49a96890a1c2784ed9",
+    "src/clean_rtdetr/models/decoder.py": "950adba328233b4e56f78a115ca4af96b858747d8e952ff7da3e1f0eea6faa4a",
+    "src/clean_rtdetr/models/encoder.py": "9dd5cb2f327fd1bbcd8f109bc359c70a30b56ca5ccbd16be9a6aea452b71f3c0",
+    "src/clean_rtdetr/models/memory.py": "69fb9e3a3cff334e4ffdd54c3248e0632cfcbd5ff0dbcfb59175bf0d15e23af5",
+    "src/clean_rtdetr/models/queries.py": "c0f7a10e9fb7d9d1bcbdeabb68607014e707ddffbaf8a90085b9767ab91709df",
+    "src/clean_rtdetr/models/rtdetr.py": "20685f911c74cca7654244904094b3f6f2120413f45f96dd7a3e0e7232c968f5",
+    "src/clean_rtdetr/models/selector.py": "6aaaf83fa1b9780c651e414bbc2b6956907359107e043165b1ee53364ef582ab",
+    "tests/official_oracle.py": "217f51ddf8d8f5a886901104be956094c80d6f93c650c55bd99228c9d5cecbd7",
+    "tests/oracle.py": "974de1359a3fdf02b804f29d8c24e03f0b3bd35df4cbbe81057c9722c0fd7d73"
+  },
+  "input_dtype": "torch.float32",
+  "input_sha256": "940bf973de07f2772566fa49e6aa0ce5f77739acac679ccc476d9e695a60ea8e",
+  "input_shape": [
+    1,
+    3,
+    640,
+    640
+  ],
+  "mapped_key_count": 735,
+  "oracle_source_sha256": {
+    "backbone_common": "29ca34ee34f53ccab66e4a1d985df08ede3df9a686d4f84f861010b8f7513d44",
+    "decoder": "c2837740cb66f128b72e802463db57ee3653e15d964baa3b9cf58cc27a817588",
+    "hybrid_encoder": "3dff40011e125107fd1de2606429f04bc05d52a3d88e742b7ed655c5a07742c5",
+    "presnet": "1faef37155a38d504e2ce3d569e09d8fbbf737c549d1fbb125cee9111fc7bc28",
+    "utils": "a8fe020982e6e5e900a2db3674bc878170d474e12b7c4d1ca17474f95abbd0e3"
+  },
+  "platform": "macOS-26.0.1-arm64-arm-64bit-Mach-O",
+  "python": "3.14.7",
+  "report_artifact": "outputs/full-model-parity.json",
+  "report_sha256": "67ce4f1704a4327d62be9dc80bda8b21c90c717deb0b61eacef15a6e2daecf96",
+  "rtol": 0.0001,
+  "seed": 41,
+  "sha256": "dfaafa5a3d29958a360c35f1fad553a6f287bfae9967e8ee007e65cff21ddf45",
+  "source": "ema",
+  "synthesized_keys": [],
+  "torch": "2.14.0",
+  "torch_num_threads": 4,
+  "upstream_commit": "068dfde65f2667ad6555883c69d73de886518cad",
+  "validation_scope": "Seeded synthetic input; CPU FP32 eager inference stages only; AP and latency unmeasured",
+  "worktree_dirty": true
+}

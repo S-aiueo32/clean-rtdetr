@@ -11,8 +11,12 @@ from typing import Literal
 import torch
 from torch import Tensor, nn
 
+from clean_rtdetr.models.backbone import FrozenBatchNorm2d, PResNet
 from clean_rtdetr.models.decoder import Decoder, DecoderLayer
+from clean_rtdetr.models.encoder import HybridEncoder
 from clean_rtdetr.models.memory import MemoryProjector
+from clean_rtdetr.models.queries import QueryAssembler
+from clean_rtdetr.models.rtdetr import RTDETR
 from clean_rtdetr.models.selector import BoxHead, QuerySelector
 
 
@@ -25,6 +29,33 @@ class CheckpointLoadReport:
     key_mapping: dict[str, str]
     excluded_keys: dict[str, str]
     synthesized_keys: tuple[str, ...]
+
+
+def _validate_full_model(model: RTDETR) -> None:
+    """Restrict whole-checkpoint conversion to the pinned R50vd composition."""
+    if not all(
+        type(getattr(model, name, None)) is expected
+        for name, expected in (
+            ("backbone", PResNet),
+            ("encoder", HybridEncoder),
+            ("projector", MemoryProjector),
+            ("selector", QuerySelector),
+            ("assembler", QueryAssembler),
+            ("decoder", Decoder),
+        )
+    ):
+        msg = "Official conversion requires the default RT-DETR stage modules"
+        raise ValueError(msg)
+    _validate_modules(model.projector, model.selector, model.decoder)
+    if tuple(model.backbone.specs) != tuple(model.encoder.specs):
+        msg = "Backbone and encoder feature specs are incompatible"
+        raise ValueError(msg)
+    if (
+        model.encoder.output_specs != model.projector.specs
+        or model.encoder.hidden_dim != model.projector.hidden_dim
+    ):
+        msg = "Encoder and projector feature specs are incompatible"
+        raise ValueError(msg)
 
 
 def _validate_modules(
@@ -80,15 +111,46 @@ def _source_key(stage: str, target: str) -> str:
     return f"decoder.{target}"
 
 
+def _full_source_key(stage: str, target: str) -> str:
+    """Translate a local model key to the official checkpoint namespace."""
+    if stage in {"backbone", "encoder"}:
+        return f"{stage}.{target}"
+    return _source_key(stage, target)
+
+
 def _excluded_reason(key: str) -> str | None:
     """Describe explicitly unsupported full-model components."""
     if key.startswith("backbone."):
-        return "Backbone is not implemented"
+        return "Backbone is not requested by the stage loader"
     if key.startswith("encoder."):
-        return "HybridEncoder is not implemented"
+        return "HybridEncoder is not requested by the stage loader"
     if key == "decoder.denoising_class_embed.weight":
         return "Training denoising embedding is not implemented"
     return None
+
+
+def _is_frozen_bn_counter(model: nn.Module, key: str) -> bool:
+    """Recognize only counters belonging to local FrozenBatchNorm modules."""
+    if not key.endswith(".num_batches_tracked"):
+        return False
+    try:
+        module = model.get_submodule(key.removesuffix(".num_batches_tracked"))
+    except AttributeError:
+        return False
+    return isinstance(module, FrozenBatchNorm2d)
+
+
+def _is_batch_norm_counter(module: nn.Module, target: str) -> bool:
+    """Recognize counters only when their destination is a real BatchNorm."""
+    if not target.endswith(".num_batches_tracked"):
+        return False
+    try:
+        destination = module.get_submodule(target.removesuffix(".num_batches_tracked"))
+    except AttributeError:
+        return False
+    return isinstance(
+        destination, (nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d, nn.SyncBatchNorm)
+    )
 
 
 def _validate_tensor(key: str, value: Tensor, expected: Tensor) -> None:
@@ -141,7 +203,7 @@ def load_official_stage_weights(  # noqa: PLR0913
                 msg = f"Duplicate checkpoint key mapping: {key}"
                 raise ValueError(msg)
             if key not in state:
-                if stage == "projector" and target.endswith(".norm.num_batches_tracked"):
+                if _is_batch_norm_counter(module, target):
                     converted[stage][target] = torch.zeros_like(expected)
                     synthesized.append(destination)
                     continue
@@ -159,6 +221,69 @@ def load_official_stage_weights(  # noqa: PLR0913
             raise ValueError(msg)
         excluded[key] = reason
     # Every stage has been checked before the first parameter or buffer is changed.
+    for stage, module in modules.items():
+        module.load_state_dict(converted[stage], strict=True)
+    return CheckpointLoadReport(digest, source, mapping, excluded, tuple(synthesized))
+
+
+def load_official_model_weights(  # noqa: C901
+    path: str | Path,
+    *,
+    model: RTDETR,
+    source: Literal["model", "ema"],
+    expected_sha256: str,
+) -> CheckpointLoadReport:
+    """Validate then load all inference stages of the default R50vd composition.
+
+    The model/EMA source and SHA-256 are mandatory. All target shapes and dtypes
+    must match; missing BatchNorm counters are zero-initialized and reported.
+    Only counters belonging to FrozenBatchNorm and the training DN embedding
+    may be excluded. Optimizer/resume state and custom stages are unsupported.
+    """
+    _validate_full_model(model)
+    data = Path(path).read_bytes()
+    digest = hashlib.sha256(data).hexdigest()
+    if digest != expected_sha256:
+        msg = f"Checkpoint SHA-256 mismatch: expected {expected_sha256}, got {digest}"
+        raise ValueError(msg)
+    state = _state_dict(torch.load(io.BytesIO(data), map_location="cpu", weights_only=True), source)
+    modules = {
+        "backbone": model.backbone,
+        "encoder": model.encoder,
+        "projector": model.projector,
+        "selector": model.selector,
+        "decoder": model.decoder,
+    }
+    converted: dict[str, dict[str, Tensor]] = {}
+    mapping: dict[str, str] = {}
+    synthesized: list[str] = []
+    for stage, module in modules.items():
+        converted[stage] = {}
+        for target, expected in module.state_dict().items():
+            key = _full_source_key(stage, target)
+            destination = f"{stage}.{target}"
+            if key in mapping:
+                msg = f"Duplicate checkpoint key mapping: {key}"
+                raise ValueError(msg)
+            if key not in state:
+                if _is_batch_norm_counter(module, target):
+                    converted[stage][target] = torch.zeros_like(expected)
+                    synthesized.append(destination)
+                    continue
+                msg = f"Missing checkpoint key: {key}"
+                raise ValueError(msg)
+            _validate_tensor(key, state[key], expected)
+            converted[stage][target] = state[key]
+            mapping[key] = destination
+    excluded: dict[str, str] = {}
+    for key in state.keys() - mapping.keys():
+        if _is_frozen_bn_counter(model, key):
+            excluded[key] = "FrozenBatchNorm counter is not part of the target module"
+        elif key == "decoder.denoising_class_embed.weight":
+            excluded[key] = "Training denoising embedding is not implemented"
+        else:
+            msg = f"Unexpected checkpoint key: {key}"
+            raise ValueError(msg)
     for stage, module in modules.items():
         module.load_state_dict(converted[stage], strict=True)
     return CheckpointLoadReport(digest, source, mapping, excluded, tuple(synthesized))
