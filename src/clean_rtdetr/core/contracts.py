@@ -4,11 +4,14 @@
 from dataclasses import dataclass
 
 import torch
-from jaxtyping import Float, Int64
+from jaxtyping import Bool, Float, Int64
 from torch import Tensor
 
 FEATURE_RANK = 4
 MEMORY_RANK = 3
+QUERY_RANK = 3
+DECODER_OUTPUT_RANK = 4
+BOX_COORDINATES = 4
 SPATIAL_SHAPE_RANK = 2
 SPATIAL_DIMENSIONS = 2
 
@@ -122,3 +125,96 @@ class SelectionOutput:
     queries: QuerySet
     encoder_logits: Float[Tensor, "batch queries classes"]  # retains auxiliary loss gradient
     encoder_boxes: Float[Tensor, "batch queries 4"]  # normalized cxcywh, retains gradient
+
+
+@dataclass(frozen=True)
+class DenoisingQueries:
+    """Prepared training queries; their construction belongs to the training package."""
+
+    content: Float[Tensor, "batch denoising channels"]
+    ref_logits: Float[Tensor, "batch denoising 4"]
+    attention_mask: Bool[Tensor, "total_queries total_queries"]  # True blocks attention
+
+
+@dataclass(frozen=True)
+class DecoderInput:
+    """Combined matching/DN queries with references detached at this boundary."""
+
+    content: Float[Tensor, "batch total_queries channels"]
+    ref_logits: Float[Tensor, "batch total_queries 4"]
+    attention_mask: Bool[Tensor, "total_queries total_queries"] | None
+    matching_queries: int
+
+    def validate(self) -> None:
+        """Check query shapes, mask convention, device, and the required detach route."""
+        if self.content.ndim != QUERY_RANK or min(self.content.shape) <= 0:
+            msg = "Query content must have nonempty shape [B, Q, C]"
+            raise ValueError(msg)
+        batch, total_queries, _ = self.content.shape
+        if self.ref_logits.shape != (batch, total_queries, BOX_COORDINATES):
+            msg = "Reference logits must have shape [B, Q, 4]"
+            raise ValueError(msg)
+        if (
+            not self.content.is_floating_point()
+            or not self.ref_logits.is_floating_point()
+            or self.content.dtype != self.ref_logits.dtype
+            or self.content.device != self.ref_logits.device
+        ):
+            msg = "Query content and references must share floating dtype and device"
+            raise ValueError(msg)
+        if self.ref_logits.requires_grad:
+            msg = "Decoder reference logits must be detached during query assembly"
+            raise ValueError(msg)
+        if not 0 < self.matching_queries <= total_queries:
+            msg = "Matching query count must be within the assembled query sequence"
+            raise ValueError(msg)
+        if self.attention_mask is not None and (
+            self.attention_mask.shape != (total_queries, total_queries)
+            or self.attention_mask.dtype != torch.bool
+            or self.attention_mask.device != self.content.device
+        ):
+            msg = "Attention mask must be bool [Q, Q] on the query device"
+            raise ValueError(msg)
+
+
+@dataclass(frozen=True)
+class DetectionOutput:
+    """Class logits and normalized cxcywh boxes from one decoder layer."""
+
+    logits: Float[Tensor, "batch queries classes"]
+    boxes: Float[Tensor, "batch queries 4"]
+
+
+@dataclass(frozen=True)
+class DecoderOutput:
+    """Predictions in execution order for the layers selected by the explicit plan."""
+
+    logits: Float[Tensor, "layers batch queries classes"]
+    boxes: Float[Tensor, "layers batch queries 4"]
+
+    @property
+    def final(self) -> DetectionOutput:
+        """Return the final executed decoder layer."""
+        return DetectionOutput(self.logits[-1], self.boxes[-1])
+
+    def validate(self) -> None:
+        """Check stacked layer outputs share their leading dimensions."""
+        if self.logits.ndim != DECODER_OUTPUT_RANK or self.boxes.ndim != DECODER_OUTPUT_RANK:
+            msg = "Decoder outputs must have shape [L, B, Q, K/4]"
+            raise ValueError(msg)
+        if (
+            self.boxes.shape[-1] != BOX_COORDINATES
+            or self.logits.shape[:QUERY_RANK] != self.boxes.shape[:QUERY_RANK]
+        ):
+            msg = "Decoder logits and boxes must share [L, B, Q] dimensions"
+            raise ValueError(msg)
+        if min(self.logits.shape) <= 0 or not self.logits.is_floating_point():
+            msg = "Decoder logits must be nonempty floating-point tensors"
+            raise ValueError(msg)
+        if (
+            not self.boxes.is_floating_point()
+            or self.logits.dtype != self.boxes.dtype
+            or self.logits.device != self.boxes.device
+        ):
+            msg = "Decoder logits and boxes must share floating dtype and device"
+            raise ValueError(msg)

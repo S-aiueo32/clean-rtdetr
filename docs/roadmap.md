@@ -10,17 +10,16 @@ scope separately so a passing small-stage test cannot imply complete reproductio
 - [x] Feature contracts, memory projection, anchors, and query selection.
 - [x] Score/box head injection with real parameter registration and gradients.
 - [x] Compare stage outputs and gradients against unchanged upstream methods.
+- [x] Query assembly and decoder with iterative refinement and explicit layer selection.
 - [ ] Capture an official checkpoint, its hash, and the model/EMA selection.
 - [ ] Capture full R50vd stage fixtures, COCO AP, and latency in a fixed GPU environment.
 
 ## Next increment
 
 1. Add strict checkpoint key conversion for implemented stages and complete R50vd.
-2. Implement the decoder and query assembly, preserving iterative box updates,
-   detach routes, and explicit inference layer selection.
-3. Bring up PResNet and HybridEncoder, including an explicit AIFI feature boundary.
-4. Establish complete-model checkpoint/stage parity before claiming an inference baseline.
-5. Add fixed-shape export, then DN, criterion, training/resume and composition.
+2. Bring up PResNet and HybridEncoder, including an explicit AIFI feature boundary.
+3. Establish complete-model checkpoint/stage parity before claiming an inference baseline.
+4. Add fixed-shape export, then DN, criterion, training/resume and composition.
 
 ## Research acceptance
 
