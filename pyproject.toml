@@ -49,6 +49,7 @@ ignore = ["COM812", "D203", "D213"]
 "src/clean_rtdetr/core/contracts.py" = ["F722"]
 "src/clean_rtdetr/core/geometry.py" = ["F722"]
 "src/clean_rtdetr/models/attention.py" = ["F722"]
+"src/clean_rtdetr/models/backbone.py" = ["F722"]
 "src/clean_rtdetr/models/selector.py" = ["F722"]
 # Pytest assertions and calls into the pinned upstream private stage methods.
 "tests/**" = ["S101", "SLF001"]
