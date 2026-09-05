@@ -65,6 +65,18 @@ class MultiScaleFeatures:
 
 
 @dataclass(frozen=True)
+class HybridEncoderOutput:
+    """Expose fused features and optionally the encoded level before cross-scale fusion.
+
+    ``after_aifi`` retains its autograd graph and contains only the stride-32
+    level processed by AIFI. It is absent unless explicitly requested.
+    """
+
+    features: MultiScaleFeatures
+    after_aifi: MultiScaleFeatures | None
+
+
+@dataclass(frozen=True)
 class EncodedFeatures:
     """Store projected memory and the spatial metadata needed by the decoder."""
 
@@ -218,3 +230,22 @@ class DecoderOutput:
         ):
             msg = "Decoder logits and boxes must share floating dtype and device"
             raise ValueError(msg)
+
+
+@dataclass(frozen=True)
+class ModelOutput:
+    """Return image-to-prediction results with the same fields in train and eval.
+
+    Encoder auxiliary predictions retain gradients. AIFI features are present
+    only when requested; denoising construction and postprocessing are separate
+    future capabilities.
+    """
+
+    decoder: DecoderOutput
+    encoder_aux: DetectionOutput
+    after_aifi: MultiScaleFeatures | None
+
+    @property
+    def final(self) -> DetectionOutput:
+        """Return logits and normalized cxcywh boxes from the last executed layer."""
+        return self.decoder.final
