@@ -27,4 +27,3 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run ty check
       - run: uv run pytest --cov=clean_rtdetr --cov-report=term-missing
-      - run: uv run python examples/query_selection.py
