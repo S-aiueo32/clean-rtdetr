@@ -8,11 +8,26 @@ from typing import Generic, TypeVar
 from jaxtyping import Float
 from torch import Tensor, nn
 
-from clean_rtdetr.training.contracts import DetectionTarget
+from clean_rtdetr.core.contracts import DetectionOutput
+from clean_rtdetr.training.contracts import DetectionTarget, MatchIndices
 
 PredictionT_co = TypeVar("PredictionT_co", covariant=True)
 PredictionT_contra = TypeVar("PredictionT_contra", contravariant=True)
 TrainingLosses = dict[str, Float[Tensor, ""]]
+
+
+class Matcher(nn.Module, ABC):
+    """Assign prediction indices to target indices independently for each image."""
+
+    @abstractmethod
+    def forward(
+        self, predictions: DetectionOutput, targets: Sequence[DetectionTarget]
+    ) -> tuple[MatchIndices, ...]:
+        """Validate inputs and return one assignment per image on the prediction device."""
+
+    @abstractmethod
+    def checkpoint_config(self) -> dict[str, object]:
+        """Describe non-tensor assignment settings needed for compatible resumes."""
 
 
 class TrainingModel(nn.Module, ABC, Generic[PredictionT_co]):

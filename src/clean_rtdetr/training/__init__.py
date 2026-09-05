@@ -4,7 +4,12 @@
 from clean_rtdetr.training.contracts import DetectionTarget, MatchIndices
 from clean_rtdetr.training.criterion import CriterionConfig, SetCriterion
 from clean_rtdetr.training.denoising import DenoisingBatch, DenoisingConfig, DenoisingQueryGenerator
-from clean_rtdetr.training.interfaces import TrainingCriterion, TrainingLosses, TrainingModel
+from clean_rtdetr.training.interfaces import (
+    Matcher,
+    TrainingCriterion,
+    TrainingLosses,
+    TrainingModel,
+)
 from clean_rtdetr.training.matcher import HungarianMatcher, MatcherConfig
 from clean_rtdetr.training.model import DenoisingTrainingModel
 
@@ -17,6 +22,7 @@ __all__ = [
     "DetectionTarget",
     "HungarianMatcher",
     "MatchIndices",
+    "Matcher",
     "MatcherConfig",
     "SetCriterion",
     "TrainingCriterion",

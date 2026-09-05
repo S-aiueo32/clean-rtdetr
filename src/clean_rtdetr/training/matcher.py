@@ -7,15 +7,16 @@ Apache-2.0 licensed; this module adds typed contracts and explicit validation.
 
 import math
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 
 import torch
 from jaxtyping import Float, Int64
-from torch import Tensor, nn
+from torch import Tensor
 
 from clean_rtdetr.core.contracts import DetectionOutput
 from clean_rtdetr.training.contracts import DetectionTarget, MatchIndices, validate_detection
 from clean_rtdetr.training.geometry import cxcywh_to_xyxy, generalized_box_iou
+from clean_rtdetr.training.interfaces import Matcher
 
 
 @dataclass(frozen=True)
@@ -48,13 +49,17 @@ class MatcherConfig:
             raise ValueError(msg)
 
 
-class HungarianMatcher(nn.Module):
+class HungarianMatcher(Matcher):
     """Select a minimum-cost one-to-one assignment for each image."""
 
     def __init__(self, config: MatcherConfig | None = None) -> None:
         """Create a matcher with the supplied configuration."""
         super().__init__()
         self.config = config or MatcherConfig()
+
+    def checkpoint_config(self) -> dict[str, object]:
+        """Describe assignment costs and focal-loss settings for checkpoint resumes."""
+        return asdict(self.config)
 
     @staticmethod
     def _solve(

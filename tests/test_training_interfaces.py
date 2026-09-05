@@ -15,8 +15,18 @@ from torch.utils.data import DataLoader, Dataset
 lightning = pytest.importorskip("lightning")
 from lightning.pytorch.callbacks import ModelCheckpoint  # noqa: E402
 
-from clean_rtdetr.training.contracts import DetectionTarget  # noqa: E402
-from clean_rtdetr.training.interfaces import TrainingCriterion, TrainingModel  # noqa: E402
+from clean_rtdetr.core.contracts import DetectionOutput  # noqa: E402
+from clean_rtdetr.training import SetCriterion  # noqa: E402
+from clean_rtdetr.training.contracts import (  # noqa: E402
+    DetectionTarget,
+    MatchIndices,
+    validate_detection,
+)
+from clean_rtdetr.training.interfaces import (  # noqa: E402
+    Matcher,
+    TrainingCriterion,
+    TrainingModel,
+)
 from clean_rtdetr.training.lightning import RTDETRLightningModule  # noqa: E402
 
 if TYPE_CHECKING:
@@ -84,6 +94,45 @@ class ToyCriterion(TrainingCriterion[ToyPrediction]):
     def checkpoint_config(self) -> dict[str, object]:
         """Return the non-tensor criterion recipe."""
         return {"recipe": self.recipe}
+
+
+class FixedMatcher(Matcher):
+    """Deterministically pair targets with queries without Hungarian internals."""
+
+    def __init__(self, *, reverse: bool = False) -> None:
+        """Store a selectable assignment policy and visible module state."""
+        super().__init__()
+        self.reverse = reverse
+        self.register_buffer("calls", torch.zeros((), dtype=torch.int64))
+
+    def forward(
+        self, predictions: DetectionOutput, targets: Sequence[DetectionTarget]
+    ) -> tuple[MatchIndices, ...]:
+        """Pair each target with the first queries, optionally in reverse order."""
+        validate_detection(predictions, targets)
+        self.call_count.add_(1)
+        matches = []
+        for target in targets:
+            count = target.labels.numel()
+            prediction_indices = torch.arange(count, device=predictions.logits.device)
+            if self.reverse:
+                prediction_indices = prediction_indices.flip(0)
+            matches.append(
+                MatchIndices(
+                    prediction_indices,
+                    torch.arange(count, device=predictions.logits.device),
+                )
+            )
+        return tuple(matches)
+
+    @property
+    def call_count(self) -> Tensor:
+        """Expose the registered invocation counter with a precise type."""
+        return self.get_buffer("calls")
+
+    def checkpoint_config(self) -> dict[str, object]:
+        """Describe the assignment policy without exposing a config attribute."""
+        return {"reverse": self.reverse}
 
 
 class _IncompleteModel(TrainingModel[ToyPrediction]):
@@ -218,3 +267,38 @@ def test_checkpoint_restores_generic_criterion_and_rejects_recipe_changes(tmp_pa
                 train_dataloaders=_loader(),
                 ckpt_path=checkpoint.last_model_path,
             )
+
+
+def test_set_criterion_accepts_matcher_interface_and_preserves_module_behavior() -> None:
+    """A non-Hungarian matcher participates in hooks, state, losses, and backward."""
+    matcher = FixedMatcher()
+    criterion = SetCriterion(matcher=matcher)
+    hook_calls: list[object] = []
+    matcher.register_forward_hook(lambda *_: hook_calls.append(None))
+    logits = torch.zeros(2, 2, 3, requires_grad=True)
+    boxes = torch.full((2, 2, 4), 0.5, requires_grad=True)
+    output = DetectionOutput(logits, boxes)
+    targets = [
+        DetectionTarget(torch.tensor([0]), torch.tensor([[0.4, 0.4, 0.2, 0.2]])),
+        DetectionTarget(torch.tensor([2]), torch.tensor([[0.6, 0.6, 0.3, 0.3]])),
+    ]
+
+    losses = criterion(output, targets)
+    torch.stack(list(losses.values())).sum().backward()
+
+    assert hook_calls == [None]
+    assert matcher.call_count.item() == 1
+    assert "matcher.calls" in criterion.state_dict()
+    assert logits.grad is not None
+    assert boxes.grad is not None
+
+
+def test_set_criterion_checkpoint_uses_matcher_interface_configuration() -> None:
+    """Matcher selection and settings form part of the criterion resume recipe."""
+    normal = SetCriterion(matcher=FixedMatcher(reverse=False)).checkpoint_config()
+    reversed_ = SetCriterion(matcher=FixedMatcher(reverse=True)).checkpoint_config()
+
+    assert normal["matcher"] == {"reverse": False}
+    assert reversed_["matcher"] == {"reverse": True}
+    assert normal != reversed_
+    assert cast("str", normal["matcher_class"]).endswith(".FixedMatcher")

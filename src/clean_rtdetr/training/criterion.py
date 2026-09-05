@@ -18,7 +18,7 @@ from torch.nn import functional
 from clean_rtdetr.core.contracts import DenoisingOutput, DetectionOutput, ModelOutput
 from clean_rtdetr.training.contracts import DetectionTarget, MatchIndices, validate_detection
 from clean_rtdetr.training.geometry import box_iou, cxcywh_to_xyxy, generalized_box_iou
-from clean_rtdetr.training.interfaces import TrainingCriterion
+from clean_rtdetr.training.interfaces import Matcher, TrainingCriterion
 from clean_rtdetr.training.matcher import HungarianMatcher
 
 
@@ -60,7 +60,7 @@ class SetCriterion(TrainingCriterion[DetectionOutput | ModelOutput]):
         self,
         config: CriterionConfig | None = None,
         *,
-        matcher: HungarianMatcher | None = None,
+        matcher: Matcher | None = None,
     ) -> None:
         """Register the matcher and immutable baseline loss configuration."""
         super().__init__()
@@ -118,7 +118,7 @@ class SetCriterion(TrainingCriterion[DetectionOutput | ModelOutput]):
         matcher_type = type(self.matcher)
         return {
             "config": asdict(self.config),
-            "matcher": asdict(self.matcher.config),
+            "matcher": self.matcher.checkpoint_config(),
             "matcher_class": f"{matcher_type.__module__}.{matcher_type.__qualname__}",
         }
 

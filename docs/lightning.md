@@ -96,6 +96,13 @@ Lightning adapter does not inspect the prediction payload.
 | --- | --- |
 | `TrainingModel[PredictionT]` | `forward(images, targets=...)`, `predict(images)`, `checkpoint_config()` |
 | `TrainingCriterion[PredictionT]` | `forward(output, targets)`, `checkpoint_config()` |
+| `Matcher` | `forward(predictions, targets)`, `checkpoint_config()` |
+
+`SetCriterion` also accepts the abstract `Matcher` interface. `HungarianMatcher`
+is the backward-compatible default; Hydra can inject another implementation.
+Matchers return one `MatchIndices` assignment per image on the prediction device
+and validate the detection/target inputs. The criterion obtains resume settings
+through `checkpoint_config()`, without requiring a matcher `.config` attribute.
 
 `predict` is the target-free path and preserves the caller's train/eval mode.
 The criterion returns a dictionary of weighted, differentiable scalar losses.

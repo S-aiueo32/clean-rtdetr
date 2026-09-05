@@ -67,6 +67,9 @@ their known target assignments separately.
 | GIoU | 2 | 2 |
 
 `MatcherConfig` and `CriterionConfig` expose these weights and focal parameters.
+`SetCriterion` accepts the abstract `Matcher` module interface for assignment;
+omitting it retains `HungarianMatcher` as the default. Custom matchers implement
+`forward` and `checkpoint_config` without needing Hungarian-specific configuration.
 Base keys are `loss_vfl`, `loss_bbox`, and `loss_giou`. Auxiliary keys append
 `_aux_0`, `_aux_1`, etc.; the encoder uses the final auxiliary index, matching
 upstream ordering. Every term is divided by `max(total targets in batch, 1)`,
