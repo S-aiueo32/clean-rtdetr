@@ -1,0 +1,11 @@
+defaults:
+  - backbone@backbone: r50vd
+  - encoder@encoder: compact
+  - projector@projector: compact
+  - selector@selector: compact
+  - decoder@decoder: compact
+  - _self_
+
+_target_: clean_rtdetr.RTDETR
+assembler:
+  _target_: clean_rtdetr.QueryAssembler

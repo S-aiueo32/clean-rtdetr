@@ -26,6 +26,9 @@ projected memory → selected queries → iterative decoder predictions** in PyT
   upstream loss/gradient parity and decoder/encoder auxiliary supervision.
 - Contrastive denoising query construction, a training wrapper with registered
   class embeddings, and per-layer DN losses with CPU upstream parity.
+- Optional Lightning training adapter with baseline AdamW groups, EMA, and
+  tested CPU FP32 epoch-boundary resume; see [Lightning training](docs/lightning.md).
+- Hierarchical Hydra configs for model-stage and training-component injection.
 
 COCO-format prediction JSON and optional official bbox evaluation are available
 as separate commands; see [COCO evaluation](docs/evaluation.md). pycocotools is
@@ -34,7 +37,7 @@ loaded only by the metric adapter, and is unnecessary for prediction generation.
 See [training losses](docs/training.md) for the target contract and a synthetic
 CPU backward example. SciPy is an optional training dependency for assignment.
 
-Full training/resume, recipe composition, and full-dataset COCO AP validation
+Full dataset training, GPU/DDP/AMP validation, research-method composition, and COCO AP measurement
 remain to be implemented. No AP or latency is claimed; export is limited to the fixed
 batch-1 640×640 CPU FP32 profile described below.
 `examples/query_selection.py` continues to demonstrate the component path using

@@ -1,0 +1,3 @@
+_target_: clean_rtdetr.PResNet
+freeze_at: 3
+freeze_norm: true

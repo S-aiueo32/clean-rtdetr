@@ -3,8 +3,11 @@
 `clean_rtdetr.training` implements the pinned R50vd criterion for single-process
 FP32/FP64 PyTorch predictions: Hungarian assignment, Varifocal classification,
 normalized cxcywh L1 loss, GIoU loss, and contrastive denoising construction/losses.
-Training augmentation, optimizer recipes, training/resume, distributed normalization,
-and mixed precision remain pending. No convergence or trained accuracy is claimed.
+A separate [Lightning adapter](lightning.md) implements the baseline optimizer
+settings and single-process CPU FP32 training with epoch-boundary resume.
+Hydra config groups inject baseline components and optimizer/scheduler factories.
+Training augmentation, distributed normalization, mixed precision, and research-method
+composition remain pending. No convergence or trained accuracy is claimed.
 
 ## Installation and CPU example
 
@@ -126,7 +129,7 @@ construction returns `None`.
 `load_official_model_weights(..., model=training_model, ...)` validates and loads
 the official DN embedding along with the detector before mutating any parameters.
 The inference model loader continues to exclude that embedding. This loads
-weights only; optimizer state and resumable training are not implemented.
+weights only; use the [Lightning adapter](lightning.md) for resumable training.
 
 ## Validation scope
 

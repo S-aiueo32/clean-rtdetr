@@ -1,0 +1,73 @@
+# Small CPU recipe for the Hydra + Lightning integration example.
+defaults:
+  - model@module.training_model.model: compact
+  - optimizer@module.optimizer_factory: adamw
+  - scheduler@module.scheduler_factory: multistep
+  - _self_
+
+dimensions:
+  hidden_dim: 8
+  num_classes: 3
+  num_queries: 2
+  num_layers: 2
+
+seed: 41
+output_dir: outputs/lightning
+resume: null
+
+module:
+  _target_: clean_rtdetr.training.lightning.RTDETRLightningModule
+  training_model:
+    _target_: clean_rtdetr.training.DenoisingTrainingModel
+    denoising:
+      _target_: clean_rtdetr.training.DenoisingQueryGenerator
+      num_classes: ${dimensions.num_classes}
+      hidden_dim: ${dimensions.hidden_dim}
+      config:
+        _target_: clean_rtdetr.training.DenoisingConfig
+        num_denoising: 4
+  criterion:
+    _target_: clean_rtdetr.training.SetCriterion
+  parameter_groups_factory:
+    _target_: clean_rtdetr.training.lightning.RTDETRParameterGroups
+    backbone_lr: 0.00001
+
+dataset:
+  _target_: clean_rtdetr.training.data.SyntheticDetectionDataset
+  image_size: 64
+  num_classes: ${dimensions.num_classes}
+
+collate:
+  _target_: clean_rtdetr.training.data.collate_detection_batch
+  _partial_: true
+
+dataloader:
+  _target_: torch.utils.data.DataLoader
+  batch_size: 2
+  shuffle: true
+  num_workers: 0
+
+callbacks:
+  rng:
+    _target_: clean_rtdetr.training.lightning.EpochBoundaryState
+  ema:
+    _target_: clean_rtdetr.training.lightning.RTDETREMA
+  checkpoint:
+    _target_: lightning.pytorch.callbacks.ModelCheckpoint
+    dirpath: ${output_dir}
+    save_last: true
+    save_on_train_epoch_end: true
+
+trainer:
+  _target_: lightning.pytorch.Trainer
+  accelerator: cpu
+  devices: 1
+  precision: 32-true
+  deterministic: true
+  max_epochs: 2
+  gradient_clip_val: 0.1
+  gradient_clip_algorithm: norm
+  accumulate_grad_batches: 1
+  logger: false
+  enable_progress_bar: false
+  enable_model_summary: false

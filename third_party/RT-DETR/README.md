@@ -13,6 +13,8 @@ Source: [lyuwenyu/RT-DETR](https://github.com/lyuwenyu/RT-DETR)
 - SHA-256: `2254d6b781879f54684e5726ada5e9c99414873398cf0a42c2e11d691bece595`
 - File: `rtdetr_pytorch/configs/rtdetr/include/optimizer.yml`
 - SHA-256: `0499a2af76f497cec3174f69ec4888a53597ba05387a9ab2ac7263d240c3d581`
+- File: `rtdetr_pytorch/src/optim/ema.py`
+- SHA-256: `9ea3e2d870adb531d19da8f33d2603ee884a65f3ff57583aaaac7321e23f0083`
 - File: `rtdetr_pytorch/src/zoo/rtdetr/rtdetr_postprocessor.py`
 - SHA-256: `a33a3afbc955866eb08587fdc77da0ae446153af952f42b721abc981f413444c`
 - File: `rtdetr_pytorch/src/zoo/rtdetr/box_ops.py`
@@ -66,3 +68,7 @@ values, and gradients under single-process normalization. DN tests also compare
 seeded noise, masks, positive indices, embedding gradients, and per-layer DN losses.
 Full training/resume is not implemented. The defaults come from the retained
 `rtdetr_pytorch/configs/rtdetr/include/rtdetr_r50vd.yml`.
+
+The vendored `ema.py` is a byte-for-byte copy of the pinned upstream EMA
+implementation. Its `ModelEMA` uses the warmup decay ramp, updates after each
+optimizer step, and persists the EMA module plus update count in checkpoints.
