@@ -1,0 +1,362 @@
+{
+  "atol": 1e-05,
+  "checkpoint": "checkpoints/rtdetr_r50vd_6x_coco_from_paddle.pth",
+  "checks": [
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "backbone.0",
+      "shape": [
+        1,
+        512,
+        80,
+        80
+      ]
+    },
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "backbone.1",
+      "shape": [
+        1,
+        1024,
+        40,
+        40
+      ]
+    },
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "backbone.2",
+      "shape": [
+        1,
+        2048,
+        20,
+        20
+      ]
+    },
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "after_aifi",
+      "shape": [
+        1,
+        256,
+        20,
+        20
+      ]
+    },
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "encoder.0",
+      "shape": [
+        1,
+        256,
+        80,
+        80
+      ]
+    },
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "encoder.1",
+      "shape": [
+        1,
+        256,
+        40,
+        40
+      ]
+    },
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "encoder.2",
+      "shape": [
+        1,
+        256,
+        20,
+        20
+      ]
+    },
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "memory",
+      "shape": [
+        1,
+        8400,
+        256
+      ]
+    },
+    {
+      "exact": true,
+      "name": "indices",
+      "shape": [
+        1,
+        300
+      ]
+    },
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "query",
+      "shape": [
+        1,
+        300,
+        256
+      ]
+    },
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "references",
+      "shape": [
+        1,
+        300,
+        4
+      ]
+    },
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "encoder_logits",
+      "shape": [
+        1,
+        300,
+        80
+      ]
+    },
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "encoder_boxes",
+      "shape": [
+        1,
+        300,
+        4
+      ]
+    },
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "decoder.0.logits",
+      "shape": [
+        1,
+        300,
+        80
+      ]
+    },
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "decoder.0.boxes",
+      "shape": [
+        1,
+        300,
+        4
+      ]
+    },
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "decoder.1.logits",
+      "shape": [
+        1,
+        300,
+        80
+      ]
+    },
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "decoder.1.boxes",
+      "shape": [
+        1,
+        300,
+        4
+      ]
+    },
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "decoder.2.logits",
+      "shape": [
+        1,
+        300,
+        80
+      ]
+    },
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "decoder.2.boxes",
+      "shape": [
+        1,
+        300,
+        4
+      ]
+    },
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "decoder.3.logits",
+      "shape": [
+        1,
+        300,
+        80
+      ]
+    },
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "decoder.3.boxes",
+      "shape": [
+        1,
+        300,
+        4
+      ]
+    },
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "decoder.4.logits",
+      "shape": [
+        1,
+        300,
+        80
+      ]
+    },
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "decoder.4.boxes",
+      "shape": [
+        1,
+        300,
+        4
+      ]
+    },
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "decoder.5.logits",
+      "shape": [
+        1,
+        300,
+        80
+      ]
+    },
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "decoder.5.boxes",
+      "shape": [
+        1,
+        300,
+        4
+      ]
+    },
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "composed.logits",
+      "shape": [
+        6,
+        1,
+        300,
+        80
+      ]
+    },
+    {
+      "exact": false,
+      "max_abs": 0.0,
+      "max_rel": 0.0,
+      "name": "composed.boxes",
+      "shape": [
+        6,
+        1,
+        300,
+        4
+      ]
+    }
+  ],
+  "command": "uv run python -m examples.model_checkpoint_parity checkpoints/rtdetr_r50vd_6x_coco_from_paddle.pth --expected-sha256 dfaafa5a3d29958a360c35f1fad553a6f287bfae9967e8ee007e65cff21ddf45 --source ema --report REPORT.json",
+  "device": "cpu",
+  "dtype": "torch.float32",
+  "excluded_keys": {
+    "decoder.denoising_class_embed.weight": "Training denoising embedding is not implemented"
+  },
+  "git_revision": "e4d6f5a4fb966996cb51ea1191c60eb262767bd1",
+  "image_shape": [
+    1,
+    3,
+    640,
+    640
+  ],
+  "input": "RGB float [0,1], no normalization",
+  "mapped_tensor_count": 735,
+  "platform": "macOS-26.0.1-arm64-arm-64bit-Mach-O",
+  "python": "3.14.7",
+  "revision_note": "git_revision is the base commit; source_sha256 identifies the validated working-tree files.",
+  "rtol": 0.0001,
+  "schema_version": 1,
+  "scope": "CPU FP32, synthetic RGB image, all R50vd inference stages; no AP or latency measurement",
+  "seed": 41,
+  "sha256": "dfaafa5a3d29958a360c35f1fad553a6f287bfae9967e8ee007e65cff21ddf45",
+  "source": "ema",
+  "source_sha256": {
+    "examples/model_checkpoint_parity.py": "5eca30d9ea495184caa8cafcaaf0248a6601de71e9c1ca6a569b1eec6c79a717",
+    "src/clean_rtdetr/__init__.py": "e0c13b068d0b1d06e5d45868b3a5a9f6d51d0e01bb46824f4f3c2c27b81ad597",
+    "src/clean_rtdetr/compatibility/__init__.py": "aa9b16a1d7e81b4ced281f6125f3163d865c71ed39431224c4e08bbeb05bc4c1",
+    "src/clean_rtdetr/compatibility/checkpoint.py": "00c3750d8db5f21a679d4793fcd31b7ba88ce9f54a2d62ad8671fccdbef95138",
+    "src/clean_rtdetr/core/__init__.py": "df7b8b86ac70ece3bd83ef2b6f27ec583e44efc5333623ac4c05868d4944544a",
+    "src/clean_rtdetr/core/contracts.py": "1140ac910b0c45256555f47095bb2cd09d117d2db031396f8c204d52fa01eb7e",
+    "src/clean_rtdetr/core/geometry.py": "6f215bf030177f75f6dfb3bdd0e67678a526a65160756937e0bb8d02c188b3e7",
+    "src/clean_rtdetr/models/__init__.py": "d6715baf015c2b1cb625de52624121f24cdb4694fc5aecddd57af9cce1e013ba",
+    "src/clean_rtdetr/models/attention.py": "62a81aba483250c758574e4bb10e4dbe80d9770838bf315f1839ee9e58ca83a8",
+    "src/clean_rtdetr/models/backbone.py": "fa2587ee14af8cc8c6e8a0079f6d3c0eb2ed6249c443ee2930f319b6199e7dea",
+    "src/clean_rtdetr/models/decoder.py": "950adba328233b4e56f78a115ca4af96b858747d8e952ff7da3e1f0eea6faa4a",
+    "src/clean_rtdetr/models/encoder.py": "9dd5cb2f327fd1bbcd8f109bc359c70a30b56ca5ccbd16be9a6aea452b71f3c0",
+    "src/clean_rtdetr/models/memory.py": "69fb9e3a3cff334e4ffdd54c3248e0632cfcbd5ff0dbcfb59175bf0d15e23af5",
+    "src/clean_rtdetr/models/queries.py": "c0f7a10e9fb7d9d1bcbdeabb68607014e707ddffbaf8a90085b9767ab91709df",
+    "src/clean_rtdetr/models/rtdetr.py": "11acb9a021aebf3580e12574ef5a1ede6c73d88f267fff4f0e373ee86a0c71bf",
+    "src/clean_rtdetr/models/selector.py": "6aaaf83fa1b9780c651e414bbc2b6956907359107e043165b1ee53364ef582ab",
+    "tests/official_oracle.py": "217f51ddf8d8f5a886901104be956094c80d6f93c650c55bd99228c9d5cecbd7",
+    "tests/oracle.py": "974de1359a3fdf02b804f29d8c24e03f0b3bd35df4cbbe81057c9722c0fd7d73",
+    "third_party/RT-DETR/rtdetr_decoder.py": "c2837740cb66f128b72e802463db57ee3653e15d964baa3b9cf58cc27a817588",
+    "third_party/RT-DETR/rtdetr_pytorch/src/nn/backbone/common.py": "29ca34ee34f53ccab66e4a1d985df08ede3df9a686d4f84f861010b8f7513d44",
+    "third_party/RT-DETR/rtdetr_pytorch/src/nn/backbone/presnet.py": "1faef37155a38d504e2ce3d569e09d8fbbf737c549d1fbb125cee9111fc7bc28",
+    "third_party/RT-DETR/rtdetr_pytorch/src/zoo/rtdetr/hybrid_encoder.py": "3dff40011e125107fd1de2606429f04bc05d52a3d88e742b7ed655c5a07742c5",
+    "third_party/RT-DETR/rtdetr_pytorch/src/zoo/rtdetr/utils.py": "a8fe020982e6e5e900a2db3674bc878170d474e12b7c4d1ca17474f95abbd0e3",
+    "uv.lock": "e94548c529666b4b72c9883dc2345112e8b66a8b2578884cb816c52e6d3e3230"
+  },
+  "synthesized_keys": [],
+  "torch": "2.14.0",
+  "torch_num_threads": 4
+}

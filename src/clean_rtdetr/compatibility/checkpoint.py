@@ -11,9 +11,12 @@ from typing import Literal
 import torch
 from torch import Tensor, nn
 
-from clean_rtdetr.models.decoder import Decoder, DecoderLayer
+from clean_rtdetr.models.backbone import PResNet
+from clean_rtdetr.models.decoder import Decoder, DecoderConfig, DecoderLayer
+from clean_rtdetr.models.encoder import HybridEncoder, HybridEncoderConfig
 from clean_rtdetr.models.memory import MemoryProjector
-from clean_rtdetr.models.selector import BoxHead, QuerySelector
+from clean_rtdetr.models.rtdetr import RTDETR
+from clean_rtdetr.models.selector import BoxHead, QuerySelector, QuerySelectorConfig
 
 
 @dataclass(frozen=True)
@@ -75,19 +78,23 @@ def _state_dict(payload: object, source: Literal["model", "ema"]) -> Mapping[str
 
 def _source_key(stage: str, target: str) -> str:
     """Translate one known target namespace to the upstream model namespace."""
+    if stage in {"backbone", "encoder"}:
+        return f"{stage}.{target}"
     if stage == "decoder" and target.startswith("layers."):
         return f"decoder.decoder.{target}"
     return f"decoder.{target}"
 
 
-def _excluded_reason(key: str) -> str | None:
-    """Describe explicitly unsupported full-model components."""
-    if key.startswith("backbone."):
-        return "Backbone is not implemented"
-    if key.startswith("encoder."):
-        return "HybridEncoder is not implemented"
+def _excluded_reason(key: str, *, full_model: bool) -> str | None:
+    """Describe components outside the selected loader's scope."""
     if key == "decoder.denoising_class_embed.weight":
         return "Training denoising embedding is not implemented"
+    if full_model:
+        return None
+    if key.startswith("backbone."):
+        return "Backbone is outside the stage-only loader scope"
+    if key.startswith("encoder."):
+        return "HybridEncoder is outside the stage-only loader scope"
     return None
 
 
@@ -122,18 +129,87 @@ def load_official_stage_weights(  # noqa: PLR0913
     every other target tensor is required. Optimizer/resume state is not loaded.
     """
     _validate_modules(projector, selector, decoder)
+    return _load_weights(
+        path,
+        modules={"projector": projector, "selector": selector, "decoder": decoder},
+        source=source,
+        expected_sha256=expected_sha256,
+        full_model=False,
+    )
+
+
+def load_official_model_weights(
+    path: str | Path,
+    *,
+    model: RTDETR,
+    source: Literal["model", "ema"],
+    expected_sha256: str,
+) -> CheckpointLoadReport:
+    """Load all R50vd inference stages, excluding only the training DN embedding.
+
+    The original stage-only loader remains available. This entry point requires
+    the default R50vd backbone and hybrid encoder. All source tensors and target
+    tensors are checked before any parameter or buffer is changed.
+    """
+    if (
+        type(model) is not RTDETR
+        or type(model.backbone) is not PResNet
+        or type(model.encoder) is not HybridEncoder
+        or model.encoder.config != HybridEncoderConfig()
+        or model.selector.config != QuerySelectorConfig()
+        or model.decoder.config != DecoderConfig()
+        or any(isinstance(module, nn.BatchNorm2d) for module in model.backbone.modules())
+        or model.backbone.specs != model.encoder.specs
+        or model.encoder.output_specs != model.projector.specs
+    ):
+        msg = "Official model conversion requires the default R50vd modules"
+        raise ValueError(msg)
+    _validate_modules(model.projector, model.selector, model.decoder)
+    return _load_weights(
+        path,
+        modules={
+            "backbone": model.backbone,
+            "encoder": model.encoder,
+            "projector": model.projector,
+            "selector": model.selector,
+            "decoder": model.decoder,
+        },
+        source=source,
+        expected_sha256=expected_sha256,
+        full_model=True,
+    )
+
+
+def _batch_counters(module: nn.Module) -> set[str]:
+    """Allow zero synthesis only for registered BatchNorm counters."""
+    return {
+        f"{name}.num_batches_tracked" if name else "num_batches_tracked"
+        for name, child in module.named_modules()
+        if isinstance(child, nn.BatchNorm2d) and child.num_batches_tracked is not None
+    }
+
+
+def _load_weights(
+    path: str | Path,
+    *,
+    modules: dict[str, nn.Module],
+    source: Literal["model", "ema"],
+    expected_sha256: str,
+    full_model: bool,
+) -> CheckpointLoadReport:
+    """Prepare every mapped state dictionary before committing validated tensors."""
     data = Path(path).read_bytes()
     digest = hashlib.sha256(data).hexdigest()
     if digest != expected_sha256:
         msg = f"Checkpoint SHA-256 mismatch: expected {expected_sha256}, got {digest}"
         raise ValueError(msg)
     state = _state_dict(torch.load(io.BytesIO(data), map_location="cpu", weights_only=True), source)
-    modules = {"projector": projector, "selector": selector, "decoder": decoder}
     converted: dict[str, dict[str, Tensor]] = {}
     mapping: dict[str, str] = {}
     synthesized: list[str] = []
     for stage, module in modules.items():
         converted[stage] = {}
+        counters = _batch_counters(module)
         for target, expected in module.state_dict().items():
             key = _source_key(stage, target)
             destination = f"{stage}.{target}"
@@ -141,7 +217,7 @@ def load_official_stage_weights(  # noqa: PLR0913
                 msg = f"Duplicate checkpoint key mapping: {key}"
                 raise ValueError(msg)
             if key not in state:
-                if stage == "projector" and target.endswith(".norm.num_batches_tracked"):
+                if target in counters:
                     converted[stage][target] = torch.zeros_like(expected)
                     synthesized.append(destination)
                     continue
@@ -153,7 +229,7 @@ def load_official_stage_weights(  # noqa: PLR0913
             mapping[key] = destination
     excluded: dict[str, str] = {}
     for key in state.keys() - mapping.keys():
-        reason = _excluded_reason(key)
+        reason = _excluded_reason(key, full_model=full_model)
         if reason is None:
             msg = f"Unexpected checkpoint key: {key}"
             raise ValueError(msg)

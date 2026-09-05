@@ -46,11 +46,30 @@ a false `F821` without disabling undefined-name checks.
 
 ## Gradient ownership
 
-`QuerySet.ref_logits` still has gradients at this boundary. The future query
-assembler must concatenate optional DN reference logits and detach the result
+`QuerySet.ref_logits` still has gradients at this boundary. `QueryAssembler`
+concatenates optional DN reference logits and detaches the result
 before decoding. Encoder auxiliary box predictions retain their own graph. The
 tests explicitly distinguish these two routes.
 
-This is a deliberately narrow first boundary. D-FINE distribution state, query
-groups, AIFI feature taps, training methods, and capability validation are planned
-in the [proposal](design-proposal.md). They are not simulated with placeholder APIs.
+The model boundary now exposes an optional `after_aifi` feature tap for parity and
+research experiments. D-FINE distribution state, query groups, denoising losses,
+training methods, and capability validation remain planned in the
+[proposal](design-proposal.md); they are not simulated with placeholder APIs.
+
+The complete implemented-stage entry point is `build_rtdetr_r50vd()`. Its
+`RTDETR.forward(images, *, plan=None, collect_aifi=False)` returns a `ModelOutput`
+with decoder output, encoder auxiliary predictions, and an optional `after_aifi`
+feature collection; `output.final` exposes the final logits and normalized
+`cxcywh` boxes. Inputs are RGB floating point tensors in `[0, 1]`, NCHW, with
+spatial dimensions divisible by 32. The caller prepares/resizes images without
+mean/std normalization, and the flattened feature sequence must contain at least
+as many tokens as the configured query count.
+
+`after_aifi` contains only the highest-stride level, immediately after AIFI and
+before FPN/PAN fusion. It retains its autograd graph and is `None` unless requested.
+`ModelOutput.decoder` preserves the existing `DecoderOutput` and `DecoderPlan`
+semantics; `encoder_aux` exposes differentiable selection logits and boxes.
+The factory uses 80 classes, 300 queries and six decoder layers, with a frozen
+backbone stem and FrozenBatchNorm buffers. It returns an ordinary training-mode
+module; callers select `eval()` for inference. No training-only placeholder fields
+or implicit feature hooks are added to the production model.
