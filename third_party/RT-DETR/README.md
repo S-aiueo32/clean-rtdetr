@@ -17,3 +17,8 @@ detector or an official trained checkpoint.
 The production geometry, memory projection, and selection modules are adapted
 from this upstream implementation. They contain change notices. This directory
 is test-only and is not included in the installed Python wheel.
+
+The pinned R50vd configuration and deformable-attention utility used by the
+checkpoint parity oracle are retained under `rtdetr_pytorch/`. The official
+checkpoint artifact is kept outside version control in `checkpoints/`; its URL,
+SHA-256, and selected EMA state are recorded in `benchmarks/baseline.json`.

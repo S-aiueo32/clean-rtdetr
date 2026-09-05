@@ -13,8 +13,13 @@
     "decoder_layers": 6,
     "eval_image_size_hw": [640, 640]
   },
-  "checkpoint": null,
+  "checkpoint": {
+    "url": "https://github.com/lyuwenyu/storage/releases/download/v0.1/rtdetr_r50vd_6x_coco_from_paddle.pth",
+    "sha256": "dfaafa5a3d29958a360c35f1fad553a6f287bfae9967e8ee007e65cff21ddf45",
+    "source": "ema",
+    "artifact": "checkpoints/rtdetr_r50vd_6x_coco_from_paddle.pth"
+  },
   "evaluation": null,
   "latency": null,
-  "status": "stage-parity-only; full baseline capture pending"
+  "status": "implemented-stage-checkpoint-parity; full baseline capture pending"
 }

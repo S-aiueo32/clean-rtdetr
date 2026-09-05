@@ -8,7 +8,9 @@ not a rewritten second implementation of the equations under test.
 import ast
 import copy
 import hashlib
+import importlib.util
 import math
+from collections import OrderedDict
 from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import cast
@@ -22,6 +24,8 @@ from clean_rtdetr.models.attention import deformable_attention_core
 
 UPSTREAM = Path(__file__).resolve().parents[1] / "third_party/RT-DETR/rtdetr_decoder.py"
 SHA256 = "c2837740cb66f128b72e802463db57ee3653e15d964baa3b9cf58cc27a817588"
+UPSTREAM_UTILS = UPSTREAM.parent / "rtdetr_pytorch/src/zoo/rtdetr/utils.py"
+UPSTREAM_UTILS_SHA256 = "a8fe020982e6e5e900a2db3674bc878170d474e12b7c4d1ca17474f95abbd0e3"
 
 
 class UpstreamStages(nn.Module):
@@ -105,6 +109,7 @@ def decoder_oracle(  # noqa: PLR0913
         "inverse_sigmoid": inverse_sigmoid,
         "math": math,
         "nn": nn,
+        "OrderedDict": OrderedDict,
         "torch": torch,
     }
     exec(compile(module, str(UPSTREAM), "exec"), namespace)  # noqa: S102
@@ -120,3 +125,68 @@ def decoder_oracle(  # noqa: PLR0913
         num_points,
     )
     return decoder_type(hidden_dim, layer, num_layers, eval_index)
+
+
+def _upstream_utils() -> dict[str, object]:
+    """Load the independently pinned upstream utility module for the oracle."""
+    if not UPSTREAM_UTILS.is_file():
+        msg = f"Missing pinned upstream utility source: {UPSTREAM_UTILS}"
+        raise FileNotFoundError(msg)
+    if hashlib.sha256(UPSTREAM_UTILS.read_bytes()).hexdigest() != UPSTREAM_UTILS_SHA256:
+        msg = "Pinned upstream utility source has changed"
+        raise AssertionError(msg)
+    spec = importlib.util.spec_from_file_location("clean_rtdetr_upstream_utils", UPSTREAM_UTILS)
+    if spec is None or spec.loader is None:
+        msg = f"Cannot load {UPSTREAM_UTILS}"
+        raise ImportError(msg)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return vars(module)
+
+
+def full_transformer_oracle(**config: object) -> nn.Module:
+    """Construct the complete upstream transformer from hash-checked source AST.
+
+    Only the upstream classes are executed.  In particular, this oracle does not
+    call clean_rtdetr geometry or attention code, which keeps checkpoint parity
+    independent from the implementation under test.
+    """
+    source = UPSTREAM.read_bytes()
+    assert hashlib.sha256(source).hexdigest() == SHA256, "Upstream oracle has changed"
+    utility = _upstream_utils()
+    tree = ast.parse(source, filename=str(UPSTREAM))
+    wanted = {
+        "MLP",
+        "MSDeformableAttention",
+        "TransformerDecoderLayer",
+        "TransformerDecoder",
+        "RTDETRTransformer",
+    }
+    classes = [node for node in tree.body if isinstance(node, ast.ClassDef) and node.name in wanted]
+    assert len(classes) == len(wanted), "Pinned decoder is missing an oracle class"
+    for node in classes:
+        node.decorator_list = []
+    module = ast.Module(body=cast("list[ast.stmt]", classes), type_ignores=[])
+    namespace: dict[str, object] = {
+        "F": functional,
+        "copy": copy,
+        "init": init,
+        "math": math,
+        "nn": nn,
+        "OrderedDict": OrderedDict,
+        "torch": torch,
+        "register": lambda value: value,
+        **{
+            name: utility[name]
+            for name in (
+                "deformable_attention_core_func",
+                "get_activation",
+                "inverse_sigmoid",
+                "bias_init_with_prob",
+            )
+        },
+    }
+    # The source and utility module are repository-pinned; no user input reaches exec.
+    exec(compile(module, str(UPSTREAM), "exec"), namespace)  # noqa: S102
+    transformer_type = cast("Callable[..., nn.Module]", namespace["RTDETRTransformer"])
+    return transformer_type(**config)

@@ -17,6 +17,7 @@ queries → iterative decoder predictions** in PyTorch.
 - Self-attention, multi-scale deformable cross-attention, and iterative box refinement.
 - Explicit decoder execution/output plans instead of implicit inference-layer selection.
 - Forward and gradient parity tests against SHA-256-pinned upstream methods.
+- Strict official checkpoint loading for the implemented stages, with a reproducible parity example.
 
 This is not yet a complete detector. Backbone, HybridEncoder, denoising construction,
 training criteria, official checkpoint conversion, COCO evaluation, and export remain
