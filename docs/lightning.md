@@ -59,7 +59,7 @@ from the root configuration. Existing component validation rejects incompatible
 feature specs or dimensions. `builtins.tuple` preserves the typed feature-spec
 contract while constructing the YAML sequence.
 
-The Lightning module receives the DN wrapper, criterion, parameter-group policy,
+The Lightning module receives a training model, criterion, parameter-group policy,
 optimizer factory, and scheduler factory through constructor injection. Optimizer
 and scheduler configs use `_partial_: true`: Hydra constructs factories first,
 then `configure_optimizers` binds the actual trainable parameters and optimizer.
@@ -82,6 +82,42 @@ before applying encoder/decoder bias and `norm.*weight` decay exclusions. All
 trainable parameters, including DN embeddings, must belong to the optimizer
 exactly once. The Trainer controls clipping; the recipe sets norm limit `0.1`.
 Alternative factories demonstrate DI, not upstream training recipe parity.
+
+## Model and criterion interfaces
+
+The adapter depends on `TrainingModel[PredictionT]` and
+`TrainingCriterion[PredictionT]`, not on `DenoisingTrainingModel` or `SetCriterion`.
+Both are abstract `nn.Module` subclasses so implementations retain normal
+parameter/buffer registration, forward hooks, device transfer, and state dicts.
+The generic prediction type connects the model to its paired criterion; the
+Lightning adapter does not inspect the prediction payload.
+
+| Interface | Required operations |
+| --- | --- |
+| `TrainingModel[PredictionT]` | `forward(images, targets=...)`, `predict(images)`, `checkpoint_config()` |
+| `TrainingCriterion[PredictionT]` | `forward(output, targets)`, `checkpoint_config()` |
+
+`predict` is the target-free path and preserves the caller's train/eval mode.
+The criterion returns a dictionary of weighted, differentiable scalar losses.
+`checkpoint_config()` returns non-tensor settings as primitives, sequences, and
+mappings; implementation identity and these settings are checked during resume.
+Tensor state stays in PyTorch's `state_dict`. The adapter never reaches into a
+model's `.model` or `.denoising`, or a criterion's `.matcher` or `.config`.
+
+The baseline DN wrapper and set criterion implement these interfaces. Another
+model/criterion pair can use its own prediction type and internal structure, then
+be selected through Hydra `_target_` configuration. It need not inherit either
+baseline implementation. Keep `parameter_groups_factory: null` for the default
+all-trainable-parameters grouping or inject an appropriate policy;
+`RTDETRParameterGroups` remains explicitly specific to RT-DETR parameter names.
+Trainable criterion parameters are also registered and optimized; parameters
+shared with the model are included exactly once.
+
+The interface-based checkpoint recipe uses schema version 2. Checkpoints from
+the earlier, unreleased concrete adapter recipe are rejected; use a new run for
+this schema rather than treating those files as compatible resumes.
+
+## Application composition
 
 Dataset, DataLoader, callbacks, and Trainer are also instantiated from config.
 The application injects the **same** generator object into the DataLoader and
@@ -120,7 +156,8 @@ RNGs, stateful streaming datasets, and changing world size are outside this
 validated profile. Prefer a completed epoch checkpoint with all states; loading
 weights alone is initialization, not continuation of optimizer history.
 
-The live detector is available as `module.training_model.model`. After fitting,
+For the baseline wrapper, the live detector is available as
+`module.training_model.model`. After fitting,
 `ema.module` holds the separate EMA wrapper in evaluation mode. These remain
 ordinary PyTorch modules, so inference does not require a Lightning Trainer.
 The existing official checkpoint loader can initialize `training_model` before
@@ -136,6 +173,9 @@ optimizer moments, scheduler progress, EMA state, step counts, and RNG state.
 The exact restart test uses a fresh interpreter without probabilistic runtime
 type-check instrumentation, which itself consumes Python RNG state. Separate
 tests compare EMA updates against the pinned upstream implementation.
+An independent model/criterion pair with a custom prediction payload also covers
+real Trainer updates and checkpoint restore, forward hooks, trainable criterion
+state, shared parameters, and changed implementation/configuration rejection.
 These checks establish this CPU restart boundary, not training reproduction or AP.
 
 Upstream training defaults and EMA provenance are recorded in

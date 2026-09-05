@@ -8,16 +8,17 @@ third_party/RT-DETR/README.md for the pinned source and attribution.
 
 import math
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 
 import torch
 from jaxtyping import Float
-from torch import Tensor, nn
+from torch import Tensor
 from torch.nn import functional
 
 from clean_rtdetr.core.contracts import DenoisingOutput, DetectionOutput, ModelOutput
 from clean_rtdetr.training.contracts import DetectionTarget, MatchIndices, validate_detection
 from clean_rtdetr.training.geometry import box_iou, cxcywh_to_xyxy, generalized_box_iou
+from clean_rtdetr.training.interfaces import TrainingCriterion
 from clean_rtdetr.training.matcher import HungarianMatcher
 
 
@@ -45,7 +46,7 @@ class CriterionConfig:
             raise ValueError(msg)
 
 
-class SetCriterion(nn.Module):
+class SetCriterion(TrainingCriterion[DetectionOutput | ModelOutput]):
     """Return weighted matching losses for one stage or all retained model stages.
 
     ``ModelOutput`` adds independently matched decoder intermediate losses and
@@ -111,6 +112,15 @@ class SetCriterion(nn.Module):
         if isinstance(output, ModelOutput) and output.denoising is not None:
             losses.update(self._denoising_losses(output.denoising, output, targets))
         return losses
+
+    def checkpoint_config(self) -> dict[str, object]:
+        """Describe criterion and matcher settings required for checkpoint resumes."""
+        matcher_type = type(self.matcher)
+        return {
+            "config": asdict(self.config),
+            "matcher": asdict(self.matcher.config),
+            "matcher_class": f"{matcher_type.__module__}.{matcher_type.__qualname__}",
+        }
 
     def _denoising_losses(
         self,

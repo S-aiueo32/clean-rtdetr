@@ -1,26 +1,25 @@
 # Copyright 2026 Clean RT-DETR contributors
-"""RT-DETR-specific steps and optimizer recipe for Lightning's native Trainer."""
+"""Lightning training against injected model and criterion interfaces."""
 
 from collections.abc import Callable, Iterable
 from dataclasses import asdict, is_dataclass
 from functools import partial
-from typing import Any
+from typing import Any, Generic, TypeVar
 
 import torch
 from jaxtyping import Float
 from lightning.pytorch import LightningModule
 from lightning.pytorch.utilities.types import OptimizerLRScheduler
-from torch import Tensor
+from torch import Tensor, nn
 
-from clean_rtdetr.core.contracts import ModelOutput
 from clean_rtdetr.training.contracts import DetectionTarget
-from clean_rtdetr.training.criterion import SetCriterion
-from clean_rtdetr.training.model import DenoisingTrainingModel
+from clean_rtdetr.training.interfaces import TrainingCriterion, TrainingModel
 
 TrainingBatch = tuple[Float[Tensor, "batch 3 height width"], list[DetectionTarget]]
 OptimizerFactory = Callable[[Iterable[Any]], torch.optim.Optimizer]
 SchedulerFactory = Callable[[torch.optim.Optimizer], torch.optim.lr_scheduler.LRScheduler]
-ParameterGroupsFactory = Callable[[DenoisingTrainingModel], list[dict[str, Any]]]
+ParameterGroupsFactory = Callable[[nn.Module], list[dict[str, Any]]]
+PredictionT = TypeVar("PredictionT")
 
 
 def _factory_recipe(factory: object) -> dict[str, Any] | None:
@@ -41,18 +40,18 @@ def _factory_recipe(factory: object) -> dict[str, Any] | None:
     raise TypeError(msg)
 
 
-class RTDETRLightningModule(LightningModule):
+class RTDETRLightningModule(LightningModule, Generic[PredictionT]):
     """Keep the detector reusable while delegating loops and resume to Lightning."""
 
     def __init__(
         self,
-        training_model: DenoisingTrainingModel,
-        criterion: SetCriterion,
+        training_model: TrainingModel[PredictionT],
+        criterion: TrainingCriterion[PredictionT],
         optimizer_factory: OptimizerFactory,
         scheduler_factory: SchedulerFactory | None = None,
         parameter_groups_factory: ParameterGroupsFactory | None = None,
     ) -> None:
-        """Register the DN wrapper and loss modules without serializing Python models."""
+        """Register interface implementations and factories as ordinary module dependencies."""
         super().__init__()
         self.training_model = training_model
         self.criterion = criterion
@@ -64,9 +63,9 @@ class RTDETRLightningModule(LightningModule):
         self._resume_execution: dict[str, Any] | None = None
         self._resume_callback_keys: set[str] = set()
 
-    def forward(self, images: Float[Tensor, "batch 3 height width"]) -> ModelOutput:
-        """Expose the ordinary matching predictions without constructing DN queries."""
-        return self.training_model.model(images)
+    def forward(self, images: Float[Tensor, "batch 3 height width"]) -> PredictionT:
+        """Delegate target-free prediction without assuming an internal model layout."""
+        return self.training_model.predict(images)
 
     def transfer_batch_to_device(
         self, batch: TrainingBatch, device: torch.device, dataloader_idx: int
@@ -79,7 +78,7 @@ class RTDETRLightningModule(LightningModule):
         ]
 
     def training_step(self, batch: TrainingBatch, batch_idx: int) -> Float[Tensor, ""]:
-        """Return all weighted matching and DN losses for automatic optimization."""
+        """Sum the injected criterion's weighted losses for automatic optimization."""
         del batch_idx
         images, targets = batch
         output = self.training_model(images, targets=targets)
@@ -98,8 +97,16 @@ class RTDETRLightningModule(LightningModule):
             if self.parameter_groups_factory is not None
             else [{"params": [p for p in self.training_model.parameters() if p.requires_grad]}]
         )
+        model_parameters = {id(p) for p in self.training_model.parameters()}
+        criterion_parameters = [
+            p
+            for p in self.criterion.parameters()
+            if p.requires_grad and id(p) not in model_parameters
+        ]
+        if criterion_parameters:
+            parameters = [*parameters, {"params": criterion_parameters}]
         optimizer = self.optimizer_factory(parameters)
-        expected = {id(p) for p in self.training_model.parameters() if p.requires_grad}
+        expected = {id(p) for p in self.parameters() if p.requires_grad}
         actual = [id(p) for group in optimizer.param_groups for p in group["params"]]
         if set(actual) != expected or len(actual) != len(expected):
             msg = "Optimizer must own every trainable parameter exactly once"
@@ -147,21 +154,23 @@ class RTDETRLightningModule(LightningModule):
 
     def _recipe(self) -> dict[str, Any]:
         """Record settings that tensor shapes alone cannot validate during resume."""
+        model_type = type(self.training_model)
+        criterion_type = type(self.criterion)
         return {
-            "version": 1,
+            "version": 2,
             "optimizer": _factory_recipe(self.optimizer_factory),
             "scheduler": _factory_recipe(self.scheduler_factory),
             "parameter_groups": _factory_recipe(self.parameter_groups_factory),
-            "denoising": asdict(self.training_model.denoising.config),
-            "decoder": asdict(self.training_model.model.decoder.config),
-            "encoder": asdict(self.training_model.model.encoder.config),
-            "selector": asdict(self.training_model.model.selector.config),
-            "criterion": asdict(self.criterion.config),
-            "matcher": asdict(self.criterion.matcher.config),
+            "training_model": {
+                "target": f"{model_type.__module__}.{model_type.__qualname__}",
+                "config": self.training_model.checkpoint_config(),
+            },
+            "criterion": {
+                "target": f"{criterion_type.__module__}.{criterion_type.__qualname__}",
+                "config": self.criterion.checkpoint_config(),
+            },
             "trainable_parameters": tuple(
-                name
-                for name, parameter in self.training_model.named_parameters()
-                if parameter.requires_grad
+                name for name, parameter in self.named_parameters() if parameter.requires_grad
             ),
         }
 

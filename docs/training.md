@@ -97,6 +97,9 @@ sum(losses.values()).backward()
 ```
 
 The wrapper owns the detector and learnable `denoising.class_embed` together.
+It implements `TrainingModel[ModelOutput]`; `SetCriterion` implements
+`TrainingCriterion[DetectionOutput | ModelOutput]`. These optional integration
+interfaces are described in [Lightning training](lightning.md#model-and-criterion-interfaces).
 Use `training_model.parameters()` for optimizer construction and its `state_dict()`
 for weights. The core detector receives no dataset targets. In evaluation mode,
 call the wrapper without targets; it delegates to the inference model and does

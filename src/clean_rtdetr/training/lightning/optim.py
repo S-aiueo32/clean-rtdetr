@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from clean_rtdetr.training.model import DenoisingTrainingModel
+from torch import nn
 
 if TYPE_CHECKING:
     from torch import Tensor
@@ -41,7 +41,7 @@ class RTDETRParameterGroups:
             msg = "Backbone learning rate must be finite and positive"
             raise ValueError(msg)
 
-    def __call__(self, model: DenoisingTrainingModel) -> list[dict[str, Any]]:
+    def __call__(self, model: nn.Module) -> list[dict[str, Any]]:
         """Partition every trainable parameter exactly once using upstream names."""
         groups: dict[str, list[Tensor]] = {key: [] for key in ("backbone", "no_decay", "default")}
         for name, parameter in model.named_parameters():

@@ -2,18 +2,20 @@
 """Training composition that owns DN parameters and keeps the core target-free."""
 
 from collections.abc import Sequence
+from dataclasses import asdict
 
 from jaxtyping import Float
-from torch import Tensor, nn
+from torch import Tensor
 
 from clean_rtdetr.core.contracts import DecoderOutput, DenoisingOutput, DetectionOutput, ModelOutput
 from clean_rtdetr.models.decoder import DecoderPlan
 from clean_rtdetr.models.rtdetr import RTDETR
 from clean_rtdetr.training.contracts import DetectionTarget
 from clean_rtdetr.training.denoising import DenoisingQueryGenerator
+from clean_rtdetr.training.interfaces import TrainingModel
 
 
-class DenoisingTrainingModel(nn.Module):
+class DenoisingTrainingModel(TrainingModel[ModelOutput]):
     """Register a detector and DN generator together for optimizers and state dicts."""
 
     def __init__(self, model: RTDETR, denoising: DenoisingQueryGenerator) -> None:
@@ -73,3 +75,16 @@ class DenoisingTrainingModel(nn.Module):
                 prepared.metadata,
             ),
         )
+
+    def predict(self, images: Float[Tensor, "batch channels height width"]) -> ModelOutput:
+        """Return target-free predictions from the composed detector."""
+        return self.model(images)
+
+    def checkpoint_config(self) -> dict[str, object]:
+        """Describe configuration that is not represented by model parameters."""
+        return {
+            "denoising": asdict(self.denoising.config),
+            "decoder": asdict(self.model.decoder.config),
+            "encoder": asdict(self.model.encoder.config),
+            "selector": asdict(self.model.selector.config),
+        }
