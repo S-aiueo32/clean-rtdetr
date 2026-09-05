@@ -1,0 +1,33 @@
+[build-system]
+requires = ["hatchling>=1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "clean-rtdetr"
+version = "0.1.0.dev0"
+description = "Readable RT-DETR components for composable detection research"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = ["torch>=2.6,<3"]
+
+[dependency-groups]
+dev = ["pytest>=8,<10", "ruff>=0.11,<1"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/clean_rtdetr"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"third_party/RT-DETR/LICENSE" = "clean_rtdetr/licenses/RT-DETR-APACHE-2.0.txt"
+"third_party/RT-DETR/README.md" = "clean_rtdetr/licenses/RT-DETR-PROVENANCE.md"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+extend-exclude = ["third_party"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]

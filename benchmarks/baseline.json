@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "upstream": {
+    "repository": "https://github.com/lyuwenyu/RT-DETR",
+    "commit": "068dfde65f2667ad6555883c69d73de886518cad",
+    "config": "rtdetr_pytorch/configs/rtdetr/rtdetr_r50vd_6x_coco.yml",
+    "oracle_sha256": "c2837740cb66f128b72e802463db57ee3653e15d964baa3b9cf58cc27a817588"
+  },
+  "model": {
+    "name": "rtdetr_r50vd",
+    "num_classes": 80,
+    "num_queries": 300,
+    "decoder_layers": 6,
+    "eval_image_size_hw": [640, 640]
+  },
+  "checkpoint": null,
+  "evaluation": null,
+  "latency": null,
+  "status": "stage-parity-only; full baseline capture pending"
+}

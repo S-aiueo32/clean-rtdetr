@@ -1,0 +1,31 @@
+# Implementation roadmap
+
+The design proposal is an architectural target. This file records implemented
+scope separately so a passing small-stage test cannot imply complete reproduction.
+
+## First increment
+
+- [x] Private repository, Python package, isolated development environment.
+- [x] Preserve the design proposal and pin upstream source provenance.
+- [x] Feature contracts, memory projection, anchors, and query selection.
+- [x] Score/box head injection with real parameter registration and gradients.
+- [x] Compare stage outputs and gradients against unchanged upstream methods.
+- [ ] Capture an official checkpoint, its hash, and the model/EMA selection.
+- [ ] Capture full R50vd stage fixtures, COCO AP, and latency in a fixed GPU environment.
+
+## Next increment
+
+1. Add strict checkpoint key conversion for implemented stages and complete R50vd.
+2. Implement the decoder and query assembly, preserving iterative box updates,
+   detach routes, and explicit inference layer selection.
+3. Bring up PResNet and HybridEncoder, including an explicit AIFI feature boundary.
+4. Establish complete-model checkpoint/stage parity before claiming an inference baseline.
+5. Add fixed-shape export, then DN, criterion, training/resume and composition.
+
+## Research acceptance
+
+Exercise training-only branches with shared decoder weights, feature distillation
+and controller state, distribution regression, and recipe/loss composition. Each
+extension progresses independently through contract tests, reproduction, export,
+and backend verification. Start official DEIM + D-FINE and RT-DETRv3/v4 integrations
+once their required boundaries have passed these smaller checks.
