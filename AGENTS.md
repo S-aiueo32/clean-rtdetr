@@ -7,8 +7,9 @@ scope covers image-to-prediction R50vd, including multi-scale features, projecte
 memory, selected queries, and iterative decoder predictions, plus separate
 Pillow/uint8 image preprocessing, top-k detection postprocessing, and fixed-shape
 ONNX export with CPU FP32 runtime parity. Separate COCO prediction JSON and
-optional bbox metric evaluation are implemented. Training criteria and measured
-full-dataset COCO AP remain outside the validated scope.
+optional bbox metric evaluation are implemented. Single-process Hungarian
+matching and Varifocal/L1/GIoU training losses are implemented with CPU parity.
+Full training and measured full-dataset COCO AP remain outside the validated scope.
 
 ## Repository guidance
 

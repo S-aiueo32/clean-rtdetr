@@ -22,12 +22,17 @@ projected memory → selected queries → iterative decoder predictions** in PyT
 - Shared Pillow/uint8 image preprocessing and upstream-compatible top-k postprocessing.
 - Fixed-shape ONNX export through the `FixedShapeRTDETR` wrapper, with CPU FP32
   ONNX Runtime parity verification.
+- Single-process Hungarian matching and Varifocal/L1/GIoU losses, with CPU
+  upstream loss/gradient parity and decoder/encoder auxiliary supervision.
 
 COCO-format prediction JSON and optional official bbox evaluation are available
 as separate commands; see [COCO evaluation](docs/evaluation.md). pycocotools is
 loaded only by the metric adapter, and is unnecessary for prediction generation.
 
-Denoising construction, training criteria, and full-dataset COCO AP validation
+See [training losses](docs/training.md) for the target contract and a synthetic
+CPU backward example. SciPy is an optional training dependency for assignment.
+
+Denoising construction, full training, and full-dataset COCO AP validation
 remain to be implemented. No AP or latency is claimed; export is limited to the fixed
 batch-1 640×640 CPU FP32 profile described below.
 `examples/query_selection.py` continues to demonstrate the component path using

@@ -26,6 +26,12 @@ scope separately so a passing small-stage test cannot imply complete reproductio
 6. [x] Add fixed-shape ONNX export and CPU FP32 runtime parity.
 7. [ ] Add DN, criterion, training/resume, and composition.
 
+The single-process FP32/FP64 matching criterion is implemented with Hungarian
+assignment and Varifocal/L1/GIoU losses, including decoder and encoder auxiliary
+supervision. CPU upstream loss/gradient parity is covered by offline tests; see
+[training losses](training.md). DN, full training/resume, and composition remain
+pending, so step 7 is not complete.
+
 The image-to-prediction API returns raw class logits and normalized cxcywh boxes.
 Separate image I/O accepts Pillow images or CPU uint8 RGB tensors using the same
 640×640 Pillow resize path. Postprocessing returns scores, class indices, and
