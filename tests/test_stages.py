@@ -6,6 +6,7 @@ from dataclasses import replace
 
 import pytest
 import torch
+from jaxtyping import TypeCheckError
 from torch import nn
 
 from clean_rtdetr import (
@@ -204,7 +205,7 @@ def test_invalid_metadata_is_rejected_before_selection() -> None:
     features = encoded()
     with pytest.raises(ValueError, match="prefix sum"):
         replace(features, level_start_index=torch.tensor([0, 1, 2])).validate()
-    with pytest.raises(ValueError, match="int64"):
+    with pytest.raises((ValueError, TypeCheckError), match=r"(?:int64|Int64)"):
         replace(features, spatial_shapes=features.spatial_shapes.float()).validate()
     with pytest.raises(ValueError, match="sequence length"):
         replace(features, memory=features.memory[:, :-1]).validate()

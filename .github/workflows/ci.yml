@@ -9,6 +9,10 @@ permissions:
 
 jobs:
   stages:
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.13", "3.14"]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -16,11 +20,11 @@ jobs:
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           version: "0.12.10"
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
           enable-cache: true
       - run: uv sync --locked
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run ty check
-      - run: uv run pytest
+      - run: uv run pytest --cov=clean_rtdetr --cov-report=term-missing
       - run: uv run python examples/query_selection.py

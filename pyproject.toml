@@ -9,11 +9,19 @@ description = "Readable RT-DETR components for composable detection research"
 readme = "README.md"
 license = { file = "LICENSE" }
 classifiers = ["License :: OSI Approved :: Apache Software License"]
-requires-python = ">=3.11"
+requires-python = ">=3.13"
 dependencies = ["jaxtyping>=0.3,<1", "torch>=2.6,<3"]
 
 [dependency-groups]
-dev = ["pytest>=8,<10", "ruff>=0.11,<1", "ty>=0.0.1,<1"]
+dev = [
+    "beartype>=0.20,<1",
+    "hypothesis>=6,<7",
+    "pre-commit>=4,<5",
+    "pytest>=8,<10",
+    "pytest-cov>=6,<8",
+    "ruff>=0.11,<1",
+    "ty>=0.0.1,<1",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/clean_rtdetr"]
@@ -24,7 +32,7 @@ packages = ["src/clean_rtdetr"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra"
+addopts = ["-ra", "--jaxtyping-packages=clean_rtdetr,beartype.beartype"]
 
 [tool.ruff]
 target-version = "py311"
