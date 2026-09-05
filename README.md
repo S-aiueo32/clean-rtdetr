@@ -9,7 +9,7 @@ from deployment transformations.
 The first slice implements **multi-scale features → projected memory → selected
 queries** in PyTorch, with constructor injection for score and box heads.
 
-- Frozen feature/query contracts with eager boundary validation.
+- Frozen feature/query contracts with jaxtyping shape/dtype annotations and eager validation.
 - Decoder input projection, row-major flattening, and explicit level offsets.
 - Anchor generation and top-k selection preserving upstream masking semantics.
 - Feature-content detach and differentiable encoder auxiliary predictions.
@@ -22,7 +22,7 @@ The included example uses synthetic features and randomly initialized weights.
 
 ## Development
 
-Python 3.12 is used for development. The runtime dependency is PyTorch; pytest,
+Python 3.12 is used for development. Runtime dependencies are PyTorch and jaxtyping; pytest,
 Ruff, and ty are in the development group. Use the committed lockfile:
 
 ```sh
@@ -37,11 +37,20 @@ uv run python examples/query_selection.py
 Ruff selects `ALL`, with documented exceptions for formatter/docstring conflicts,
 pytest assertions and upstream private-method access, and example output. The
 hash-verified oracle loader has one local `S102` exemption for executing the
-pinned methods. ty checks `src`, `tests`, and `examples` without rule suppressions.
+pinned methods. The three modules with jaxtyping shape strings exempt `F722`
+because these strings are not Python forward references; `F821` remains enabled.
+ty checks `src`, `tests`, and `examples` without rule suppressions.
 The unchanged vendored upstream source is outside both tools' check scope.
 
 Validators currently use eager checks and host-visible shape metadata. Export
 will have a separate tensor-only boundary; this slice is not export-ready.
+
+Tensor boundaries use annotations such as `Float[Tensor, "batch queries 4"]` and
+`Int64[Tensor, "batch queries"]`. These document tensor shape/dtype while ty checks
+Python types; they do not statically prove dimension equality. No automatic
+jaxtyping runtime decorators are installed: existing explicit validators remain
+responsible for runtime checks. JAX is not required. See the
+[tensor annotation conventions](docs/extensions.md#tensor-annotation-conventions).
 
 ## Research direction
 

@@ -6,12 +6,13 @@ Provenance and the upstream license are recorded in third_party/RT-DETR/.
 """
 
 import torch
+from jaxtyping import Bool, Float
 from torch import Tensor
 
 MAX_PROBABILITY_EPS = 0.5
 
 
-def inverse_sigmoid(values: Tensor, eps: float = 1e-5) -> Tensor:
+def inverse_sigmoid(values: Float[Tensor, "*shape"], eps: float = 1e-5) -> Float[Tensor, "*shape"]:
     """Preserve upstream's separate numerator/denominator clamp at the endpoints."""
     if not 0 < eps < MAX_PROBABILITY_EPS:
         msg = "eps must be between 0 and 0.5"
@@ -27,7 +28,7 @@ def generate_anchors(
     dtype: torch.dtype = torch.float32,
     grid_size: float = 0.05,
     eps: float = 0.01,
-) -> tuple[Tensor, Tensor]:
+) -> tuple[Float[Tensor, "1 sequence 4"], Bool[Tensor, "1 sequence 1"]]:
     """Return logit cxcywh [1,S,4] and True=valid bool [1,S,1].
 
     Reference anchors are generated on CPU then moved, matching upstream's

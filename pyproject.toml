@@ -8,7 +8,7 @@ version = "0.1.0.dev0"
 description = "Readable RT-DETR components for composable detection research"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = ["torch>=2.6,<3"]
+dependencies = ["jaxtyping>=0.3,<1", "torch>=2.6,<3"]
 
 [dependency-groups]
 dev = ["pytest>=8,<10", "ruff>=0.11,<1", "ty>=0.0.1,<1"]
@@ -35,6 +35,10 @@ select = ["ALL"]
 ignore = ["COM812", "D203", "D213"]
 
 [tool.ruff.lint.per-file-ignores]
+# jaxtyping shape strings are not Python forward references (upstream FAQ).
+"src/clean_rtdetr/core/contracts.py" = ["F722"]
+"src/clean_rtdetr/core/geometry.py" = ["F722"]
+"src/clean_rtdetr/models/selector.py" = ["F722"]
 # Pytest assertions and calls into the pinned upstream private stage methods.
 "tests/**" = ["S101", "SLF001"]
 # The executable example intentionally displays tensor shapes.

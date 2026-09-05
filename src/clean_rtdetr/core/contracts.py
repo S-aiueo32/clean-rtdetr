@@ -4,6 +4,7 @@
 from dataclasses import dataclass
 
 import torch
+from jaxtyping import Float, Int64
 from torch import Tensor
 
 FEATURE_RANK = 4
@@ -30,7 +31,7 @@ class FeatureSpec:
 class MultiScaleFeatures:
     """Pair NCHW feature levels with their ordered construction specifications."""
 
-    levels: tuple[Tensor, ...]
+    levels: tuple[Float[Tensor, "batch _channels _height _width"], ...]
     specs: tuple[FeatureSpec, ...]
 
     def validate(self) -> None:
@@ -64,9 +65,9 @@ class MultiScaleFeatures:
 class EncodedFeatures:
     """Store projected memory and the spatial metadata needed by the decoder."""
 
-    memory: Tensor  # [B, S, C], level order then row-major (W advances first)
-    spatial_shapes: Tensor  # [N, 2], int64 (H, W)
-    level_start_index: Tensor  # [N], int64 prefix sum
+    memory: Float[Tensor, "batch sequence channels"]  # level order, then W advances first
+    spatial_shapes: Int64[Tensor, "levels 2"]  # (H, W)
+    level_start_index: Int64[Tensor, " levels"]  # leading space avoids Ruff F821; prefix sum
 
     def validate(self) -> None:
         """Check memory layout and the exact level area/offset correspondence."""
@@ -109,9 +110,9 @@ class QuerySet:
     retain gradients here; query assembly owns their eventual detach before decoding.
     """
 
-    content: Tensor  # [B, Q, C]
-    ref_logits: Tensor  # [B, Q, 4], normalized cxcywh before sigmoid
-    source_indices: Tensor  # [B, Q], int64
+    content: Float[Tensor, "batch queries channels"]
+    ref_logits: Float[Tensor, "batch queries 4"]  # normalized cxcywh before sigmoid
+    source_indices: Int64[Tensor, "batch queries"]
 
 
 @dataclass(frozen=True)
@@ -119,5 +120,5 @@ class SelectionOutput:
     """Keep initialized queries and differentiable encoder auxiliary predictions."""
 
     queries: QuerySet
-    encoder_logits: Tensor  # [B, Q, K], retains gradient for auxiliary loss
-    encoder_boxes: Tensor  # [B, Q, 4], normalized cxcywh, retains gradient
+    encoder_logits: Float[Tensor, "batch queries classes"]  # retains auxiliary loss gradient
+    encoder_boxes: Float[Tensor, "batch queries 4"]  # normalized cxcywh, retains gradient

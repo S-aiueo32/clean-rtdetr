@@ -9,6 +9,7 @@ import math
 from dataclasses import dataclass
 
 import torch
+from jaxtyping import Float
 from torch import Tensor, nn
 
 from clean_rtdetr.core.contracts import EncodedFeatures, QuerySet, SelectionOutput
@@ -50,7 +51,7 @@ class BoxHead(nn.Module):
         nn.init.zeros_(layers[-1].weight)
         nn.init.zeros_(layers[-1].bias)
 
-    def forward(self, values: Tensor) -> Tensor:
+    def forward(self, values: Float[Tensor, "*batch channels"]) -> Float[Tensor, "*batch 4"]:
         """Predict four coordinate deltas for each memory position."""
         for layer in self.layers[:-1]:
             values = torch.relu(layer(values))
@@ -116,7 +117,9 @@ class QuerySelector(nn.Module):
         coordinates = deltas + anchors
         indices = torch.topk(logits.max(-1).values, cfg.num_queries, dim=1).indices
 
-        def gather(values: Tensor) -> Tensor:
+        def gather(
+            values: Float[Tensor, "batch sequence channels"],
+        ) -> Float[Tensor, "batch queries channels"]:
             return values.gather(1, indices.unsqueeze(-1).expand(-1, -1, values.shape[-1]))
 
         refs = gather(coordinates)
