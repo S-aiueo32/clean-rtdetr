@@ -4,9 +4,9 @@
 Changed: standalone module, FeatureSpec-driven construction and typed output.
 """
 
-from __future__ import annotations
-
 from collections import OrderedDict
+from collections.abc import Sequence
+from dataclasses import asdict
 from itertools import pairwise
 from typing import TYPE_CHECKING
 
@@ -17,12 +17,13 @@ if TYPE_CHECKING:
     from jaxtyping import Float, Int64
 
 from clean_rtdetr.core.contracts import EncodedFeatures, FeatureSpec, MultiScaleFeatures
+from clean_rtdetr.models.interfaces import Projector
 
 
-class MemoryProjector(nn.Module):
+class MemoryProjector(Projector):
     """Project supplied levels to hidden_dim and flatten without implicit extra levels."""
 
-    def __init__(self, specs: tuple[FeatureSpec, ...], hidden_dim: int = 256) -> None:
+    def __init__(self, specs: Sequence[FeatureSpec], hidden_dim: int = 256) -> None:
         """Build a Conv/BN projection for each explicitly supplied feature level."""
         super().__init__()
         if not specs or hidden_dim <= 0:
@@ -61,3 +62,7 @@ class MemoryProjector(nn.Module):
         )
         sizes = shapes.prod(dim=1)
         return EncodedFeatures(memory, shapes, sizes.cumsum(0) - sizes)
+
+    def checkpoint_config(self) -> dict[str, object]:
+        """Describe projector dimensions and input feature specifications."""
+        return {"specs": tuple(asdict(spec) for spec in self.specs), "hidden_dim": self.hidden_dim}

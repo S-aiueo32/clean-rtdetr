@@ -19,7 +19,7 @@ from clean_rtdetr.models.decoder import Decoder, DecoderConfig, DecoderPlan
 from clean_rtdetr.models.encoder import HybridEncoder, HybridEncoderConfig
 from clean_rtdetr.models.memory import MemoryProjector
 from clean_rtdetr.models.queries import QueryAssembler
-from clean_rtdetr.models.rtdetr import RTDETR, build_rtdetr_r50vd
+from clean_rtdetr.models.rtdetr import RTDETR
 from clean_rtdetr.models.selector import QuerySelector, QuerySelectorConfig
 
 __all__ = [
@@ -45,5 +45,4 @@ __all__ = [
     "QuerySelector",
     "QuerySelectorConfig",
     "QuerySet",
-    "build_rtdetr_r50vd",
 ]

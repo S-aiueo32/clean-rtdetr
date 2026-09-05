@@ -146,6 +146,7 @@ name = "clean-rtdetr"
 version = "0.1.0.dev0"
 source = { editable = "." }
 dependencies = [
+    { name = "hydra-core" },
     { name = "jaxtyping" },
     { name = "torch" },
 ]
@@ -163,7 +164,6 @@ inference = [
     { name = "pillow" },
 ]
 lightning = [
-    { name = "hydra-core" },
     { name = "lightning" },
     { name = "scipy" },
 ]
@@ -188,7 +188,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "hydra-core", marker = "extra == 'lightning'", specifier = ">=1.3,<1.4" },
+    { name = "hydra-core", specifier = ">=1.3,<1.4" },
     { name = "jaxtyping", specifier = ">=0.3,<1" },
     { name = "lightning", marker = "extra == 'lightning'", specifier = ">=2.6,<3" },
     { name = "onnx", marker = "extra == 'export'", specifier = ">=1.18,<2" },

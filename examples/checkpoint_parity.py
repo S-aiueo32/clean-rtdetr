@@ -23,6 +23,8 @@ import torch
 # lives in the repository's tests/ package rather than the installed library.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from hydra.utils import instantiate
+
 from clean_rtdetr import (
     Decoder,
     DecoderConfig,
@@ -32,9 +34,9 @@ from clean_rtdetr import (
     QueryAssembler,
     QuerySelector,
     QuerySelectorConfig,
-    build_rtdetr_r50vd,
 )
 from clean_rtdetr.compatibility import load_official_model_weights, load_official_stage_weights
+from clean_rtdetr.configuration import compose_model_config
 from tests.official_oracle import (
     BACKBONE_COMMON_SHA256,
     HYBRID_ENCODER_SHA256,
@@ -244,7 +246,7 @@ def _run_full_model(  # noqa: C901, PLR0915
 ) -> dict[str, object]:
     """Compare the composed image-to-prediction model with independent upstream stages."""
     torch.manual_seed(SEED)
-    model = build_rtdetr_r50vd().eval()
+    model = instantiate(compose_model_config("r50vd"), _convert_="all").eval()
     report = load_official_model_weights(
         checkpoint,
         model=model,

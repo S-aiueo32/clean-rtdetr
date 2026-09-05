@@ -47,9 +47,11 @@ synthetic features and randomly initialized weights.
 
 ```python
 import torch
-from clean_rtdetr import DecoderPlan, build_rtdetr_r50vd
+from hydra.utils import instantiate
+from clean_rtdetr import DecoderPlan
+from clean_rtdetr.configuration import compose_model_config
 
-model = build_rtdetr_r50vd().eval()  # Random weights; no automatic download.
+model = instantiate(compose_model_config("r50vd"), _convert_="all").eval()  # Random weights.
 with torch.inference_mode():
     output = model(torch.rand(1, 3, 640, 640), plan=DecoderPlan(collect_intermediate=False))
 print(output.final.logits.shape, output.final.boxes.shape)  # [1,300,80], [1,300,4]
@@ -83,10 +85,13 @@ Install the export dependencies with `uv sync --locked --extra export`. The
 
 ```python
 from pathlib import Path
-from clean_rtdetr import build_rtdetr_r50vd
+from hydra.utils import instantiate
+from clean_rtdetr.configuration import compose_model_config
 from clean_rtdetr.export import export_onnx
 
-model = build_rtdetr_r50vd().eval()  # Random weights; load a checkpoint for trained predictions.
+model = instantiate(
+    compose_model_config("r50vd"), _convert_="all"
+).eval()  # Load trained weights separately.
 report = export_onnx(model, Path("outputs/rtdetr.onnx"))
 ```
 

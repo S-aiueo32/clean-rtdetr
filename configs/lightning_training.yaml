@@ -1,6 +1,13 @@
 # Small CPU recipe for the Hydra + Lightning integration example.
+hydra:
+  searchpath:
+    - pkg://clean_rtdetr.configs
+
 defaults:
   - model@module.training_model.model: compact
+  - denoising@module.training_model.denoising: contrastive
+  - criterion@module.criterion: set
+  - matcher@module.criterion.matcher: hungarian
   - optimizer@module.optimizer_factory: adamw
   - scheduler@module.scheduler_factory: multistep
   - _self_
@@ -19,15 +26,6 @@ module:
   _target_: clean_rtdetr.training.lightning.RTDETRLightningModule
   training_model:
     _target_: clean_rtdetr.training.DenoisingTrainingModel
-    denoising:
-      _target_: clean_rtdetr.training.DenoisingQueryGenerator
-      num_classes: ${dimensions.num_classes}
-      hidden_dim: ${dimensions.hidden_dim}
-      config:
-        _target_: clean_rtdetr.training.DenoisingConfig
-        num_denoising: 4
-  criterion:
-    _target_: clean_rtdetr.training.SetCriterion
   parameter_groups_factory:
     _target_: clean_rtdetr.training.lightning.RTDETRParameterGroups
     backbone_lr: 0.00001

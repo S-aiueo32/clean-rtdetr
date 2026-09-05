@@ -12,7 +12,13 @@ import pytest
 import torch
 
 from clean_rtdetr.core.contracts import DecoderOutput, DetectionOutput, ModelOutput
-from clean_rtdetr.training import CriterionConfig, DetectionTarget, MatcherConfig, SetCriterion
+from clean_rtdetr.training import (
+    CriterionConfig,
+    DetectionTarget,
+    HungarianMatcher,
+    MatcherConfig,
+    SetCriterion,
+)
 
 if TYPE_CHECKING:
     from torch import Tensor
@@ -45,7 +51,7 @@ def test_prediction_eager_validation(field: str, tensor: Tensor, message: str) -
     output, targets = _batch()
     object.__setattr__(output, field, tensor)
     with pytest.raises(ValueError, match=message):
-        SetCriterion()(output, targets)
+        SetCriterion(matcher=HungarianMatcher())(output, targets)
 
 
 @pytest.mark.parametrize(
@@ -70,7 +76,7 @@ def test_target_eager_validation(field: str, tensor: Tensor, message: str) -> No
     output, targets = _batch()
     object.__setattr__(targets[0], field, tensor)
     with pytest.raises(ValueError, match=message):
-        SetCriterion()(output, targets)
+        SetCriterion(matcher=HungarianMatcher())(output, targets)
 
 
 def test_batch_target_count_must_match() -> None:
@@ -78,7 +84,7 @@ def test_batch_target_count_must_match() -> None:
     output, targets = _batch()
     for invalid in ([], targets + targets):
         with pytest.raises(ValueError, match="one target"):
-            SetCriterion()(output, invalid)
+            SetCriterion(matcher=HungarianMatcher())(output, invalid)
 
 
 @pytest.mark.parametrize("field", ["weight_vfl", "weight_bbox", "weight_giou", "alpha", "gamma"])
@@ -112,7 +118,7 @@ def test_distributed_execution_is_rejected(monkeypatch: pytest.MonkeyPatch) -> N
     monkeypatch.setattr(torch.distributed, "get_world_size", lambda: 2)
     output, targets = _batch()
     with pytest.raises(ValueError, match="single-process"):
-        SetCriterion()(output, targets)
+        SetCriterion(matcher=HungarianMatcher())(output, targets)
 
 
 def test_encoder_classes_must_match_decoder() -> None:
@@ -124,7 +130,7 @@ def test_encoder_classes_must_match_decoder() -> None:
         None,
     )
     with pytest.raises(ValueError, match="Encoder predictions"):
-        SetCriterion()(model_output, targets)
+        SetCriterion(matcher=HungarianMatcher())(model_output, targets)
 
 
 def test_training_import_and_empty_targets_do_not_need_scipy() -> None:
@@ -135,17 +141,17 @@ import torch
 sys.modules['scipy'] = None
 sys.modules['scipy.optimize'] = None
 from clean_rtdetr.core.contracts import DetectionOutput
-from clean_rtdetr.training import DetectionTarget, SetCriterion
+from clean_rtdetr.training import DetectionTarget, HungarianMatcher, SetCriterion
 output = DetectionOutput(torch.zeros(1, 2, 3, requires_grad=True),
                          torch.zeros(1, 2, 4, requires_grad=True))
 empty = DetectionTarget(torch.empty(0, dtype=torch.int64), torch.empty(0, 4))
-losses = SetCriterion()(output, [empty])
+losses = SetCriterion(matcher=HungarianMatcher())(output, [empty])
 sum(losses.values()).backward()
 assert output.boxes.grad is not None
 assert output.boxes.grad.count_nonzero() == 0
 target = DetectionTarget(torch.tensor([1]), torch.full((1, 4), 0.25))
 try:
-    SetCriterion()(output, [target])
+    SetCriterion(matcher=HungarianMatcher())(output, [target])
 except ImportError as error:
     assert 'clean-rtdetr[training]' in str(error)
 else:

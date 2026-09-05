@@ -23,7 +23,7 @@ from clean_rtdetr.compatibility import (
     load_official_model_weights,
     load_official_stage_weights,
 )
-from clean_rtdetr.models.rtdetr import build_rtdetr_r50vd
+from tests.test_model import baseline_model
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -266,7 +266,7 @@ def test_full_loader_maps_front_and_back_and_excludes_dn_and_frozen_counters(
     tmp_path: Path,
 ) -> None:
     """Load the complete supported composition with official decoder namespaces."""
-    model = build_rtdetr_r50vd()
+    model = baseline_model()
     state = _full_state(model)
     markers = ("backbone.conv1.conv1_1.conv.weight", "encoder.input_proj.0.0.weight")
     for key in markers:
@@ -291,7 +291,7 @@ def test_full_loader_maps_front_and_back_and_excludes_dn_and_frozen_counters(
 
 def test_full_loader_synthesizes_encoder_bn_and_selects_ema(tmp_path: Path) -> None:
     """EMA selection and missing encoder BN counters are handled explicitly."""
-    model = build_rtdetr_r50vd()
+    model = baseline_model()
     state = _full_state(model)
     state.pop("encoder.input_proj.0.1.num_batches_tracked")
     marker = torch.full_like(state["decoder.enc_score_head.weight"], 4.0)
@@ -312,7 +312,7 @@ def test_full_loader_synthesizes_encoder_bn_and_selects_ema(tmp_path: Path) -> N
 @pytest.mark.parametrize("failure", ["missing", "unknown", "shape", "dtype", "hash", "source"])
 def test_full_loader_validation_is_atomic(tmp_path: Path, failure: str) -> None:
     """Any invalid full-model key leaves every stage untouched."""
-    model = build_rtdetr_r50vd()
+    model = baseline_model()
     state = _full_state(model)
     if failure == "missing":
         state.pop("encoder.input_proj.0.0.weight")

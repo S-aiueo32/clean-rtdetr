@@ -60,7 +60,7 @@ def test_cli_success_writes_nested_report_and_prints_path(
     checkpoint.write_bytes(b"local checkpoint")
     output = tmp_path / "artifacts" / "model.onnx"
     report = tmp_path / "reports" / "model.json"
-    monkeypatch.setattr(cli, "build_rtdetr_r50vd", _small_model)
+    monkeypatch.setattr(cli, "instantiate", lambda _config, **_kwargs: _small_model())
     monkeypatch.setattr(cli, "load_official_model_weights", _load_report)
 
     def fake_export(_model: object, destination: Path) -> dict[str, object]:
@@ -93,7 +93,7 @@ def test_cli_failure_persists_export_report_and_exits(
     output = tmp_path / "model.onnx"
     report = tmp_path / "reports" / "failure.json"
     failure: dict[str, object] = {"passed": False, "checks": [{"name": "logits"}]}
-    monkeypatch.setattr(cli, "build_rtdetr_r50vd", _small_model)
+    monkeypatch.setattr(cli, "instantiate", lambda _config, **_kwargs: _small_model())
     monkeypatch.setattr(cli, "load_official_model_weights", _load_report)
 
     def fail_export(*_args: object, **_kwargs: object) -> dict[str, object]:

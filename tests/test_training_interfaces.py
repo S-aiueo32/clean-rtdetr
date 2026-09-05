@@ -15,14 +15,29 @@ from torch.utils.data import DataLoader, Dataset
 lightning = pytest.importorskip("lightning")
 from lightning.pytorch.callbacks import ModelCheckpoint  # noqa: E402
 
-from clean_rtdetr.core.contracts import DetectionOutput  # noqa: E402
-from clean_rtdetr.training import SetCriterion  # noqa: E402
+from clean_rtdetr.core.contracts import (  # noqa: E402
+    DecoderInput,
+    DecoderOutput,
+    DenoisingBatch,
+    DenoisingMetadata,
+    DenoisingOutput,
+    DenoisingQueries,
+    DetectionOutput,
+    ModelOutput,
+    QuerySet,
+)
+from clean_rtdetr.models.interfaces import Assembler, Detector  # noqa: E402
+from clean_rtdetr.models.queries import QueryAssembler  # noqa: E402
+from clean_rtdetr.training import DenoisingBatch as PublicDenoisingBatch  # noqa: E402
+from clean_rtdetr.training import DenoisingTrainingModel, SetCriterion  # noqa: E402
 from clean_rtdetr.training.contracts import (  # noqa: E402
     DetectionTarget,
     MatchIndices,
     validate_detection,
 )
+from clean_rtdetr.training.denoising import DenoisingBatch as LegacyDenoisingBatch  # noqa: E402
 from clean_rtdetr.training.interfaces import (  # noqa: E402
+    DenoisingGenerator,
     Matcher,
     TrainingCriterion,
     TrainingModel,
@@ -32,6 +47,8 @@ from clean_rtdetr.training.lightning import RTDETRLightningModule  # noqa: E402
 if TYPE_CHECKING:
     from collections.abc import Sequence
     from pathlib import Path
+
+    from clean_rtdetr.models.decoder import DecoderPlan
 
 
 @dataclass(frozen=True)
@@ -78,22 +95,40 @@ class AlternateToyTrainingModel(ToyTrainingModel):
 class ToyCriterion(TrainingCriterion[ToyPrediction]):
     """Criterion with its own trainable parameter."""
 
-    def __init__(self, *, recipe: str = "mse", shared: nn.Parameter | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        recipe: str = "mse",
+        shared: nn.Parameter | None = None,
+        matcher: Matcher | None = None,
+    ) -> None:
         """Create a loss scale, optionally shared with the model."""
         super().__init__()
         self.scale = nn.Parameter(torch.tensor(1.0)) if shared is None else shared
         self.recipe = recipe
+        self.matcher = matcher
 
     def forward(
         self, output: ToyPrediction, targets: Sequence[DetectionTarget]
     ) -> dict[str, Tensor]:
         """Compute a scalar loss from the arbitrary prediction payload."""
+        if self.matcher is not None:
+            logits = output.values[:, None, None].expand(-1, 1, 3)
+            boxes = output.values.sigmoid()[:, None, None].expand(-1, 1, 4)
+            self.matcher(DetectionOutput(logits, boxes), targets)
         expected = torch.stack([target.boxes.mean() for target in targets])
         return {"toy": (output.values - expected).square().mean() * self.scale.square()}
 
     def checkpoint_config(self) -> dict[str, object]:
         """Return the non-tensor criterion recipe."""
-        return {"recipe": self.recipe}
+        if self.matcher is None:
+            return {"recipe": self.recipe}
+        matcher_type = type(self.matcher)
+        return {
+            "recipe": self.recipe,
+            "matcher": self.matcher.checkpoint_config(),
+            "matcher_class": f"{matcher_type.__module__}.{matcher_type.__qualname__}",
+        }
 
 
 class FixedMatcher(Matcher):
@@ -133,6 +168,126 @@ class FixedMatcher(Matcher):
     def checkpoint_config(self) -> dict[str, object]:
         """Describe the assignment policy without exposing a config attribute."""
         return {"reverse": self.reverse}
+
+
+class ToyDetector(Detector):
+    """Small detector implementation with no RT-DETR stage attributes."""
+
+    num_classes = 3
+    hidden_dim = 2
+    num_queries = 1
+
+    def __init__(self) -> None:
+        """Create the only projection needed by the toy decoder."""
+        super().__init__()
+        self.head = nn.Linear(self.hidden_dim, self.num_classes)
+        self.box_logit = nn.Parameter(torch.zeros(4))
+
+    def forward(
+        self,
+        images: Tensor,
+        *,
+        plan: DecoderPlan | None = None,
+        collect_aifi: bool = False,
+        denoising: DenoisingBatch | None = None,
+    ) -> ModelOutput:
+        """Return all DN queries before one learned matching query."""
+        del plan, collect_aifi
+        batch = images.shape[0]
+        matching = images.mean(dim=(1, 2, 3))[:, None, None].expand(
+            batch, self.num_queries, self.hidden_dim
+        )
+        queries = None if denoising is None else denoising.queries
+        content = matching if queries is None else torch.cat((queries.content, matching), dim=1)
+        all_logits = self.head(content).unsqueeze(0)
+        all_boxes = self.box_logit.sigmoid().expand(batch, content.shape[1], 4).unsqueeze(0)
+        count = 0 if denoising is None else denoising.metadata.num_queries
+        decoded = DecoderOutput(all_logits[:, :, count:], all_boxes[:, :, count:])
+        denoising_output = None
+        if denoising is not None:
+            denoising_output = DenoisingOutput(
+                DecoderOutput(all_logits[:, :, :count], all_boxes[:, :, :count]),
+                denoising.metadata,
+            )
+        encoder_logits = self.head(matching)
+        encoder_boxes = self.box_logit.sigmoid().expand(batch, self.num_queries, 4)
+        return ModelOutput(
+            decoded,
+            DetectionOutput(encoder_logits, encoder_boxes),
+            None,
+            denoising_output,
+        )
+
+    def checkpoint_config(self) -> dict[str, object]:
+        """Describe the detector independently of a stage layout."""
+        return {"variant": "toy"}
+
+
+class ToyAssembler(Assembler):
+    """Independent selectable assembler used to exercise stage-level Hydra DI."""
+
+    def __init__(self, *, variant: str = "toy") -> None:
+        """Keep a recipe value while delegating the established tensor operation."""
+        super().__init__()
+        self.variant = variant
+        self.implementation = QueryAssembler()
+
+    def forward(
+        self, matching: QuerySet, denoising: DenoisingQueries | None = None
+    ) -> DecoderInput:
+        """Assemble matching and optional denoising queries."""
+        return self.implementation(matching, denoising)
+
+    def checkpoint_config(self) -> dict[str, object]:
+        """Expose experiment selection without a concrete stage config."""
+        return {"variant": self.variant}
+
+
+class ToyDenoisingGenerator(DenoisingGenerator):
+    """Generate fixed-shape learned queries without embedding/config attributes."""
+
+    num_classes = 3
+    hidden_dim = 2
+
+    def __init__(self, *, metadata_queries: int = 2) -> None:
+        """Create learned content and optionally malformed metadata for boundary tests."""
+        super().__init__()
+        self.content = nn.Parameter(torch.tensor([0.1, 0.2]))
+        self.metadata_queries = metadata_queries
+
+    @property
+    def dtype(self) -> torch.dtype:
+        """Return the learned query dtype."""
+        return self.content.dtype
+
+    @property
+    def device(self) -> torch.device:
+        """Return the learned query device."""
+        return self.content.device
+
+    def forward(
+        self, targets: Sequence[DetectionTarget], *, num_queries: int
+    ) -> DenoisingBatch | None:
+        """Build two DN queries and one positive assignment per image."""
+        batch = len(targets)
+        count = 2
+        queries = DenoisingQueries(
+            self.content.expand(batch, count, self.hidden_dim),
+            torch.zeros(batch, count, 4, dtype=self.dtype, device=self.device),
+            torch.zeros(
+                count + num_queries, count + num_queries, dtype=torch.bool, device=self.device
+            ),
+        )
+        metadata = DenoisingMetadata(
+            tuple(torch.tensor([0], device=self.device) for _ in targets),
+            num_groups=1,
+            num_queries=self.metadata_queries,
+        )
+        return DenoisingBatch(queries, metadata)
+
+    def checkpoint_config(self) -> dict[str, object]:
+        """Describe metadata behavior without a config attribute."""
+        return {"metadata_queries": self.metadata_queries}
 
 
 class _IncompleteModel(TrainingModel[ToyPrediction]):
@@ -293,6 +448,13 @@ def test_set_criterion_accepts_matcher_interface_and_preserves_module_behavior()
     assert boxes.grad is not None
 
 
+def test_set_criterion_requires_explicit_matcher_selection() -> None:
+    """Construction cannot silently select an assignment implementation."""
+    criterion_type: Any = SetCriterion
+    with pytest.raises(TypeError, match="matcher"):
+        criterion_type()
+
+
 def test_set_criterion_checkpoint_uses_matcher_interface_configuration() -> None:
     """Matcher selection and settings form part of the criterion resume recipe."""
     normal = SetCriterion(matcher=FixedMatcher(reverse=False)).checkpoint_config()
@@ -302,3 +464,60 @@ def test_set_criterion_checkpoint_uses_matcher_interface_configuration() -> None
     assert reversed_["matcher"] == {"reverse": True}
     assert normal != reversed_
     assert cast("str", normal["matcher_class"]).endswith(".FixedMatcher")
+
+
+def test_denoising_wrapper_uses_only_detector_and_generator_interfaces() -> None:
+    """Custom modules retain hooks, parameters, gradients, splitting, and provenance."""
+    detector = ToyDetector()
+    generator = ToyDenoisingGenerator()
+    wrapper = DenoisingTrainingModel(detector, generator)
+    detector_hooks: list[object] = []
+    generator_hooks: list[object] = []
+    detector.register_forward_hook(lambda *_: detector_hooks.append(None))
+    generator.register_forward_hook(lambda *_: generator_hooks.append(None))
+    images = torch.ones(2, 3, 16, 16)
+    targets = [
+        DetectionTarget(torch.tensor([0]), torch.tensor([[0.5, 0.5, 0.2, 0.2]])),
+        DetectionTarget(torch.tensor([1]), torch.tensor([[0.4, 0.4, 0.3, 0.3]])),
+    ]
+
+    output = wrapper(images, targets=targets)
+    assert output.decoder.logits.shape == (1, 2, 1, 3)
+    assert output.denoising is not None
+    assert output.denoising.decoder.logits.shape == (1, 2, 2, 3)
+    assert detector_hooks == [None]
+    assert generator_hooks == [None]
+    (output.decoder.logits.sum() + output.denoising.decoder.logits.sum()).backward()
+    assert detector.head.weight.grad is not None
+    assert generator.content.grad is not None
+    assert "model.head.weight" in wrapper.state_dict()
+    assert "denoising.content" in wrapper.state_dict()
+    assert wrapper.checkpoint_config() == {
+        "denoising": {
+            "target": f"{ToyDenoisingGenerator.__module__}.{ToyDenoisingGenerator.__qualname__}",
+            "config": {"metadata_queries": 2},
+        },
+        "model": {
+            "target": f"{ToyDetector.__module__}.{ToyDetector.__qualname__}",
+            "config": {"variant": "toy"},
+        },
+    }
+
+
+def test_denoising_batch_keeps_public_compatibility_exports() -> None:
+    """Existing public import paths resolve to the canonical core contract."""
+    assert PublicDenoisingBatch is DenoisingBatch
+    assert LegacyDenoisingBatch is DenoisingBatch
+
+
+def test_denoising_wrapper_rejects_interface_metadata_mismatches() -> None:
+    """Composition validates declared dimensions and generated query metadata."""
+    wrong_dimensions = ToyDenoisingGenerator()
+    wrong_dimensions.num_classes = 4
+    with pytest.raises(ValueError, match="classes"):
+        DenoisingTrainingModel(ToyDetector(), wrong_dimensions)
+
+    wrapper = DenoisingTrainingModel(ToyDetector(), ToyDenoisingGenerator(metadata_queries=1))
+    target = DetectionTarget(torch.tensor([0]), torch.tensor([[0.5, 0.5, 0.2, 0.2]]))
+    with pytest.raises(ValueError, match=r"metadata|quer"):
+        wrapper(torch.ones(1, 3, 16, 16), targets=[target])

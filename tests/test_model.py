@@ -5,6 +5,8 @@ from dataclasses import replace
 
 import pytest
 import torch
+from hydra.utils import instantiate
+from omegaconf import OmegaConf
 
 from clean_rtdetr import (
     RTDETR,
@@ -19,17 +21,19 @@ from clean_rtdetr import (
     QueryAssembler,
     QuerySelector,
     QuerySelectorConfig,
-    build_rtdetr_r50vd,
 )
+from clean_rtdetr.configuration import compose_model_config
+from clean_rtdetr.models.rtdetr import BaselineRTDETR
 
 BASELINE_CLASSES = 80
 BASELINE_QUERIES = 300
 BASELINE_LAYERS = 6
 BASELINE_HIDDEN = 256
 BASELINE_LEVELS = 3
+OVERRIDE_QUERIES = 20
 
 
-def small_model() -> RTDETR:
+def small_model() -> BaselineRTDETR:
     """Build a compact model retaining all production boundaries."""
     backbone = PResNet()
     encoder = HybridEncoder(
@@ -50,6 +54,11 @@ def small_model() -> RTDETR:
         )
     )
     return RTDETR(backbone, encoder, projector, selector, QueryAssembler(), decoder)
+
+
+def baseline_model() -> BaselineRTDETR:
+    """Instantiate the packaged pinned R50vd model recipe."""
+    return instantiate(compose_model_config("r50vd"), _convert_="all")
 
 
 def test_model_matches_manual_stage_composition() -> None:
@@ -171,12 +180,24 @@ def test_decoder_loss_does_not_backpropagate_through_assembled_references() -> N
     assert selected.queries.ref_logits.grad is None
 
 
-def test_r50vd_factory_uses_pinned_baseline_configuration() -> None:
-    """The factory exposes the planned 80-class, 300-query, six-layer baseline."""
-    model = build_rtdetr_r50vd()
+def test_r50vd_config_uses_pinned_baseline_dimensions() -> None:
+    """The packaged recipe exposes the planned baseline dimensions."""
+    config = compose_model_config("r50vd")
+    assert "examples." not in OmegaConf.to_yaml(config, resolve=True)
+    model = instantiate(config, _convert_="all")
     assert model.selector.config.num_classes == BASELINE_CLASSES
     assert model.selector.config.num_queries == BASELINE_QUERIES
     assert model.selector.config.learned_content is False
     assert model.decoder.config.num_layers == BASELINE_LAYERS
     assert model.decoder.config.hidden_dim == BASELINE_HIDDEN
     assert model.decoder.config.num_levels == BASELINE_LEVELS
+
+
+def test_r50vd_config_accepts_hydra_model_overrides() -> None:
+    """Packaged model settings remain selectable without a Python builder."""
+    config = compose_model_config(
+        "r50vd", [f"model.selector.config.num_queries={OVERRIDE_QUERIES}"]
+    )
+    model = instantiate(config, _convert_="all")
+
+    assert model.selector.config.num_queries == OVERRIDE_QUERIES

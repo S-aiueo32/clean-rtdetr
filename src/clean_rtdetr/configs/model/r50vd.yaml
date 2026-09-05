@@ -1,0 +1,52 @@
+_target_: clean_rtdetr.RTDETR
+backbone:
+  _target_: clean_rtdetr.models.backbone.PResNet
+  freeze_at: 0
+  freeze_norm: true
+encoder:
+  _target_: clean_rtdetr.models.encoder.HybridEncoder
+  specs:
+    - _target_: clean_rtdetr.core.contracts.FeatureSpec
+      channels: 512
+      stride: 8
+    - _target_: clean_rtdetr.core.contracts.FeatureSpec
+      channels: 1024
+      stride: 16
+    - _target_: clean_rtdetr.core.contracts.FeatureSpec
+      channels: 2048
+      stride: 32
+  config:
+    _target_: clean_rtdetr.models.encoder.HybridEncoderConfig
+    hidden_dim: 256
+projector:
+  _target_: clean_rtdetr.models.memory.MemoryProjector
+  specs:
+    - _target_: clean_rtdetr.core.contracts.FeatureSpec
+      channels: 256
+      stride: 8
+    - _target_: clean_rtdetr.core.contracts.FeatureSpec
+      channels: 256
+      stride: 16
+    - _target_: clean_rtdetr.core.contracts.FeatureSpec
+      channels: 256
+      stride: 32
+  hidden_dim: 256
+selector:
+  _target_: clean_rtdetr.models.selector.QuerySelector
+  config:
+    _target_: clean_rtdetr.models.selector.QuerySelectorConfig
+    hidden_dim: 256
+    num_classes: 80
+    num_queries: 300
+    learned_content: false
+assembler:
+  _target_: clean_rtdetr.models.queries.QueryAssembler
+decoder:
+  _target_: clean_rtdetr.models.decoder.Decoder
+  config:
+    _target_: clean_rtdetr.models.decoder.DecoderConfig
+    hidden_dim: 256
+    num_classes: 80
+    num_layers: 6
+    num_heads: 8
+    num_levels: 3

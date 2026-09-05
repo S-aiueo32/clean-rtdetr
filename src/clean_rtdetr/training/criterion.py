@@ -19,7 +19,6 @@ from clean_rtdetr.core.contracts import DenoisingOutput, DetectionOutput, ModelO
 from clean_rtdetr.training.contracts import DetectionTarget, MatchIndices, validate_detection
 from clean_rtdetr.training.geometry import box_iou, cxcywh_to_xyxy, generalized_box_iou
 from clean_rtdetr.training.interfaces import Matcher, TrainingCriterion
-from clean_rtdetr.training.matcher import HungarianMatcher
 
 
 @dataclass(frozen=True)
@@ -60,12 +59,12 @@ class SetCriterion(TrainingCriterion[DetectionOutput | ModelOutput]):
         self,
         config: CriterionConfig | None = None,
         *,
-        matcher: Matcher | None = None,
+        matcher: Matcher,
     ) -> None:
         """Register the matcher and immutable baseline loss configuration."""
         super().__init__()
         self.config = CriterionConfig() if config is None else config
-        self.matcher = HungarianMatcher() if matcher is None else matcher
+        self.matcher = matcher
 
     def forward(
         self,

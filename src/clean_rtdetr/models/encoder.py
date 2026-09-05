@@ -7,7 +7,8 @@ encoding, and independent composition. Deploy fusion remains outside this module
 
 import copy
 import math
-from dataclasses import dataclass
+from collections.abc import Sequence
+from dataclasses import asdict, dataclass
 from itertools import pairwise
 
 import torch
@@ -16,6 +17,7 @@ from torch import Tensor, nn
 from torch.nn import functional
 
 from clean_rtdetr.core.contracts import FeatureSpec, HybridEncoderOutput, MultiScaleFeatures
+from clean_rtdetr.models.interfaces import Encoder
 
 
 @dataclass(frozen=True)
@@ -159,11 +161,11 @@ class TransformerEncoder(nn.Module):
         return src
 
 
-class HybridEncoder(nn.Module):
+class HybridEncoder(Encoder):
     """Project, self-attend, and fuse backbone feature levels."""
 
     def __init__(
-        self, specs: tuple[FeatureSpec, ...], config: HybridEncoderConfig | None = None
+        self, specs: Sequence[FeatureSpec], config: HybridEncoderConfig | None = None
     ) -> None:
         """Derive projection and fusion dimensions from the supplied feature specs."""
         super().__init__()
@@ -273,3 +275,7 @@ class HybridEncoder(nn.Module):
                 torch.cat((self.downsample_convs[idx](outputs[idx]), outputs[idx + 1]), dim=1)
             )
         return HybridEncoderOutput(MultiScaleFeatures(tuple(outputs), self.output_specs), after)
+
+    def checkpoint_config(self) -> dict[str, object]:
+        """Describe encoder configuration and input feature specifications."""
+        return {"config": asdict(self.config), "specs": tuple(asdict(spec) for spec in self.specs)}

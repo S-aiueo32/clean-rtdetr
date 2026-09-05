@@ -24,13 +24,13 @@ The example runs a synthetic CPU backward pass without datasets or checkpoints.
 ## API and targets
 
 ```python
-from clean_rtdetr.training import DetectionTarget, SetCriterion
+from clean_rtdetr.training import DetectionTarget, HungarianMatcher, SetCriterion
 
 # model is an RTDETR instance; images and targets share its device and dtype.
 model.train()
 output = model(images)  # Default DecoderPlan retains all decoder layers.
 targets = [DetectionTarget(labels=labels, boxes=boxes)]  # One target per image.
-losses = SetCriterion()(output, targets)
+losses = SetCriterion(matcher=HungarianMatcher())(output, targets)
 total_loss = sum(losses.values())  # Values are already weighted.
 total_loss.backward()
 ```
@@ -67,8 +67,8 @@ their known target assignments separately.
 | GIoU | 2 | 2 |
 
 `MatcherConfig` and `CriterionConfig` expose these weights and focal parameters.
-`SetCriterion` accepts the abstract `Matcher` module interface for assignment;
-omitting it retains `HungarianMatcher` as the default. Custom matchers implement
+`SetCriterion` requires the abstract `Matcher` module interface for assignment;
+the caller or Hydra configuration constructs the matcher. Custom matchers implement
 `forward` and `checkpoint_config` without needing Hungarian-specific configuration.
 Base keys are `loss_vfl`, `loss_bbox`, and `loss_giou`. Auxiliary keys append
 `_aux_0`, `_aux_1`, etc.; the encoder uses the final auxiliary index, matching
@@ -82,20 +82,22 @@ target normalization would be incorrect.
 ## Contrastive denoising
 
 ```python
-from clean_rtdetr import build_rtdetr_r50vd
+from hydra.utils import instantiate
+from clean_rtdetr.configuration import compose_model_config
 from clean_rtdetr.training import (
     DenoisingConfig,
     DenoisingQueryGenerator,
     DenoisingTrainingModel,
+    HungarianMatcher,
     SetCriterion,
 )
 
 training_model = DenoisingTrainingModel(
-    build_rtdetr_r50vd(),
+    instantiate(compose_model_config("r50vd"), _convert_="all"),
     DenoisingQueryGenerator(80, 256, DenoisingConfig()),
 ).train()
 output = training_model(images, targets=targets)
-losses = SetCriterion()(output, targets)
+losses = SetCriterion(matcher=HungarianMatcher())(output, targets)
 sum(losses.values()).backward()
 ```
 

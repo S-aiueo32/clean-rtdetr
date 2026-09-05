@@ -17,7 +17,7 @@ from torch.utils.data import DataLoader, Dataset
 lightning = pytest.importorskip("lightning")
 from lightning.pytorch.callbacks import ModelCheckpoint  # noqa: E402
 
-from clean_rtdetr.training import DetectionTarget, SetCriterion  # noqa: E402
+from clean_rtdetr.training import DetectionTarget, HungarianMatcher, SetCriterion  # noqa: E402
 from clean_rtdetr.training.denoising import DenoisingConfig, DenoisingQueryGenerator  # noqa: E402
 from clean_rtdetr.training.lightning import (  # noqa: E402
     RTDETREMA,
@@ -79,7 +79,7 @@ def _module(*, freeze_backbone: bool = True, optimizer_lr: float = 1e-4) -> RTDE
     )
     return RTDETRLightningModule(
         wrapped,
-        SetCriterion(),
+        SetCriterion(matcher=HungarianMatcher()),
         partial(
             torch.optim.AdamW,
             lr=optimizer_lr,

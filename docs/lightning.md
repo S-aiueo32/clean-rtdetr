@@ -37,6 +37,9 @@ Configuration lives under `configs/`; no configured target imports `examples`.
 ```text
 configs/
   lightning_training.yaml
+  criterion/set.yaml
+  matcher/hungarian.yaml
+  denoising/contrastive.yaml
   model/
     compact.yaml
     backbone/r50vd.yaml
@@ -56,8 +59,8 @@ The model group recursively instantiates package components: `PResNet`,
 `HybridEncoder`, `MemoryProjector`, `QuerySelector`, `QueryAssembler`, and
 `Decoder`, then injects them into `RTDETR`. Shared dimensions are interpolated
 from the root configuration. Existing component validation rejects incompatible
-feature specs or dimensions. `builtins.tuple` preserves the typed feature-spec
-contract while constructing the YAML sequence.
+feature specs or dimensions. Constructors accept feature specs as a sequence,
+so YAML uses ordinary lists; each module stores an immutable tuple internally.
 
 The Lightning module receives a training model, criterion, parameter-group policy,
 optimizer factory, and scheduler factory through constructor injection. Optimizer
@@ -97,12 +100,51 @@ Lightning adapter does not inspect the prediction payload.
 | `TrainingModel[PredictionT]` | `forward(images, targets=...)`, `predict(images)`, `checkpoint_config()` |
 | `TrainingCriterion[PredictionT]` | `forward(output, targets)`, `checkpoint_config()` |
 | `Matcher` | `forward(predictions, targets)`, `checkpoint_config()` |
+| `DenoisingGenerator` | `forward(targets, num_queries=...)`, dimensions/device/dtype, `checkpoint_config()` |
+| `Detector` | `forward(images, denoising=..., plan=..., collect_aifi=...)`, dimensions, `checkpoint_config()` |
 
-`SetCriterion` also accepts the abstract `Matcher` interface. `HungarianMatcher`
-is the backward-compatible default; Hydra can inject another implementation.
+`SetCriterion` requires an injected implementation of the abstract `Matcher`
+interface. The baseline Hydra config explicitly constructs `HungarianMatcher`;
+another implementation can be selected through its `_target_`.
 Matchers return one `MatchIndices` assignment per image on the prediction device
 and validate the detection/target inputs. The criterion obtains resume settings
 through `checkpoint_config()`, without requiring a matcher `.config` attribute.
+
+The DN wrapper depends on `Detector` and `DenoisingGenerator`. It uses their
+public dimensions, device, dtype, and checkpoint configuration rather than
+inspecting decoder/selector configs or a particular embedding layout. Prepared
+DN queries contain their assignment metadata; the detector returns separated
+matching and DN predictions, preserving the `ModelOutput.final` contract.
+
+`RTDETR` in turn accepts abstract backbone, encoder, projector, selector,
+assembler, and decoder stages from `clean_rtdetr.models.interfaces`. Each stage
+declares its tensor boundary, compatibility metadata, and checkpoint settings.
+Implementations remain registered PyTorch modules. The baseline R50vd composition
+also lives in packaged YAML: `compose_model_config("r50vd")` returns its composed
+model config for `hydra.utils.instantiate`. There is no Python baseline builder;
+experimental compositions choose implementations through config overrides.
+
+The packaged recipe is available after installing the wheel, independent of the
+repository checkout. For example:
+
+```python
+from hydra.utils import instantiate
+from clean_rtdetr.configuration import compose_model_config
+
+config = compose_model_config("r50vd", ["model.selector.config.num_queries=100"])
+model = instantiate(config, _convert_="all")
+```
+
+The training config also searches the packaged model group. Selecting
+`model@module.training_model.model=r50vd` uses the same baseline YAML; set the
+training recipe's shared `dimensions.hidden_dim=256` and
+`dimensions.num_classes=80` to match its DN generator and dataset.
+
+The `criterion`, `matcher`, and `denoising` config groups expose those choices
+alongside the existing model-stage, optimizer, and scheduler groups. For example,
+after adding `configs/matcher/experimental.yaml`, select it with
+`matcher@module.criterion.matcher=experimental`. A replacement config supplies
+its own `_target_` and constructor arguments. No `examples` module is required.
 
 `predict` is the target-free path and preserves the caller's train/eval mode.
 The criterion returns a dictionary of weighted, differentiable scalar losses.

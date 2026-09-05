@@ -4,13 +4,23 @@
 from pathlib import Path
 from typing import Any
 
+import lightning
+import pytest
 import torch
 from hydra import compose, initialize_config_dir
 from hydra.utils import instantiate
+from lightning.pytorch.callbacks import ModelCheckpoint
 from omegaconf import DictConfig, OmegaConf
 
 from clean_rtdetr import RTDETR
 from clean_rtdetr.training.lightning import RTDETRLightningModule
+from tests.test_training_interfaces import (
+    FixedMatcher,
+    ToyAssembler,
+    ToyCriterion,
+    ToyTrainingModel,
+    _loader,
+)
 
 
 def _config_dir() -> str:
@@ -60,6 +70,29 @@ def test_lightning_config_group_overrides_build_optimizer_and_scheduler() -> Non
     assert "betas" not in optimizer.defaults
 
 
+def test_hydra_replaces_an_independent_model_stage_and_records_its_recipe() -> None:
+    """A config-only experiment can replace a stage through its public interface."""
+    config = _compose(
+        [
+            "~module.training_model.model.assembler",
+            "+module.training_model.model.assembler._target_=tests.test_training_interfaces.ToyAssembler",
+            "+module.training_model.model.assembler.variant=experiment",
+        ]
+    )
+    module = instantiate(config.module, _convert_="all")
+
+    assert isinstance(module.training_model.model.assembler, ToyAssembler)
+    module.eval()
+    with torch.no_grad():
+        output = module(torch.zeros(1, 3, 64, 64))
+    assert output.final.logits.shape == (1, 2, 3)
+    recipe = module.training_model.checkpoint_config()
+    assert recipe["model"]["config"]["assembler"] == {
+        "target": "tests.test_training_interfaces.ToyAssembler",
+        "config": {"variant": "experiment"},
+    }
+
+
 def test_dimension_overrides_reach_model_and_synthetic_data() -> None:
     """Shared dimensions keep every model stage and generated label compatible."""
     hidden_dim = 16
@@ -82,3 +115,70 @@ def test_dimension_overrides_reach_model_and_synthetic_data() -> None:
     labels = [target.labels for _, target in dataset if target.labels.numel()]
     assert labels
     assert max(int(label.max()) for label in labels) < num_classes
+
+
+def _toy_di_config(*, reverse: bool) -> DictConfig:
+    return OmegaConf.create(
+        {
+            "_target_": "clean_rtdetr.training.lightning.RTDETRLightningModule",
+            "training_model": {
+                "_target_": "tests.test_training_interfaces.ToyTrainingModel",
+            },
+            "criterion": {
+                "_target_": "tests.test_training_interfaces.ToyCriterion",
+                "matcher": {
+                    "_target_": "tests.test_training_interfaces.FixedMatcher",
+                    "reverse": reverse,
+                },
+            },
+            "optimizer_factory": {
+                "_target_": "torch.optim.SGD",
+                "_partial_": True,
+                "lr": 0.1,
+            },
+        }
+    )
+
+
+def test_config_only_nested_interfaces_train_and_validate_matcher_resume(tmp_path: Path) -> None:
+    """Hydra selects arbitrary model, criterion, and matcher implementations recursively."""
+    module = instantiate(_toy_di_config(reverse=False), _convert_="all")
+    assert isinstance(module.training_model, ToyTrainingModel)
+    assert isinstance(module.criterion, ToyCriterion)
+    assert isinstance(module.criterion.matcher, FixedMatcher)
+    checkpoint = ModelCheckpoint(dirpath=tmp_path / "checkpoints", save_last=True)
+    trainer = lightning.Trainer(
+        accelerator="cpu",
+        devices=1,
+        precision="32-true",
+        max_epochs=1,
+        default_root_dir=tmp_path,
+        callbacks=[checkpoint],
+        logger=False,
+        enable_progress_bar=False,
+        enable_model_summary=False,
+        deterministic=True,
+    )
+    trainer.fit(module, train_dataloaders=_loader())
+    assert checkpoint.last_model_path
+    assert module.criterion.matcher.call_count.item() == 1
+
+    incompatible = instantiate(_toy_di_config(reverse=True), _convert_="all")
+    resume_trainer = lightning.Trainer(
+        accelerator="cpu",
+        devices=1,
+        precision="32-true",
+        max_epochs=2,
+        default_root_dir=tmp_path / "resume",
+        logger=False,
+        enable_progress_bar=False,
+        enable_model_summary=False,
+        enable_checkpointing=False,
+        deterministic=True,
+    )
+    with pytest.raises(ValueError, match="recipe"):
+        resume_trainer.fit(
+            incompatible,
+            train_dataloaders=_loader(),
+            ckpt_path=checkpoint.last_model_path,
+        )

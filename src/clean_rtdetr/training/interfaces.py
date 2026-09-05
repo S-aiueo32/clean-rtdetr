@@ -5,15 +5,43 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from typing import Generic, TypeVar
 
+import torch
 from jaxtyping import Float
 from torch import Tensor, nn
 
-from clean_rtdetr.core.contracts import DetectionOutput
+from clean_rtdetr.core.contracts import DenoisingBatch, DetectionOutput
 from clean_rtdetr.training.contracts import DetectionTarget, MatchIndices
 
 PredictionT_co = TypeVar("PredictionT_co", covariant=True)
 PredictionT_contra = TypeVar("PredictionT_contra", contravariant=True)
 TrainingLosses = dict[str, Float[Tensor, ""]]
+
+
+class DenoisingGenerator(nn.Module, ABC):
+    """Prepare denoising queries without exposing their parameterization."""
+
+    num_classes: int
+    hidden_dim: int
+
+    @property
+    @abstractmethod
+    def dtype(self) -> torch.dtype:
+        """Floating-point dtype required by the generated query content."""
+
+    @property
+    @abstractmethod
+    def device(self) -> torch.device:
+        """Device required by the generated query content."""
+
+    @abstractmethod
+    def forward(
+        self, targets: Sequence[DetectionTarget], *, num_queries: int
+    ) -> DenoisingBatch | None:
+        """Return prepared queries and assignments, or disable DN for this batch."""
+
+    @abstractmethod
+    def checkpoint_config(self) -> dict[str, object]:
+        """Describe non-tensor settings affecting query preparation."""
 
 
 class Matcher(nn.Module, ABC):
