@@ -17,11 +17,13 @@ inference = ["pillow>=11,<13"]
 export = ["onnx>=1.18,<2", "onnxscript>=0.5,<1", "onnxruntime>=1.22,<2"]
 evaluation = ["pycocotools>=2.0.10,<3"]
 training = ["scipy>=1.15,<2"]
+lightning = ["lightning>=2.6,<3", "scipy>=1.15,<2"]
 
 [dependency-groups]
 dev = [
     "beartype>=0.20,<1",
     "hypothesis>=6,<7",
+    "lightning>=2.6,<3",
     "pillow>=11,<13",
     "pre-commit>=4,<5",
     "pytest>=8,<10",
