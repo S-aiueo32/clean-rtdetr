@@ -3,8 +3,8 @@
 ## Project overview
 
 Clean RT-DETR is a readable PyTorch reference implementation. The current
-scope covers multi-scale features, projected memory, and selected queries; it
-is not yet a complete detector.
+scope covers multi-scale features, projected memory, selected queries, and
+iterative decoder predictions; it is not yet a complete detector.
 
 ## Repository guidance
 

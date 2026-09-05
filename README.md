@@ -6,19 +6,22 @@ from deployment transformations.
 
 ## Current implementation
 
-The first slice implements **multi-scale features → projected memory → selected
-queries** in PyTorch, with constructor injection for score and box heads.
+The current slice implements **multi-scale features → projected memory → selected
+queries → iterative decoder predictions** in PyTorch.
 
 - Frozen feature/query contracts with jaxtyping shape/dtype annotations and eager validation.
 - Decoder input projection, row-major flattening, and explicit level offsets.
 - Anchor generation and top-k selection preserving upstream masking semantics.
 - Feature-content detach and differentiable encoder auxiliary predictions.
+- DN-ready query assembly with an explicit reference-logit detach boundary.
+- Self-attention, multi-scale deformable cross-attention, and iterative box refinement.
+- Explicit decoder execution/output plans instead of implicit inference-layer selection.
 - Forward and gradient parity tests against SHA-256-pinned upstream methods.
 
-This is not yet a complete detector. Backbone, HybridEncoder, decoder, denoising,
-training criteria, official checkpoint conversion, COCO evaluation, and export
-remain to be implemented. No AP, latency, or complete-model parity is claimed.
-The included example uses synthetic features and randomly initialized weights.
+This is not yet a complete detector. Backbone, HybridEncoder, denoising construction,
+training criteria, official checkpoint conversion, COCO evaluation, and export remain
+to be implemented. No AP, latency, or complete-model parity is claimed. The included
+example uses synthetic features and randomly initialized weights.
 
 ## Contributing
 
