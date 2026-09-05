@@ -1,6 +1,7 @@
 # Copyright 2026 Clean RT-DETR contributors
 """Composable image-to-prediction RT-DETR model."""
 
+from jaxtyping import Float
 from torch import Tensor, nn
 
 from clean_rtdetr.core.contracts import DetectionOutput, ModelOutput
@@ -61,7 +62,7 @@ class RTDETR(nn.Module):
 
     def forward(
         self,
-        images: Tensor,
+        images: Float[Tensor, "batch channels height width"],
         *,
         plan: DecoderPlan | None = None,
         collect_aifi: bool = False,

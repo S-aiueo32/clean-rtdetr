@@ -9,7 +9,7 @@ from collections import OrderedDict
 from typing import cast
 
 import torch
-from jaxtyping import Float
+from jaxtyping import Float, Shaped
 from torch import Tensor, nn
 from torch.nn import functional
 
@@ -36,7 +36,7 @@ class FrozenBatchNorm2d(nn.Module):
 
     def _load_from_state_dict(  # noqa: PLR0913, PLR0917 - PyTorch override signature
         self,
-        state_dict: dict[str, Tensor],
+        state_dict: dict[str, Shaped[Tensor, "..."]],
         prefix: str,
         local_metadata: dict[str, object],
         strict: bool,  # noqa: FBT001 - PyTorch override signature
@@ -49,7 +49,9 @@ class FrozenBatchNorm2d(nn.Module):
             state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
         )
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(
+        self, x: Float[Tensor, "batch channels _height _width"]
+    ) -> Float[Tensor, "batch channels_out _height_out _width_out"]:
         """Apply fixed affine normalization."""
         weight = cast("Tensor", self.weight)
         running_var = cast("Tensor", self.running_var)
@@ -70,7 +72,9 @@ class _ConvNorm(nn.Module):
         self.norm = nn.BatchNorm2d(ch_out)
         self.act = nn.ReLU() if act else nn.Identity()
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(
+        self, x: Float[Tensor, "batch channels _height _width"]
+    ) -> Float[Tensor, "batch channels_out _height_out _width_out"]:
         return self.act(self.norm(self.conv(x)))
 
 
@@ -98,7 +102,9 @@ class _BottleNeck(nn.Module):
                 self.short = _ConvNorm(ch_in, ch_out * 4, 1, stride, act=False)
         self.act = nn.ReLU()
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(
+        self, x: Float[Tensor, "batch channels _height _width"]
+    ) -> Float[Tensor, "batch channels_out _height_out _width_out"]:
         out = self.branch2c(self.branch2b(self.branch2a(x)))
         short = x if self.shortcut else self.short(x)
         return self.act(out + short)
@@ -115,7 +121,9 @@ class _Stage(nn.Module):
             ch_in = ch_out * 4
         self.blocks = nn.ModuleList(blocks)
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(
+        self, x: Float[Tensor, "batch channels _height _width"]
+    ) -> Float[Tensor, "batch channels_out _height_out _width_out"]:
         for block in self.blocks:
             x = block(x)
         return x

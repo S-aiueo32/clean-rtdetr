@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from itertools import pairwise
 
 import torch
+from jaxtyping import Float
 from torch import Tensor, nn
 from torch.nn import functional
 
@@ -64,7 +65,9 @@ class ConvNormAct(nn.Module):
         self.norm = nn.BatchNorm2d(channels_out)
         self.act = nn.SiLU() if act else nn.Identity()
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(
+        self, x: Float[Tensor, "batch channels _height _width"]
+    ) -> Float[Tensor, "batch channels_out _height_out _width_out"]:
         """Apply convolution, normalization, and activation in upstream order."""
         return self.act(self.norm(self.conv(x)))
 
@@ -79,7 +82,9 @@ class RepVggBlock(nn.Module):
         self.conv2 = ConvNormAct(channels, channels, 1, act=False)
         self.act = nn.SiLU()
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(
+        self, x: Float[Tensor, "batch channels _height _width"]
+    ) -> Float[Tensor, "batch channels_out _height_out _width_out"]:
         """Sum the two normalized convolutions before activation."""
         return self.act(self.conv1(x) + self.conv2(x))
 
@@ -98,7 +103,9 @@ class CSPRepLayer(nn.Module):
             ConvNormAct(hidden, channels_out, 1) if hidden != channels_out else nn.Identity()
         )
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(
+        self, x: Float[Tensor, "batch channels _height _width"]
+    ) -> Float[Tensor, "batch channels_out _height_out _width_out"]:
         """Fuse the transformed and direct partial branches."""
         return self.conv3(self.bottlenecks(self.conv1(x)) + self.conv2(x))
 
@@ -118,7 +125,11 @@ class TransformerEncoderLayer(nn.Module):
         self.dropout1 = nn.Dropout(dropout)
         self.dropout2 = nn.Dropout(dropout)
 
-    def forward(self, src: Tensor, pos_embed: Tensor) -> Tensor:
+    def forward(
+        self,
+        src: Float[Tensor, "batch sequence channels"],
+        pos_embed: Float[Tensor, "_batch sequence channels"],
+    ) -> Float[Tensor, "batch sequence channels"]:
         """Add position only to attention queries and keys, retaining unmodified values."""
         query = src + pos_embed
         attended = self.self_attn(query, query, src, need_weights=False)[0]
@@ -137,7 +148,11 @@ class TransformerEncoder(nn.Module):
 
         self.layers = nn.ModuleList(copy.deepcopy(layer) for _ in range(count))
 
-    def forward(self, src: Tensor, pos_embed: Tensor) -> Tensor:
+    def forward(
+        self,
+        src: Float[Tensor, "batch sequence channels"],
+        pos_embed: Float[Tensor, "_batch sequence channels"],
+    ) -> Float[Tensor, "batch sequence channels"]:
         """Propagate features through each position-aware layer."""
         for layer in self.layers:
             src = layer(src, pos_embed)
@@ -194,7 +209,9 @@ class HybridEncoder(nn.Module):
         """Describe the common channel dimension and unchanged pyramid strides."""
         return tuple(FeatureSpec(self.hidden_dim, s.stride) for s in self.specs)
 
-    def _position_embedding(self, height: int, width: int, *, device: torch.device) -> Tensor:
+    def _position_embedding(
+        self, height: int, width: int, *, device: torch.device
+    ) -> Float[Tensor, "1 sequence channels"]:
         """Preserve upstream FP32 construction and width-major sinusoidal ordering."""
         dim = self.hidden_dim // 4
         omega = torch.arange(dim, dtype=torch.float32) / dim
