@@ -7,6 +7,8 @@ name = "clean-rtdetr"
 version = "0.1.0.dev0"
 description = "Readable RT-DETR components for composable detection research"
 readme = "README.md"
+license = { file = "LICENSE" }
+classifiers = ["License :: OSI Approved :: Apache Software License"]
 requires-python = ">=3.11"
 dependencies = ["jaxtyping>=0.3,<1", "torch>=2.6,<3"]
 

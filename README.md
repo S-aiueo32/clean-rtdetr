@@ -64,6 +64,12 @@ decoder/selector boundary rather than conforming to RT-DETR coordinate deltas.
 See the [implementation roadmap](docs/roadmap.md) and the
 [extension example](docs/extensions.md) for the next concrete steps.
 
+## License
+
+Clean RT-DETR is licensed under the [Apache License, Version 2.0](LICENSE).
+The vendored RT-DETR source and adaptations retain the upstream Apache-2.0
+license and attribution notices described in [third_party/RT-DETR/README.md](third_party/RT-DETR/README.md).
+
 ## Provenance
 
 Based on [lyuwenyu/RT-DETR](https://github.com/lyuwenyu/RT-DETR), pinned to commit
