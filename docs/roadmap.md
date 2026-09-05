@@ -19,10 +19,15 @@ scope separately so a passing small-stage test cannot imply complete reproductio
 1. [x] Add PResNet and HybridEncoder, including an explicit AIFI feature boundary.
 2. [x] Connect image-to-prediction R50vd and extend strict checkpoint loading to all inference stages.
 3. [x] Validate CPU FP32 complete-model checkpoint/stage parity with the pinned official artifact.
-4. [ ] Add preprocessing/postprocessing and capture COCO AP in a fixed evaluation environment.
-5. [ ] Add fixed-shape export, then DN, criterion, training/resume and composition.
+4. [x] Add Pillow/uint8 preprocessing, top-k postprocessing, and an image inference example.
+5. [ ] Capture COCO AP in a fixed evaluation environment, including category-ID mapping.
+6. [ ] Add fixed-shape export, then DN, criterion, training/resume and composition.
 
 The image-to-prediction API returns raw class logits and normalized cxcywh boxes.
+Separate image I/O accepts Pillow images or CPU uint8 RGB tensors using the same
+640×640 Pillow resize path. Postprocessing returns scores, class indices, and
+unclipped original-image xyxy boxes. Offline tests cover image I/O contracts and
+pinned upstream postprocessor parity; they do not measure dataset accuracy.
 Small offline tests cover component integration, gradients, and checkpoint
 validation; `examples/checkpoint_parity.py --full-model` checks the official
 weights on a seeded synthetic 640×640 input. That comparison is separate from

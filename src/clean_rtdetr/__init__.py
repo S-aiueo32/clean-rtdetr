@@ -1,5 +1,5 @@
 # Copyright 2026 Clean RT-DETR contributors
-"""Small, explicit RT-DETR components. Full detector integration is in progress."""
+"""Explicit RT-DETR components with separate image I/O and postprocessing APIs."""
 
 from clean_rtdetr.core.contracts import (
     DecoderInput,

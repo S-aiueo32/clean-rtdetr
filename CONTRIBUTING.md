@@ -28,7 +28,10 @@ branch only when a release requires independent stabilization or maintenance.
 Python 3.13 and 3.14 are supported; local development defaults to 3.14.
 Runtime dependencies are PyTorch and
 jaxtyping; beartype, pytest, pytest-cov, Hypothesis, Ruff, and ty are in the
-development group. Use the committed lockfile:
+development group.
+Pillow is available through the optional `inference` extra and is also installed
+for development image tests. Core model imports and postprocessing remain
+independent of Pillow. Use the committed lockfile:
 
 ```sh
 uv sync --locked

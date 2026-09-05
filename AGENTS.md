@@ -4,9 +4,9 @@
 
 Clean RT-DETR is a readable PyTorch reference implementation. The current
 scope covers image-to-prediction R50vd, including multi-scale features, projected
-memory, selected queries, and iterative decoder predictions. Preprocessing,
-postprocessing, training criteria, evaluation, and export remain outside the
-implemented scope.
+memory, selected queries, and iterative decoder predictions, plus separate
+Pillow/uint8 image preprocessing and top-k detection postprocessing. Training
+criteria, dataset evaluation, and export remain outside the implemented scope.
 
 ## Repository guidance
 

@@ -237,8 +237,8 @@ class ModelOutput:
     """Return image-to-prediction results with the same fields in train and eval.
 
     Encoder auxiliary predictions retain gradients. AIFI features are present
-    only when requested; denoising construction and postprocessing are separate
-    future capabilities.
+    only when requested. Postprocessing is a separate consumer of ``final``;
+    denoising construction remains a future capability.
     """
 
     decoder: DecoderOutput
