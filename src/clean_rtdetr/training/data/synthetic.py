@@ -1,17 +1,11 @@
 # Copyright 2026 Clean RT-DETR contributors
 """Small synthetic data boundary for exercising training integrations offline."""
 
-from collections.abc import Sequence
-
 import torch
-from jaxtyping import Float
-from torch import Tensor
 from torch.utils.data import Dataset
 
 from clean_rtdetr.training.contracts import DetectionTarget
-
-DetectionSample = tuple[Float[Tensor, "3 height width"], DetectionTarget]
-DetectionBatch = tuple[Float[Tensor, "batch 3 height width"], list[DetectionTarget]]
+from clean_rtdetr.training.data.contracts import DetectionSample
 
 
 class SyntheticDetectionDataset(Dataset[DetectionSample]):
@@ -46,8 +40,3 @@ class SyntheticDetectionDataset(Dataset[DetectionSample]):
                 torch.tensor([[0.5, 0.5, 0.25, 0.25]]),
             )
         return image, target
-
-
-def collate_detection_batch(samples: Sequence[DetectionSample]) -> DetectionBatch:
-    """Stack equally sized images and preserve the list of immutable targets."""
-    return torch.stack([image for image, _ in samples]), [target for _, target in samples]

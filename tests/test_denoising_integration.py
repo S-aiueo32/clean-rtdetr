@@ -20,8 +20,11 @@ from clean_rtdetr.core.contracts import (
 )
 from clean_rtdetr.models.decoder import DecoderPlan
 from clean_rtdetr.training import DetectionTarget, HungarianMatcher, SetCriterion
-from clean_rtdetr.training.denoising import DenoisingConfig, DenoisingQueryGenerator
-from clean_rtdetr.training.model import DenoisingTrainingModel
+from clean_rtdetr.training.denoising import (
+    DenoisingConfig,
+    DenoisingQueryGenerator,
+    DenoisingTrainingModel,
+)
 from tests.test_model import baseline_model, small_model
 from tests.training_oracle import criterion_oracle
 

@@ -101,7 +101,8 @@ def test_dimension_overrides_reach_model_and_synthetic_data() -> None:
         [f"dimensions.hidden_dim={hidden_dim}", f"dimensions.num_classes={num_classes}"]
     )
     module = instantiate(config.module, _convert_="all")
-    dataset = instantiate(config.dataset, _convert_="all")
+    dataset_factory = instantiate(config.datamodule.dataset_factory, _convert_="all")
+    dataset = dataset_factory()
     model = module.training_model.model
 
     assert model.encoder.hidden_dim == hidden_dim

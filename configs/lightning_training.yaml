@@ -10,6 +10,7 @@ defaults:
   - matcher@module.criterion.matcher: hungarian
   - optimizer@module.optimizer_factory: adamw
   - scheduler@module.scheduler_factory: multistep
+  - datamodule: synthetic
   - _self_
 
 dimensions:
@@ -29,21 +30,6 @@ module:
   parameter_groups_factory:
     _target_: clean_rtdetr.training.lightning.RTDETRParameterGroups
     backbone_lr: 0.00001
-
-dataset:
-  _target_: clean_rtdetr.training.data.SyntheticDetectionDataset
-  image_size: 64
-  num_classes: ${dimensions.num_classes}
-
-collate:
-  _target_: clean_rtdetr.training.data.collate_detection_batch
-  _partial_: true
-
-dataloader:
-  _target_: torch.utils.data.DataLoader
-  batch_size: 2
-  shuffle: true
-  num_workers: 0
 
 callbacks:
   rng:

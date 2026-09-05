@@ -17,8 +17,8 @@ from torch.nn import functional
 
 from clean_rtdetr.core.contracts import DenoisingOutput, DetectionOutput, ModelOutput
 from clean_rtdetr.training.contracts import DetectionTarget, MatchIndices, validate_detection
-from clean_rtdetr.training.geometry import box_iou, cxcywh_to_xyxy, generalized_box_iou
 from clean_rtdetr.training.interfaces import Matcher, TrainingCriterion
+from clean_rtdetr.training.losses.geometry import box_iou, cxcywh_to_xyxy, generalized_box_iou
 
 
 @dataclass(frozen=True)

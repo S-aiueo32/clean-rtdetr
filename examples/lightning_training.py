@@ -29,22 +29,14 @@ def run(config: DictConfig) -> None:
     seed_everything(int(config.seed), workers=False)
     Path(config.output_dir).mkdir(parents=True, exist_ok=True)
     generator = torch.Generator().manual_seed(int(config.seed))
-    dataset = instantiate(config.dataset, _convert_="all")
-    collate_fn = instantiate(config.collate, _convert_="all")
-    loader = instantiate(
-        config.dataloader,
-        dataset=dataset,
-        generator=generator,
-        collate_fn=collate_fn,
-        _convert_="all",
-    )
+    datamodule = instantiate(config.datamodule, generator=generator, _convert_="all")
     callbacks = []
     for name, callback_config in config.callbacks.items():
         kwargs = {"generator": generator} if name == "rng" else {}
         callbacks.append(instantiate(callback_config, **kwargs, _convert_="all"))
     trainer = instantiate(config.trainer, callbacks=callbacks, _convert_="all")
     module = instantiate(config.module, _convert_="all")
-    trainer.fit(module, train_dataloaders=loader, ckpt_path=config.resume, weights_only=False)
+    trainer.fit(module, datamodule=datamodule, ckpt_path=config.resume, weights_only=False)
 
 
 def main() -> None:

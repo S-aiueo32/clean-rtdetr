@@ -40,6 +40,7 @@ configs/
   criterion/set.yaml
   matcher/hungarian.yaml
   denoising/contrastive.yaml
+  datamodule/synthetic.yaml
   model/
     compact.yaml
     backbone/r50vd.yaml
@@ -168,9 +169,18 @@ this schema rather than treating those files as compatible resumes.
 
 ## Application composition
 
-Dataset, DataLoader, callbacks, and Trainer are also instantiated from config.
-The application injects the **same** generator object into the DataLoader and
-`EpochBoundaryState`; it does not instantiate two generators from repeated YAML.
+The application instantiates a `LightningDataModule` from the `datamodule` config
+group and passes it to `Trainer.fit(..., datamodule=...)`. The default
+`DetectionDataModule` receives dataset and DataLoader factories through Hydra
+partials. It constructs the dataset during `setup("fit")`, then supplies the
+loader through `train_dataloader()`. Repeated setup retains the same dataset.
+Collation, batching, and shuffling are configured under the loader factory.
+Another experiment can replace the entire datamodule with its own
+`LightningDataModule` implementation.
+
+The application injects the **same** generator object into the datamodule and
+`EpochBoundaryState`. The datamodule passes that generator to its DataLoader,
+preserving the existing epoch-boundary RNG restore contract.
 The entry point contains only composition and execution, without a model factory.
 It uses a small argument parser plus the Compose API because Hydra 1.3's own CLI
 help construction is incompatible with the tested Python 3.14 argparse version.

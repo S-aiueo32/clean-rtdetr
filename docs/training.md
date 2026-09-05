@@ -23,6 +23,36 @@ The example runs a synthetic CPU backward pass without datasets or checkpoints.
 
 ## API and targets
 
+Implementation modules are grouped by responsibility:
+
+```text
+training/
+  contracts.py          # shared targets, assignments, and validation
+  interfaces.py         # shared model, criterion, matcher, and DN interfaces
+  losses/
+    criterion.py
+    matcher.py
+    geometry.py
+  denoising/
+    queries.py
+    model.py
+  data/
+    contracts.py
+    synthetic.py
+    collate.py
+  lightning/
+    data.py
+    module.py
+    optim.py
+    ema.py
+    state.py
+```
+
+The `clean_rtdetr.training` public exports remain the composition entry point.
+`training.data` and `training.denoising` also expose their public types from
+their package initializers, so Hydra targets do not depend on implementation
+filenames. Lightning-specific lifecycle code stays in `training.lightning`.
+
 ```python
 from clean_rtdetr.training import DetectionTarget, HungarianMatcher, SetCriterion
 

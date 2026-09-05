@@ -18,14 +18,18 @@ lightning = pytest.importorskip("lightning")
 from lightning.pytorch.callbacks import ModelCheckpoint  # noqa: E402
 
 from clean_rtdetr.training import DetectionTarget, HungarianMatcher, SetCriterion  # noqa: E402
-from clean_rtdetr.training.denoising import DenoisingConfig, DenoisingQueryGenerator  # noqa: E402
+from clean_rtdetr.training.denoising import (  # noqa: E402
+    DenoisingConfig,
+    DenoisingQueryGenerator,
+    DenoisingTrainingModel,
+)
 from clean_rtdetr.training.lightning import (  # noqa: E402
     RTDETREMA,
+    DetectionDataModule,
     EpochBoundaryState,
     RTDETRLightningModule,
     RTDETRParameterGroups,
 )
-from clean_rtdetr.training.model import DenoisingTrainingModel  # noqa: E402
 from tests.test_model import small_model  # noqa: E402
 
 if TYPE_CHECKING:
@@ -99,6 +103,14 @@ def _loader(generator: torch.Generator, *, workers: int = 0) -> DataLoader[Any]:
         generator=generator,
         num_workers=workers,
         collate_fn=_collate,
+    )
+
+
+def _datamodule(generator: torch.Generator) -> DetectionDataModule:
+    return DetectionDataModule(
+        _NoisyDetectionDataset,
+        partial(DataLoader, batch_size=2, shuffle=True, num_workers=0, collate_fn=_collate),
+        generator,
     )
 
 
@@ -176,7 +188,7 @@ def _run_resume_acceptance(root: Path) -> None:
     _seed_all(202)
     full_ema = RTDETREMA()
     full_trainer = _trainer(root / "full", epochs=2, generator=full_generator, ema=full_ema)
-    full_trainer.fit(full_module, train_dataloaders=_loader(full_generator))
+    full_trainer.fit(full_module, datamodule=_datamodule(full_generator))
     full_python_state = random.getstate()
     full_numpy_state = np.random.get_state()  # noqa: NPY002
     full_torch_state = torch.random.get_rng_state()
@@ -198,7 +210,7 @@ def _run_resume_acceptance(root: Path) -> None:
         checkpoint=checkpoint,
         ema=RTDETREMA(),
     )
-    first_trainer.fit(first_module, train_dataloaders=_loader(first_generator))
+    first_trainer.fit(first_module, datamodule=_datamodule(first_generator))
     assert checkpoint.last_model_path
 
     # Deliberately perturb all state before constructing the fresh resume objects.
@@ -211,7 +223,7 @@ def _run_resume_acceptance(root: Path) -> None:
     )
     resumed_trainer.fit(
         resumed_module,
-        train_dataloaders=_loader(resumed_generator),
+        datamodule=_datamodule(resumed_generator),
         ckpt_path=checkpoint.last_model_path,
     )
 
@@ -246,7 +258,7 @@ def _run_resume_acceptance(root: Path) -> None:
     with pytest.raises(ValueError, match="recipe"):
         changed_trainer.fit(
             changed_module,
-            train_dataloaders=_loader(changed_generator),
+            datamodule=_datamodule(changed_generator),
             ckpt_path=checkpoint.last_model_path,
         )
 
@@ -284,6 +296,34 @@ def test_forward_and_target_transfer_preserve_typed_contract() -> None:
     output = module(moved_images)
     assert output.denoising is None
     assert output.decoder.logits.shape == (2, 2, 2, 3)
+
+
+def test_data_module_uses_injected_factories_and_shared_generator() -> None:
+    """Setup constructs data once and loaders receive the application RNG by identity."""
+    dataset_calls: list[object] = []
+    loader_generators: list[torch.Generator] = []
+
+    def dataset_factory() -> _NoisyDetectionDataset:
+        dataset_calls.append(None)
+        return _NoisyDetectionDataset()
+
+    def dataloader_factory(dataset: Dataset[Any], *, generator: torch.Generator) -> DataLoader[Any]:
+        loader_generators.append(generator)
+        return DataLoader(dataset, batch_size=2, generator=generator, collate_fn=_collate)
+
+    generator = torch.Generator().manual_seed(13)
+    datamodule = DetectionDataModule(dataset_factory, dataloader_factory, generator)
+    with pytest.raises(RuntimeError, match="setup"):
+        datamodule.train_dataloader()
+    datamodule.setup("validate")
+    assert dataset_calls == []
+    datamodule.setup("fit")
+    datamodule.setup(None)
+    loader = datamodule.train_dataloader()
+
+    assert dataset_calls == [None]
+    assert loader_generators == [generator]
+    assert loader.generator is generator
 
 
 def test_optimizer_groups_cover_each_trainable_parameter_once() -> None:

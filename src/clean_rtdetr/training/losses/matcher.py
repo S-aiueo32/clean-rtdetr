@@ -15,8 +15,8 @@ from torch import Tensor
 
 from clean_rtdetr.core.contracts import DetectionOutput
 from clean_rtdetr.training.contracts import DetectionTarget, MatchIndices, validate_detection
-from clean_rtdetr.training.geometry import cxcywh_to_xyxy, generalized_box_iou
 from clean_rtdetr.training.interfaces import Matcher
+from clean_rtdetr.training.losses.geometry import cxcywh_to_xyxy, generalized_box_iou
 
 
 @dataclass(frozen=True)

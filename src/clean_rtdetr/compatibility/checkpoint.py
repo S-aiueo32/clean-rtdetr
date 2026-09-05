@@ -19,7 +19,7 @@ from clean_rtdetr.models.memory import MemoryProjector
 from clean_rtdetr.models.queries import QueryAssembler
 from clean_rtdetr.models.rtdetr import BaselineRTDETR
 from clean_rtdetr.models.selector import BoxHead, QuerySelector
-from clean_rtdetr.training.model import DenoisingTrainingModel
+from clean_rtdetr.training.denoising.model import DenoisingTrainingModel
 
 
 @dataclass(frozen=True)
