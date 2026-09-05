@@ -1,3 +1,4 @@
+# Copyright 2026 Clean RT-DETR contributors
 """RT-DETR query selection, adapted from lyuwenyu/RT-DETR (Apache-2.0).
 
 Changed: extracted from RTDETRTransformer; typed boundaries; head injection;
@@ -11,11 +12,13 @@ import torch
 from torch import Tensor, nn
 
 from clean_rtdetr.core.contracts import EncodedFeatures, QuerySet, SelectionOutput
-from clean_rtdetr.core.geometry import generate_anchors
+from clean_rtdetr.core.geometry import MAX_PROBABILITY_EPS, generate_anchors
 
 
 @dataclass(frozen=True)
 class QuerySelectorConfig:
+    """Define RT-DETR query dimensions, initialization, and anchor validity."""
+
     hidden_dim: int = 256
     num_classes: int = 80
     num_queries: int = 300
@@ -23,28 +26,32 @@ class QuerySelectorConfig:
     anchor_eps: float = 0.01
 
     def __post_init__(self) -> None:
+        """Reject invalid dimensions and probability margins at construction."""
         if min(self.hidden_dim, self.num_classes, self.num_queries) <= 0:
-            raise ValueError("Hidden dimension, class count, and query count must be positive")
-        if not 0 < self.anchor_eps < 0.5:
-            raise ValueError("Anchor epsilon must be between 0 and 0.5")
+            msg = "Hidden dimension, class count, and query count must be positive"
+            raise ValueError(msg)
+        if not 0 < self.anchor_eps < MAX_PROBABILITY_EPS:
+            msg = "Anchor epsilon must be between 0 and 0.5"
+            raise ValueError(msg)
 
 
 class BoxHead(nn.Module):
     """Three-layer ReLU MLP, retaining upstream key layout for stage weight loading."""
 
-    def __init__(self, hidden_dim: int):
+    def __init__(self, hidden_dim: int) -> None:
+        """Build the upstream MLP and zero-initialize its final regression layer."""
         super().__init__()
-        self.layers = nn.ModuleList(
-            [
-                nn.Linear(hidden_dim, hidden_dim),
-                nn.Linear(hidden_dim, hidden_dim),
-                nn.Linear(hidden_dim, 4),
-            ]
-        )
-        nn.init.zeros_(self.layers[-1].weight)
-        nn.init.zeros_(self.layers[-1].bias)
+        layers = [
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.Linear(hidden_dim, 4),
+        ]
+        self.layers = nn.ModuleList(layers)
+        nn.init.zeros_(layers[-1].weight)
+        nn.init.zeros_(layers[-1].bias)
 
     def forward(self, values: Tensor) -> Tensor:
+        """Predict four coordinate deltas for each memory position."""
         for layer in self.layers[:-1]:
             values = torch.relu(layer(values))
         return self.layers[-1](values)
@@ -64,13 +71,13 @@ class QuerySelector(nn.Module):
         *,
         score_head: nn.Module | None = None,
         box_head: nn.Module | None = None,
-    ):
+    ) -> None:
+        """Construct default heads or register the supplied research modules."""
         super().__init__()
         self.config = config
-        self.enc_output = nn.Sequential(
-            nn.Linear(config.hidden_dim, config.hidden_dim), nn.LayerNorm(config.hidden_dim)
-        )
-        nn.init.xavier_uniform_(self.enc_output[0].weight)
+        projection = nn.Linear(config.hidden_dim, config.hidden_dim)
+        self.enc_output = nn.Sequential(projection, nn.LayerNorm(config.hidden_dim))
+        nn.init.xavier_uniform_(projection.weight)
         if score_head is None:
             score_head = nn.Linear(config.hidden_dim, config.num_classes)
             nn.init.constant_(score_head.bias, -math.log(99.0))
@@ -83,14 +90,17 @@ class QuerySelector(nn.Module):
             nn.init.xavier_uniform_(self.tgt_embed.weight)
 
     def forward(self, features: EncodedFeatures) -> SelectionOutput:
+        """Select positions and preserve the separate query/auxiliary gradient routes."""
         features.validate()
         memory = features.memory
         batch, sequence, channels = memory.shape
         cfg = self.config
         if channels != cfg.hidden_dim:
-            raise ValueError("Memory channels do not match the selector hidden dimension")
+            msg = "Memory channels do not match the selector hidden dimension"
+            raise ValueError(msg)
         if sequence < cfg.num_queries:
-            raise ValueError("Memory sequence length must be at least num_queries")
+            msg = "Memory sequence length must be at least num_queries"
+            raise ValueError(msg)
         shapes = tuple(tuple(shape) for shape in features.spatial_shapes.tolist())
         anchors, valid = generate_anchors(shapes, device=memory.device, eps=cfg.anchor_eps)
         # Upstream masks memory, not scores: LayerNorm/linear biases still contribute.
@@ -98,9 +108,11 @@ class QuerySelector(nn.Module):
         logits = self.enc_score_head(encoded)
         deltas = self.enc_bbox_head(encoded)
         if logits.shape != (batch, sequence, cfg.num_classes):
-            raise ValueError("Score head must return [B, S, num_classes]")
+            msg = "Score head must return [B, S, num_classes]"
+            raise ValueError(msg)
         if deltas.shape != (batch, sequence, 4):
-            raise ValueError("Box head must return [B, S, 4] coordinate deltas")
+            msg = "Box head must return [B, S, 4] coordinate deltas"
+            raise ValueError(msg)
         coordinates = deltas + anchors
         indices = torch.topk(logits.max(-1).values, cfg.num_queries, dim=1).indices
 

@@ -22,16 +22,23 @@ The included example uses synthetic features and randomly initialized weights.
 
 ## Development
 
-Python 3.12 is used for development. The runtime dependency is PyTorch; tests and
-lint tools are in the development group. Use the committed lockfile:
+Python 3.12 is used for development. The runtime dependency is PyTorch; pytest,
+Ruff, and ty are in the development group. Use the committed lockfile:
 
 ```sh
 uv sync --locked
 uv run pytest
 uv run ruff check .
 uv run ruff format --check .
+uv run ty check
 uv run python examples/query_selection.py
 ```
+
+Ruff selects `ALL`, with documented exceptions for formatter/docstring conflicts,
+pytest assertions and upstream private-method access, and example output. The
+hash-verified oracle loader has one local `S102` exemption for executing the
+pinned methods. ty checks `src`, `tests`, and `examples` without rule suppressions.
+The unchanged vendored upstream source is outside both tools' check scope.
 
 Validators currently use eager checks and host-visible shape metadata. Export
 will have a separate tensor-only boundary; this slice is not export-ready.

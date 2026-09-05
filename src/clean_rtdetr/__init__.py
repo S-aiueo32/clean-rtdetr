@@ -1,3 +1,4 @@
+# Copyright 2026 Clean RT-DETR contributors
 """Small, explicit RT-DETR components. Full detector integration is in progress."""
 
 from clean_rtdetr.core.contracts import FeatureSpec, MultiScaleFeatures, QuerySet

@@ -1,3 +1,4 @@
+# Copyright 2026 Clean RT-DETR contributors
 """RT-DETR geometry, adapted from lyuwenyu/RT-DETR (Apache-2.0).
 
 Changed: explicit arguments, validation, and standalone anchor generation.
@@ -7,11 +8,14 @@ Provenance and the upstream license are recorded in third_party/RT-DETR/.
 import torch
 from torch import Tensor
 
+MAX_PROBABILITY_EPS = 0.5
+
 
 def inverse_sigmoid(values: Tensor, eps: float = 1e-5) -> Tensor:
     """Preserve upstream's separate numerator/denominator clamp at the endpoints."""
-    if not 0 < eps < 0.5:
-        raise ValueError("eps must be between 0 and 0.5")
+    if not 0 < eps < MAX_PROBABILITY_EPS:
+        msg = "eps must be between 0 and 0.5"
+        raise ValueError(msg)
     values = values.clamp(0, 1)
     return torch.log(values.clamp(min=eps) / (1 - values).clamp(min=eps))
 
@@ -30,12 +34,14 @@ def generate_anchors(
     arithmetic. Shape specialization and lower precision are later deployment work.
     Invalid anchor logits intentionally contain +inf.
     """
-    if not spatial_shapes or not 0 < eps < 0.5 or not 0 < grid_size < 1:
-        raise ValueError("Expected nonempty shapes, 0 < eps < .5 and 0 < grid_size < 1")
+    if not spatial_shapes or not 0 < eps < MAX_PROBABILITY_EPS or not 0 < grid_size < 1:
+        msg = "Expected nonempty shapes, 0 < eps < .5 and 0 < grid_size < 1"
+        raise ValueError(msg)
     anchors = []
     for level, (height, width) in enumerate(spatial_shapes):
         if height <= 0 or width <= 0:
-            raise ValueError("Anchor dimensions must be positive")
+            msg = "Anchor dimensions must be positive"
+            raise ValueError(msg)
         y, x = torch.meshgrid(
             torch.arange(height, dtype=dtype),
             torch.arange(width, dtype=dtype),

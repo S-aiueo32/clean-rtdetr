@@ -1,9 +1,11 @@
+# Copyright 2026 Clean RT-DETR contributors
 """Decoder input projection, adapted from lyuwenyu/RT-DETR (Apache-2.0).
 
 Changed: standalone module, FeatureSpec-driven construction and typed output.
 """
 
 from collections import OrderedDict
+from itertools import pairwise
 
 import torch
 from torch import nn
@@ -14,12 +16,15 @@ from clean_rtdetr.core.contracts import EncodedFeatures, FeatureSpec, MultiScale
 class MemoryProjector(nn.Module):
     """Project supplied levels to hidden_dim and flatten without implicit extra levels."""
 
-    def __init__(self, specs: tuple[FeatureSpec, ...], hidden_dim: int = 256):
+    def __init__(self, specs: tuple[FeatureSpec, ...], hidden_dim: int = 256) -> None:
+        """Build a Conv/BN projection for each explicitly supplied feature level."""
         super().__init__()
         if not specs or hidden_dim <= 0:
-            raise ValueError("Expected feature specs and a positive hidden dimension")
-        if any(left.stride >= right.stride for left, right in zip(specs, specs[1:], strict=False)):
-            raise ValueError("Feature specs must have strictly increasing strides")
+            msg = "Expected feature specs and a positive hidden dimension"
+            raise ValueError(msg)
+        if any(left.stride >= right.stride for left, right in pairwise(specs)):
+            msg = "Feature specs must have strictly increasing strides"
+            raise ValueError(msg)
         self.specs = tuple(specs)
         self.hidden_dim = hidden_dim
         self.input_proj = nn.ModuleList(
@@ -33,9 +38,11 @@ class MemoryProjector(nn.Module):
         )
 
     def forward(self, features: MultiScaleFeatures) -> EncodedFeatures:
+        """Project features and concatenate their row-major spatial positions."""
         features.validate()
         if features.specs != self.specs:
-            raise ValueError("Input FeatureSpec differs from the projector's construction spec")
+            msg = "Input FeatureSpec differs from the projector's construction spec"
+            raise ValueError(msg)
         projected = [
             projection(level)
             for projection, level in zip(self.input_proj, features.levels, strict=True)

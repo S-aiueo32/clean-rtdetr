@@ -1,3 +1,4 @@
+# Copyright 2026 Clean RT-DETR contributors
 """Run the implemented feature -> memory -> query boundary; no trained detector yet."""
 
 import torch

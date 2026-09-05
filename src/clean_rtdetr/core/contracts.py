@@ -1,3 +1,4 @@
+# Copyright 2026 Clean RT-DETR contributors
 """Eager boundary checks; export lowering will use a separate tensor-only schema."""
 
 from dataclasses import dataclass
@@ -5,68 +6,99 @@ from dataclasses import dataclass
 import torch
 from torch import Tensor
 
+FEATURE_RANK = 4
+MEMORY_RANK = 3
+SPATIAL_SHAPE_RANK = 2
+SPATIAL_DIMENSIONS = 2
+
 
 @dataclass(frozen=True)
 class FeatureSpec:
+    """Describe the channels and input-relative stride of one feature level."""
+
     channels: int
     stride: int
 
     def __post_init__(self) -> None:
+        """Reject nonpositive channel counts and strides."""
         if self.channels <= 0 or self.stride <= 0:
-            raise ValueError("Feature channels and stride must be positive")
+            msg = "Feature channels and stride must be positive"
+            raise ValueError(msg)
 
 
 @dataclass(frozen=True)
 class MultiScaleFeatures:
+    """Pair NCHW feature levels with their ordered construction specifications."""
+
     levels: tuple[Tensor, ...]
     specs: tuple[FeatureSpec, ...]
 
     def validate(self) -> None:
+        """Check feature layout, spec ordering, and shared batch/dtype/device."""
         if not self.levels or len(self.levels) != len(self.specs):
-            raise ValueError("Expected one FeatureSpec per nonempty feature level")
+            msg = "Expected one FeatureSpec per nonempty feature level"
+            raise ValueError(msg)
         previous_stride = 0
         first = self.levels[0]
         for level, spec in zip(self.levels, self.specs, strict=True):
-            if level.ndim != 4 or level.shape[1] != spec.channels:
-                raise ValueError("Features must have shape [B, channels, H, W] matching their spec")
+            if level.ndim != FEATURE_RANK or level.shape[1] != spec.channels:
+                msg = "Features must have shape [B, channels, H, W] matching their spec"
+                raise ValueError(msg)
             if min(level.shape) <= 0 or not level.is_floating_point():
-                raise ValueError("Features must be nonempty floating-point tensors")
+                msg = "Features must be nonempty floating-point tensors"
+                raise ValueError(msg)
             if spec.stride <= previous_stride:
-                raise ValueError("Feature levels must have strictly increasing strides")
+                msg = "Feature levels must have strictly increasing strides"
+                raise ValueError(msg)
             if (level.shape[0], level.dtype, level.device) != (
                 first.shape[0],
                 first.dtype,
                 first.device,
             ):
-                raise ValueError("Feature levels must share batch size, dtype, and device")
+                msg = "Feature levels must share batch size, dtype, and device"
+                raise ValueError(msg)
             previous_stride = spec.stride
 
 
 @dataclass(frozen=True)
 class EncodedFeatures:
+    """Store projected memory and the spatial metadata needed by the decoder."""
+
     memory: Tensor  # [B, S, C], level order then row-major (W advances first)
     spatial_shapes: Tensor  # [N, 2], int64 (H, W)
     level_start_index: Tensor  # [N], int64 prefix sum
 
     def validate(self) -> None:
-        if self.memory.ndim != 3 or min(self.memory.shape) <= 0:
-            raise ValueError("Memory must have nonempty shape [B, S, C]")
+        """Check memory layout and the exact level area/offset correspondence."""
+        if self.memory.ndim != MEMORY_RANK or min(self.memory.shape) <= 0:
+            msg = "Memory must have nonempty shape [B, S, C]"
+            raise ValueError(msg)
         if not self.memory.is_floating_point():
-            raise ValueError("Memory must be floating point")
+            msg = "Memory must be floating point"
+            raise ValueError(msg)
         shapes = self.spatial_shapes
-        if shapes.ndim != 2 or shapes.shape[1] != 2 or shapes.shape[0] == 0:
-            raise ValueError("Spatial shapes must have nonempty shape [N, 2]")
+        if (
+            shapes.ndim != SPATIAL_SHAPE_RANK
+            or shapes.shape[1] != SPATIAL_DIMENSIONS
+            or shapes.shape[0] == 0
+        ):
+            msg = "Spatial shapes must have nonempty shape [N, 2]"
+            raise ValueError(msg)
         for tensor in (shapes, self.level_start_index):
             if tensor.dtype != torch.int64 or tensor.device != self.memory.device:
-                raise ValueError("Shape metadata must be int64 on the memory device")
+                msg = "Shape metadata must be int64 on the memory device"
+                raise ValueError(msg)
         if not bool((shapes > 0).all()):
-            raise ValueError("Spatial dimensions must be positive")
+            msg = "Spatial dimensions must be positive"
+            raise ValueError(msg)
         sizes = shapes.prod(dim=1)
         expected = sizes.cumsum(0) - sizes
         if int(sizes.sum()) != self.memory.shape[1]:
-            raise ValueError("Memory sequence length must equal the sum of feature areas")
+            msg = "Memory sequence length must equal the sum of feature areas"
+            raise ValueError(msg)
         if not torch.equal(self.level_start_index, expected):
-            raise ValueError("Level offsets must equal the exclusive prefix sum of feature areas")
+            msg = "Level offsets must equal the exclusive prefix sum of feature areas"
+            raise ValueError(msg)
 
 
 @dataclass(frozen=True)
@@ -84,6 +116,8 @@ class QuerySet:
 
 @dataclass(frozen=True)
 class SelectionOutput:
+    """Keep initialized queries and differentiable encoder auxiliary predictions."""
+
     queries: QuerySet
     encoder_logits: Tensor  # [B, Q, K], retains gradient for auxiliary loss
     encoder_boxes: Tensor  # [B, Q, 4], normalized cxcywh, retains gradient

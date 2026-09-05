@@ -11,7 +11,7 @@ requires-python = ">=3.11"
 dependencies = ["torch>=2.6,<3"]
 
 [dependency-groups]
-dev = ["pytest>=8,<10", "ruff>=0.11,<1"]
+dev = ["pytest>=8,<10", "ruff>=0.11,<1", "ty>=0.0.1,<1"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/clean_rtdetr"]
@@ -30,4 +30,15 @@ line-length = 100
 extend-exclude = ["third_party"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP"]
+select = ["ALL"]
+# Keep the formatter and a single docstring layout authoritative.
+ignore = ["COM812", "D203", "D213"]
+
+[tool.ruff.lint.per-file-ignores]
+# Pytest assertions and calls into the pinned upstream private stage methods.
+"tests/**" = ["S101", "SLF001"]
+# The executable example intentionally displays tensor shapes.
+"examples/**" = ["T201"]
+
+[tool.ty.src]
+include = ["src", "tests", "examples"]
