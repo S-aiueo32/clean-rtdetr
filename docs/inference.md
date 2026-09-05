@@ -6,6 +6,18 @@ Pillow is an optional dependency. Install image support with:
 uv sync --locked --extra inference
 ```
 
+## Model tensors
+
+`RTDETR` accepts preprocessed floating-point RGB tensors in `[B,3,H,W]` layout.
+Height and width must be multiples of 32, and the resulting memory must contain
+at least the configured number of query positions. The model does not resize or
+normalize inputs.
+
+`ModelOutput.final` selects the last executed decoder layer and contains raw
+class logits `[B,Q,K]` and normalized cxcywh boxes `[B,Q,4]`. The full output
+also carries differentiable encoder predictions and optional AIFI features.
+`DecoderPlan()` executes and collects all six layers by default.
+
 ## Python API
 
 ```python
@@ -49,3 +61,26 @@ between 1 and the number of query/class pairs.
 checkpoint, its selected source, and expected SHA-256. It prints all 300
 detections per image as JSON and runs all six decoder layers by default. The
 example does not download images or weights; `--device` defaults to `cpu`.
+
+## Official weights and parity
+
+`load_official_model_weights` requires the checkpoint path, its `model` or `ema`
+source, and expected SHA-256. It validates every tensor before changing the
+model. `load_official_stage_weights` remains available for decoder-side
+components.
+
+The checkpoint URL, hash, and source are recorded in
+`benchmarks/baseline.json`. Compare all implemented inference stages with:
+
+```sh
+uv run python examples/checkpoint_parity.py \
+  checkpoints/rtdetr_r50vd_6x_coco_from_paddle.pth \
+  --source ema \
+  --expected-sha256 dfaafa5a3d29958a360c35f1fad553a6f287bfae9967e8ee007e65cff21ddf45 \
+  --full-model --report outputs/full-model-parity.json
+```
+
+Create the report's parent directory first. The command compares a seeded
+synthetic 640×640 input in CPU FP32; it does not measure dataset accuracy.
+Omitting `--full-model` runs the synthetic-feature stage comparison. The
+recorded result is in `benchmarks/full-model-parity.json`.
