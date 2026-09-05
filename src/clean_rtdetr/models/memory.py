@@ -4,12 +4,17 @@
 Changed: standalone module, FeatureSpec-driven construction and typed output.
 """
 
+from __future__ import annotations
+
 from collections import OrderedDict
 from itertools import pairwise
+from typing import TYPE_CHECKING
 
 import torch
-from jaxtyping import Float, Int64  # noqa: TC002
 from torch import Tensor, nn
+
+if TYPE_CHECKING:
+    from jaxtyping import Float, Int64
 
 from clean_rtdetr.core.contracts import EncodedFeatures, FeatureSpec, MultiScaleFeatures
 
