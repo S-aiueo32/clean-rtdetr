@@ -9,6 +9,8 @@ Source: [lyuwenyu/RT-DETR](https://github.com/lyuwenyu/RT-DETR)
 - SHA-256: `7e364fbba500b0ab23e3e33b7430780cd8dcf4738bd3b961118a3b1f8acd020e`
 - File: `rtdetr_pytorch/src/zoo/rtdetr/rtdetr_criterion.py`
 - SHA-256: `54e0f25364bf5c52ae60f8f9363dd2df7d9274657d97a881a2757b7805b739df`
+- File: `rtdetr_pytorch/src/zoo/rtdetr/denoising.py`
+- SHA-256: `2254d6b781879f54684e5726ada5e9c99414873398cf0a42c2e11d691bece595`
 - File: `rtdetr_pytorch/configs/rtdetr/include/optimizer.yml`
 - SHA-256: `0499a2af76f497cec3174f69ec4888a53597ba05387a9ab2ac7263d240c3d581`
 - File: `rtdetr_pytorch/src/zoo/rtdetr/rtdetr_postprocessor.py`
@@ -57,9 +59,10 @@ gradient clipping at `0.1`, EMA decay `0.9999`, and a `MultiStepLR` milestone at
 1000. These files are provenance references and do not claim validated
 training support in this project.
 
-The production `training` package adapts only the focal-cost Hungarian matcher
-and Varifocal/L1/GIoU losses, including independent auxiliary matching. Its CPU
+The production `training` package adapts the focal-cost Hungarian matcher,
+Varifocal/L1/GIoU losses, and contrastive denoising construction. Its CPU
 tests extract unchanged upstream methods and geometry and compare assignment,
-values, and gradients under single-process normalization. Denoising losses and
-full training are not implemented. The defaults come from the retained
+values, and gradients under single-process normalization. DN tests also compare
+seeded noise, masks, positive indices, embedding gradients, and per-layer DN losses.
+Full training/resume is not implemented. The defaults come from the retained
 `rtdetr_pytorch/configs/rtdetr/include/rtdetr_r50vd.yml`.

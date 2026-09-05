@@ -15,8 +15,8 @@ from jaxtyping import Float
 from torch import Tensor, nn
 from torch.nn import functional
 
-from clean_rtdetr.core.contracts import DetectionOutput, ModelOutput
-from clean_rtdetr.training.contracts import DetectionTarget, validate_detection
+from clean_rtdetr.core.contracts import DenoisingOutput, DetectionOutput, ModelOutput
+from clean_rtdetr.training.contracts import DetectionTarget, MatchIndices, validate_detection
 from clean_rtdetr.training.geometry import box_iou, cxcywh_to_xyxy, generalized_box_iou
 from clean_rtdetr.training.matcher import HungarianMatcher
 
@@ -51,7 +51,7 @@ class SetCriterion(nn.Module):
     ``ModelOutput`` adds independently matched decoder intermediate losses and
     the encoder auxiliary loss, in that order, using ``_aux_{index}`` suffixes.
     Values are already weighted: sum the returned values before ``backward``.
-    This boundary accepts matching queries only, without denoising predictions.
+    Separate denoising predictions use known target assignments and ``_dn_{index}`` keys.
     Distributed normalization and mixed-precision training are outside this API.
     """
 
@@ -108,6 +108,69 @@ class SetCriterion(nn.Module):
                 (f"{name}_aux_{index}", value)
                 for name, value in self._stage_losses(stage, targets).items()
             )
+        if isinstance(output, ModelOutput) and output.denoising is not None:
+            losses.update(self._denoising_losses(output.denoising, output, targets))
+        return losses
+
+    def _denoising_losses(
+        self,
+        denoising: DenoisingOutput,
+        output: ModelOutput,
+        targets: Sequence[DetectionTarget],
+    ) -> dict[str, Float[Tensor, ""]]:
+        """Supervise positive DN slots and classify all other slots as negatives."""
+        decoded, metadata = denoising.decoder, denoising.metadata
+        decoded.validate()
+        reference = output.decoder.logits
+        if (
+            decoded.logits.shape[:2] != reference.shape[:2]
+            or decoded.logits.shape[-1] != reference.shape[-1]
+            or decoded.logits.dtype != reference.dtype
+            or decoded.logits.device != reference.device
+        ):
+            msg = (
+                "Denoising predictions must share matching layers, batch, classes, "
+                "dtype, and device"
+            )
+            raise ValueError(msg)
+        if (
+            type(metadata.num_groups) is not int
+            or metadata.num_groups <= 0
+            or type(metadata.num_queries) is not int
+            or metadata.num_queries != decoded.logits.shape[2]
+            or len(metadata.positive_indices) != len(targets)
+        ):
+            msg = "Invalid denoising group count, query count, or batch metadata"
+            raise ValueError(msg)
+        maximum = max(target.labels.numel() for target in targets)
+        if maximum == 0 or metadata.num_queries != 2 * maximum * metadata.num_groups:
+            msg = "Denoising query count must cover positive and negative target groups"
+            raise ValueError(msg)
+        matches = []
+        for target, positive in zip(targets, metadata.positive_indices, strict=True):
+            target_indices = torch.arange(target.labels.numel(), device=reference.device)
+            expected = (
+                torch.arange(metadata.num_groups, device=reference.device)[:, None] * (2 * maximum)
+                + target_indices[None, :]
+            ).flatten()
+            if (
+                positive.dtype != torch.int64
+                or positive.device != reference.device
+                or positive.ndim != 1
+                or not torch.equal(positive, expected)
+            ):
+                msg = "Denoising positive indices must match repeated target slots"
+                raise ValueError(msg)
+            matches.append(MatchIndices(positive, target_indices.repeat(metadata.num_groups)))
+        normalizer = max(sum(target.labels.numel() for target in targets), 1) * metadata.num_groups
+        losses = {}
+        for index, (logits, boxes) in enumerate(zip(decoded.logits, decoded.boxes, strict=True)):
+            stage = DetectionOutput(logits, boxes)
+            validate_detection(stage, targets)
+            losses.update(
+                (f"{name}_dn_{index}", value)
+                for name, value in self._matched_losses(stage, targets, matches, normalizer).items()
+            )
         return losses
 
     def _stage_losses(
@@ -118,6 +181,16 @@ class SetCriterion(nn.Module):
         """Recompute assignment and preserve upstream reductions and detach points."""
         matches = self.matcher(output, targets)
         normalizer = max(sum(target.labels.numel() for target in targets), 1)
+        return self._matched_losses(output, targets, matches, normalizer)
+
+    def _matched_losses(
+        self,
+        output: DetectionOutput,
+        targets: Sequence[DetectionTarget],
+        matches: Sequence[MatchIndices],
+        normalizer: int,
+    ) -> dict[str, Float[Tensor, ""]]:
+        """Apply common weighted reductions to Hungarian or known DN assignments."""
         batch_indices = torch.cat(
             [
                 torch.full_like(match.prediction_indices, index)

@@ -19,6 +19,7 @@ from clean_rtdetr.models.memory import MemoryProjector
 from clean_rtdetr.models.queries import QueryAssembler
 from clean_rtdetr.models.rtdetr import RTDETR
 from clean_rtdetr.models.selector import BoxHead, QuerySelector
+from clean_rtdetr.training.model import DenoisingTrainingModel
 
 
 @dataclass(frozen=True)
@@ -116,6 +117,8 @@ def _source_key(stage: str, target: str) -> str:
 
 def _full_source_key(stage: str, target: str) -> str:
     """Translate a local model key to the official checkpoint namespace."""
+    if stage == "denoising" and target == "class_embed.weight":
+        return "decoder.denoising_class_embed.weight"
     if stage in {"backbone", "encoder"}:
         return f"{stage}.{target}"
     return _source_key(stage, target)
@@ -128,7 +131,7 @@ def _excluded_reason(key: str) -> str | None:
     if key.startswith("encoder."):
         return "HybridEncoder is not requested by the stage loader"
     if key == "decoder.denoising_class_embed.weight":
-        return "Training denoising embedding is not implemented"
+        return "Training denoising embedding is not requested by the stage loader"
     return None
 
 
@@ -234,7 +237,7 @@ def load_official_stage_weights(  # noqa: PLR0913
 def load_official_model_weights(  # noqa: C901
     path: str | Path,
     *,
-    model: RTDETR,
+    model: RTDETR | DenoisingTrainingModel,
     source: Literal["model", "ema"],
     expected_sha256: str,
 ) -> CheckpointLoadReport:
@@ -242,10 +245,12 @@ def load_official_model_weights(  # noqa: C901
 
     The model/EMA source and SHA-256 are mandatory. All target shapes and dtypes
     must match; missing BatchNorm counters are zero-initialized and reported.
-    Only counters belonging to FrozenBatchNorm and the training DN embedding
-    may be excluded. Optimizer/resume state and custom stages are unsupported.
+    The DN embedding is loaded for a DenoisingTrainingModel; otherwise
+    it is excluded. Optimizer/resume state and custom stages are unsupported.
     """
-    _validate_full_model(model)
+    training_model = model if isinstance(model, DenoisingTrainingModel) else None
+    detector = model.model if isinstance(model, DenoisingTrainingModel) else model
+    _validate_full_model(detector)
     data = Path(path).read_bytes()
     digest = hashlib.sha256(data).hexdigest()
     if digest != expected_sha256:
@@ -253,12 +258,14 @@ def load_official_model_weights(  # noqa: C901
         raise ValueError(msg)
     state = _state_dict(torch.load(io.BytesIO(data), map_location="cpu", weights_only=True), source)
     modules = {
-        "backbone": model.backbone,
-        "encoder": model.encoder,
-        "projector": model.projector,
-        "selector": model.selector,
-        "decoder": model.decoder,
+        "backbone": detector.backbone,
+        "encoder": detector.encoder,
+        "projector": detector.projector,
+        "selector": detector.selector,
+        "decoder": detector.decoder,
     }
+    if training_model is not None:
+        modules["denoising"] = training_model.denoising
     converted: dict[str, dict[str, Tensor]] = {}
     mapping: dict[str, str] = {}
     synthesized: list[str] = []
@@ -266,7 +273,8 @@ def load_official_model_weights(  # noqa: C901
         converted[stage] = {}
         for target, expected in module.state_dict().items():
             key = _full_source_key(stage, target)
-            destination = f"{stage}.{target}"
+            prefix = "model." if training_model is not None and stage != "denoising" else ""
+            destination = f"{prefix}{stage}.{target}"
             if key in mapping:
                 msg = f"Duplicate checkpoint key mapping: {key}"
                 raise ValueError(msg)
@@ -282,10 +290,10 @@ def load_official_model_weights(  # noqa: C901
             mapping[key] = destination
     excluded: dict[str, str] = {}
     for key in state.keys() - mapping.keys():
-        if _is_frozen_bn_counter(model, key):
+        if _is_frozen_bn_counter(detector, key):
             excluded[key] = "FrozenBatchNorm counter is not part of the target module"
         elif key == "decoder.denoising_class_embed.weight":
-            excluded[key] = "Training denoising embedding is not implemented"
+            excluded[key] = "Training denoising generator is not configured"
         else:
             msg = f"Unexpected checkpoint key: {key}"
             raise ValueError(msg)

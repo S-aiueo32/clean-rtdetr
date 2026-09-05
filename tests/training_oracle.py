@@ -136,6 +136,19 @@ def criterion_oracle(  # noqa: PLR0913
         converted["aux_outputs"].append(
             {"pred_logits": output.encoder_aux.logits, "pred_boxes": output.encoder_aux.boxes}
         )
+        if output.denoising is not None:
+            converted["dn_aux_outputs"] = [
+                {"pred_logits": logits, "pred_boxes": boxes}
+                for logits, boxes in zip(
+                    output.denoising.decoder.logits,
+                    output.denoising.decoder.boxes,
+                    strict=True,
+                )
+            ]
+            converted["dn_meta"] = {
+                "dn_positive_idx": output.denoising.metadata.positive_indices,
+                "dn_num_group": output.denoising.metadata.num_groups,
+            }
     upstream_targets = [{"labels": target.labels, "boxes": target.boxes} for target in targets]
     return criterion(converted, upstream_targets)
 
