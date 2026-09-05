@@ -21,6 +21,8 @@ scope separately so a passing small-stage test cannot imply complete reproductio
 3. [x] Validate CPU FP32 complete-model checkpoint/stage parity with the pinned official artifact.
 4. [x] Add Pillow/uint8 preprocessing, top-k postprocessing, and an image inference example.
 5. [ ] Capture COCO AP in a fixed evaluation environment, including category-ID mapping.
+   The prediction JSON and optional metric adapter are implemented and tested
+   on synthetic annotations; full-dataset accuracy measurement remains pending.
 6. [x] Add fixed-shape ONNX export and CPU FP32 runtime parity.
 7. [ ] Add DN, criterion, training/resume, and composition.
 

@@ -23,8 +23,12 @@ projected memory → selected queries → iterative decoder predictions** in PyT
 - Fixed-shape ONNX export through the `FixedShapeRTDETR` wrapper, with CPU FP32
   ONNX Runtime parity verification.
 
-Denoising construction, training criteria, and COCO evaluation remain to be
-implemented. No AP or latency is claimed; export is limited to the fixed
+COCO-format prediction JSON and optional official bbox evaluation are available
+as separate commands; see [COCO evaluation](docs/evaluation.md). pycocotools is
+loaded only by the metric adapter, and is unnecessary for prediction generation.
+
+Denoising construction, training criteria, and full-dataset COCO AP validation
+remain to be implemented. No AP or latency is claimed; export is limited to the fixed
 batch-1 640×640 CPU FP32 profile described below.
 `examples/query_selection.py` continues to demonstrate the component path using
 synthetic features and randomly initialized weights.

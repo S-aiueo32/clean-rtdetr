@@ -6,8 +6,9 @@ Clean RT-DETR is a readable PyTorch reference implementation. The current
 scope covers image-to-prediction R50vd, including multi-scale features, projected
 memory, selected queries, and iterative decoder predictions, plus separate
 Pillow/uint8 image preprocessing, top-k detection postprocessing, and fixed-shape
-ONNX export with CPU FP32 runtime parity. Training criteria and dataset
-evaluation remain outside the implemented scope.
+ONNX export with CPU FP32 runtime parity. Separate COCO prediction JSON and
+optional bbox metric evaluation are implemented. Training criteria and measured
+full-dataset COCO AP remain outside the validated scope.
 
 ## Repository guidance
 
