@@ -21,6 +21,24 @@ is not yet a complete detector.
   architectural decisions, review, integration, and final verification with
   the primary agent.
 
+## Branch strategy
+
+Use lightweight trunk-based development. Keep `main` in a validated state and
+merge short-lived branches through pull requests; do not create a permanent
+`develop` branch.
+
+- Name branches `feat/<issue>-<short-name>`, `fix/<issue>-<short-name>`,
+  `refactor/<short-name>`, `test/<short-name>`, or `docs/<short-name>`.
+- Use `experiment/<topic>` only for temporary research work. Record the
+  configuration, seed, and source commit when reporting results; do not treat
+  an experiment branch name as reproducibility metadata.
+- Start branches from the latest `main`, keep each pull request focused, and
+  do not push directly to `main`.
+- Before handoff or merge, run the complete validation commands below. Use
+  squash merge and delete merged branches.
+- Use version tags such as `v0.1.0` and `v0.1.1` for releases. Avoid release
+  branches until a release needs independent stabilization or maintenance.
+
 ## Development
 
 Use the committed environment and lockfile:

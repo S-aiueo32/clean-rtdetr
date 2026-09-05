@@ -1,5 +1,28 @@
 # Contributing
 
+## Branch strategy
+
+This repository uses lightweight trunk-based development. `main` should remain
+validated, and changes should be merged through focused pull requests from
+short-lived branches. There is no permanent `develop` branch.
+
+Use these branch prefixes:
+
+- `feat/<issue>-<short-name>` for new behavior
+- `fix/<issue>-<short-name>` for bug fixes
+- `refactor/<short-name>` for behavior-preserving restructuring
+- `test/<short-name>` for test-only changes
+- `docs/<short-name>` for documentation-only changes
+- `experiment/<topic>` for temporary research experiments
+
+Start from the latest `main`, do not push directly to `main`, and keep a pull
+request focused on one purpose. Use squash merge and delete the branch after
+merging. Research results must record their configuration, seed, and source
+commit; an experiment branch name alone is not reproducibility metadata.
+
+For releases, use version tags such as `v0.1.0` and `v0.1.1`. Add a release
+branch only when a release requires independent stabilization or maintenance.
+
 ## Development setup
 
 Python 3.13 and 3.14 are supported; local development defaults to 3.14.
