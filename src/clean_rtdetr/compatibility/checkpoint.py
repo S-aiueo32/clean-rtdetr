@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Literal
 
 import torch
+from jaxtyping import Shaped
 from torch import Tensor, nn
 
 from clean_rtdetr.models.backbone import FrozenBatchNorm2d, PResNet
@@ -82,7 +83,9 @@ def _validate_modules(
         raise ValueError(msg)
 
 
-def _state_dict(payload: object, source: Literal["model", "ema"]) -> Mapping[str, Tensor]:
+def _state_dict(
+    payload: object, source: Literal["model", "ema"]
+) -> Mapping[str, Shaped[Tensor, "..."]]:
     """Select an explicit official envelope without trying alternate sources."""
     if source not in {"model", "ema"}:
         msg = "Checkpoint source must be model or ema"
@@ -153,7 +156,9 @@ def _is_batch_norm_counter(module: nn.Module, target: str) -> bool:
     )
 
 
-def _validate_tensor(key: str, value: Tensor, expected: Tensor) -> None:
+def _validate_tensor(
+    key: str, value: Shaped[Tensor, "..."], expected: Shaped[Tensor, "..."]
+) -> None:
     """Reject incompatible weights before any destination module is mutated."""
     if value.layout != torch.strided or value.is_meta or expected.is_meta:
         msg = f"Checkpoint loading requires materialized strided tensors: {key}"

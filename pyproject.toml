@@ -51,14 +51,7 @@ ignore = ["COM812", "D203", "D213"]
 
 [tool.ruff.lint.per-file-ignores]
 # jaxtyping shape strings are not Python forward references (upstream FAQ).
-"src/clean_rtdetr/core/contracts.py" = ["F722"]
-"src/clean_rtdetr/core/geometry.py" = ["F722"]
-"src/clean_rtdetr/models/attention.py" = ["F722"]
-"src/clean_rtdetr/models/backbone.py" = ["F722"]
-"src/clean_rtdetr/models/selector.py" = ["F722"]
-"src/clean_rtdetr/data/__init__.py" = ["F722"]
-"src/clean_rtdetr/postprocessing.py" = ["F722"]
-"src/clean_rtdetr/export/*.py" = ["F722"]
+"src/clean_rtdetr/**/*.py" = ["F722"]
 # Pytest assertions and calls into the pinned upstream private stage methods.
 "tests/**" = ["S101", "SLF001"]
 # The executable example intentionally displays tensor shapes.

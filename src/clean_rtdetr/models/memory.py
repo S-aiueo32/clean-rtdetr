@@ -4,11 +4,17 @@
 Changed: standalone module, FeatureSpec-driven construction and typed output.
 """
 
+from __future__ import annotations
+
 from collections import OrderedDict
 from itertools import pairwise
+from typing import TYPE_CHECKING
 
 import torch
-from torch import nn
+from torch import Tensor, nn
+
+if TYPE_CHECKING:
+    from jaxtyping import Float, Int64
 
 from clean_rtdetr.core.contracts import EncodedFeatures, FeatureSpec, MultiScaleFeatures
 
@@ -47,8 +53,10 @@ class MemoryProjector(nn.Module):
             projection(level)
             for projection, level in zip(self.input_proj, features.levels, strict=True)
         ]
-        memory = torch.cat([level.flatten(2).transpose(1, 2) for level in projected], dim=1)
-        shapes = torch.tensor(
+        memory: Float[Tensor, "batch sequence channels"] = torch.cat(
+            [level.flatten(2).transpose(1, 2) for level in projected], dim=1
+        )
+        shapes: Int64[Tensor, "levels 2"] = torch.tensor(
             [level.shape[-2:] for level in projected], dtype=torch.int64, device=memory.device
         )
         sizes = shapes.prod(dim=1)
