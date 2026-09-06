@@ -27,8 +27,8 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run ty check
       - run: uv run pytest --cov=clean_rtdetr --cov-report=term-missing
-      - run: uv run python examples/lightning_training.py trainer.max_epochs=1 output_dir=outputs/lightning
-      - run: uv run python examples/lightning_training.py trainer.max_epochs=2 output_dir=outputs/lightning resume=outputs/lightning/last.ckpt
+      - run: uv run clean-rtdetr-train trainer.max_epochs=1 output_dir=outputs/lightning
+      - run: uv run clean-rtdetr-train trainer.max_epochs=2 output_dir=outputs/lightning resume=outputs/lightning/last.ckpt
 
   export:
     runs-on: ubuntu-latest

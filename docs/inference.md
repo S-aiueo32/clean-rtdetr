@@ -60,7 +60,7 @@ between 1 and the number of query/class pairs.
 
 ## Command-line example
 
-`examples/image_inference.py` accepts one or more image paths, a local official
+`clean-rtdetr-predict` accepts one or more image paths, a local official
 checkpoint, its selected source, and expected SHA-256. It prints all 300
 detections per image as JSON and runs all six decoder layers by default. The
 example does not download images or weights; `--device` defaults to `cpu`.
@@ -100,7 +100,7 @@ session = ort.InferenceSession(
 logits, boxes = session.run(["logits", "boxes"], {"images": images.numpy()})
 ```
 
-The CLI equivalent is `examples/export_onnx.py`; `--checkpoint`, `--source`,
+The CLI equivalent is `clean-rtdetr-export`; `--checkpoint`, `--source`,
 `--expected-sha256`, and `--output` are required. `--report` optionally selects
 the JSON report path (default: output with a `.json` suffix). It loads only a
 local, SHA-256-verified official checkpoint and does not download weights.
@@ -117,7 +117,7 @@ The checkpoint URL, hash, and source are recorded in
 `benchmarks/baseline.json`. Compare all implemented inference stages with:
 
 ```sh
-uv run python examples/checkpoint_parity.py \
+uv run python tools/checkpoint_parity.py \
   checkpoints/rtdetr_r50vd_6x_coco_from_paddle.pth \
   --source ema \
   --expected-sha256 dfaafa5a3d29958a360c35f1fad553a6f287bfae9967e8ee007e65cff21ddf45 \

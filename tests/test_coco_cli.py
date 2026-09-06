@@ -16,8 +16,8 @@ import torch
 from PIL import Image
 from torch import nn
 
-import examples.coco_evaluation as evaluation_cli
-import examples.coco_predictions as predictions_cli
+import clean_rtdetr.cli.coco_evaluate as evaluation_cli
+import clean_rtdetr.cli.coco_predict as predictions_cli
 from clean_rtdetr.compatibility import CheckpointLoadReport
 from clean_rtdetr.core.contracts import DetectionOutput
 from clean_rtdetr.evaluation import coco_predictions

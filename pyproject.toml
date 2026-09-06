@@ -12,6 +12,13 @@ classifiers = ["License :: OSI Approved :: Apache Software License"]
 requires-python = ">=3.13"
 dependencies = ["hydra-core>=1.3,<1.4", "jaxtyping>=0.3,<1", "torch>=2.6,<3"]
 
+[project.scripts]
+clean-rtdetr-train = "clean_rtdetr.cli.train:main"
+clean-rtdetr-predict = "clean_rtdetr.cli.predict:main"
+clean-rtdetr-export = "clean_rtdetr.cli.export:main"
+clean-rtdetr-coco-predict = "clean_rtdetr.cli.coco_predict:main"
+clean-rtdetr-coco-evaluate = "clean_rtdetr.cli.coco_evaluate:main"
+
 [project.optional-dependencies]
 inference = ["pillow>=11,<13"]
 export = ["onnx>=1.18,<2", "onnxscript>=0.5,<1", "onnxruntime>=1.22,<2"]
@@ -64,8 +71,9 @@ ignore = ["COM812", "D203", "D213"]
 "src/clean_rtdetr/**/*.py" = ["F722"]
 # Pytest assertions and calls into the pinned upstream private stage methods.
 "tests/**" = ["S101", "SLF001"]
-# The executable example intentionally displays tensor shapes.
-"examples/**" = ["T201"]
+# CLI commands and checkout-only diagnostics intentionally display results.
+"src/clean_rtdetr/cli/**" = ["T201"]
+"tools/**" = ["T201"]
 
 [tool.ty.src]
-include = ["src", "tests", "examples"]
+include = ["src", "tests", "tools"]

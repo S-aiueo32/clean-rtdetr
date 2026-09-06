@@ -61,7 +61,7 @@ uv run pytest --cov=clean_rtdetr --cov-report=term-missing
 uv run ruff check .
 uv run ruff format --check .
 uv run ty check
-uv run python examples/query_selection.py
+uv run python tools/query_selection.py
 ```
 
 Ruff and ty configuration lives in `pyproject.toml`. The vendored upstream

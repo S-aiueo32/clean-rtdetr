@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-import examples.export_onnx as cli
+import clean_rtdetr.cli.export as cli
 from clean_rtdetr.compatibility import CheckpointLoadReport
 from clean_rtdetr.export import ExportVerificationError
 from tests.test_model import small_model

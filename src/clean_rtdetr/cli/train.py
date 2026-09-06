@@ -8,19 +8,18 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import torch
-from hydra import compose, initialize_config_dir
 from hydra.utils import instantiate
 from lightning import seed_everything
+
+from clean_rtdetr.configuration import compose_config
 
 if TYPE_CHECKING:
     from omegaconf import DictConfig
 
 
 def _compose_config(overrides: list[str]) -> DictConfig:
-    """Compose the example config through Hydra's Python API."""
-    config_dir = str(Path(__file__).resolve().parents[1] / "configs")
-    with initialize_config_dir(version_base="1.3", config_dir=config_dir):
-        return compose(config_name="lightning_training", overrides=overrides)
+    """Compose the packaged Lightning configuration through the public API."""
+    return compose_config("lightning_training", overrides)
 
 
 def run(config: DictConfig) -> None:

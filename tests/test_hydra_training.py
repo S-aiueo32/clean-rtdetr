@@ -7,12 +7,12 @@ from typing import Any
 import lightning
 import pytest
 import torch
-from hydra import compose, initialize_config_dir
 from hydra.utils import instantiate
 from lightning.pytorch.callbacks import ModelCheckpoint
 from omegaconf import DictConfig, OmegaConf
 
 from clean_rtdetr import RTDETR
+from clean_rtdetr.configuration import compose_config
 from clean_rtdetr.training.lightning import RTDETRLightningModule
 from tests.test_training_interfaces import (
     FixedMatcher,
@@ -23,13 +23,8 @@ from tests.test_training_interfaces import (
 )
 
 
-def _config_dir() -> str:
-    return str(Path(__file__).resolve().parents[1] / "configs")
-
-
 def _compose(overrides: list[str] | None = None) -> DictConfig:
-    with initialize_config_dir(version_base="1.3", config_dir=_config_dir()):
-        return compose(config_name="lightning_training", overrides=overrides or [])
+    return compose_config("lightning_training", overrides or [])
 
 
 def _targets(value: Any):  # noqa: ANN202, ANN401 - recursive test helper
@@ -43,12 +38,12 @@ def _targets(value: Any):  # noqa: ANN202, ANN401 - recursive test helper
             yield from _targets(child)
 
 
-def test_lightning_config_composes_full_model_without_example_targets() -> None:
+def test_lightning_config_composes_full_model_without_command_targets() -> None:
     """The composed object graph builds the package model directly."""
     config = _compose()
     targets = tuple(_targets(OmegaConf.to_container(config, resolve=True)))
     assert targets
-    assert all(not target.startswith("examples.") for target in targets)
+    assert all(not target.startswith("clean_rtdetr.cli.") for target in targets)
     module = instantiate(config.module, _convert_="all")
     assert isinstance(module, RTDETRLightningModule)
     assert isinstance(module.training_model.model, RTDETR)

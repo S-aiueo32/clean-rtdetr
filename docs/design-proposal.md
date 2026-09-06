@@ -444,7 +444,8 @@ clean_rtdetr/
   evaluation/     # COCO evaluator and parity reports
 tests/            # unit, contract, parity, export, training smoke
 benchmarks/       # reproducible benchmark harness and manifests
-examples/         # readable training, inference, export examples
+cli/              # installed training, inference, export command entrypoints
+tools/            # checkout-only developer diagnostics
 experiments/      # research modules, resolved recipes, ablation definitions
 docs/             # paper-to-code map, extension guide, contracts, backend notes, ADRs
 ```

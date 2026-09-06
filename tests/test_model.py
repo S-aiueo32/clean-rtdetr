@@ -183,7 +183,7 @@ def test_decoder_loss_does_not_backpropagate_through_assembled_references() -> N
 def test_r50vd_config_uses_pinned_baseline_dimensions() -> None:
     """The packaged recipe exposes the planned baseline dimensions."""
     config = compose_model_config("r50vd")
-    assert "examples." not in OmegaConf.to_yaml(config, resolve=True)
+    assert "clean_rtdetr.cli." not in OmegaConf.to_yaml(config, resolve=True)
     model = instantiate(config, _convert_="all")
     assert model.selector.config.num_classes == BASELINE_CLASSES
     assert model.selector.config.num_queries == BASELINE_QUERIES

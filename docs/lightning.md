@@ -15,8 +15,8 @@ GPU/DDP/AMP, arbitrary mid-epoch resume, and research-method composition remain 
 
 ```sh
 uv sync --locked --extra lightning
-uv run python examples/lightning_training.py trainer.max_epochs=1 output_dir=outputs/lightning
-uv run python examples/lightning_training.py trainer.max_epochs=2 output_dir=outputs/lightning \
+uv run clean-rtdetr-train trainer.max_epochs=1 output_dir=outputs/lightning
+uv run clean-rtdetr-train trainer.max_epochs=2 output_dir=outputs/lightning \
   resume=outputs/lightning/last.ckpt
 ```
 
@@ -32,10 +32,11 @@ includes them so adapter regression tests and type checks always run.
 ## Hierarchical configuration and dependency injection
 
 The application uses Hydra's Compose API and `hydra.utils.instantiate`.
-Configuration lives under `configs/`; no configured target imports `examples`.
+Configuration is packaged under `clean_rtdetr/configs/`; no configured target
+imports a command-line module.
 
 ```text
-configs/
+src/clean_rtdetr/configs/
   lightning_training.yaml
   criterion/set.yaml
   matcher/hungarian.yaml
@@ -72,7 +73,7 @@ The adapter does not instantiate a fixed optimizer or scheduler class.
 For example, change both optimizer and scheduler through config groups:
 
 ```sh
-uv run python examples/lightning_training.py \
+uv run clean-rtdetr-train \
   optimizer@module.optimizer_factory=sgd \
   scheduler@module.scheduler_factory=step \
   trainer.max_epochs=1 output_dir=outputs/sgd
@@ -136,16 +137,16 @@ config = compose_model_config("r50vd", ["model.selector.config.num_queries=100"]
 model = instantiate(config, _convert_="all")
 ```
 
-The training config also searches the packaged model group. Selecting
+The training config uses the same packaged model group. Selecting
 `model@module.training_model.model=r50vd` uses the same baseline YAML; set the
 training recipe's shared `dimensions.hidden_dim=256` and
 `dimensions.num_classes=80` to match its DN generator and dataset.
 
 The `criterion`, `matcher`, and `denoising` config groups expose those choices
 alongside the existing model-stage, optimizer, and scheduler groups. For example,
-after adding `configs/matcher/experimental.yaml`, select it with
+after adding `clean_rtdetr/configs/matcher/experimental.yaml`, select it with
 `matcher@module.criterion.matcher=experimental`. A replacement config supplies
-its own `_target_` and constructor arguments. No `examples` module is required.
+its own `_target_` and constructor arguments. No command-line module is required.
 
 `predict` is the target-free path and preserves the caller's train/eval mode.
 The criterion returns a dictionary of weighted, differentiable scalar losses.

@@ -19,7 +19,7 @@ from typing import Any, Literal, cast
 
 import torch
 
-# Direct script execution puts examples/ on sys.path; the parity-only oracle
+# Direct script execution puts tools/ on sys.path; the parity-only oracle
 # lives in the repository's tests/ package rather than the installed library.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -53,7 +53,7 @@ SEED = 41
 ATOL = 1e-5
 RTOL = 1e-4
 IMPLEMENTATION_PATHS = (
-    "examples/checkpoint_parity.py",
+    "tools/checkpoint_parity.py",
     "tests/oracle.py",
     "tests/official_oracle.py",
 )

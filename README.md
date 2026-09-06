@@ -40,7 +40,7 @@ CPU backward example. SciPy is an optional training dependency for assignment.
 Full dataset training, GPU/DDP/AMP validation, research-method composition, and COCO AP measurement
 remain to be implemented. No AP or latency is claimed; export is limited to the fixed
 batch-1 640×640 CPU FP32 profile described below.
-`examples/query_selection.py` continues to demonstrate the component path using
+`tools/query_selection.py` continues to demonstrate the component path using
 synthetic features and randomly initialized weights.
 
 ## Image-to-prediction API
@@ -67,7 +67,7 @@ with export as `uv sync --locked --extra export --extra inference`), then run th
 complete path with local official weights:
 
 ```sh
-uv run python examples/image_inference.py image.jpg \
+uv run clean-rtdetr-predict image.jpg \
   --checkpoint checkpoints/rtdetr_r50vd_6x_coco_from_paddle.pth \
   --source ema \
   --expected-sha256 dfaafa5a3d29958a360c35f1fad553a6f287bfae9967e8ee007e65cff21ddf45
@@ -99,7 +99,7 @@ For a checkpoint-backed export, use the CLI. It requires a local official
 checkpoint and its SHA-256; weights are never downloaded:
 
 ```sh
-uv run python examples/export_onnx.py \
+uv run clean-rtdetr-export \
   --checkpoint checkpoints/rtdetr_r50vd_6x_coco_from_paddle.pth \
   --source ema \
   --expected-sha256 dfaafa5a3d29958a360c35f1fad553a6f287bfae9967e8ee007e65cff21ddf45 \

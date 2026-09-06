@@ -1,8 +1,4 @@
 # Small CPU recipe for the Hydra + Lightning integration example.
-hydra:
-  searchpath:
-    - pkg://clean_rtdetr.configs
-
 defaults:
   - model@module.training_model.model: compact
   - denoising@module.training_model.denoising: contrastive

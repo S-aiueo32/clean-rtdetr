@@ -13,7 +13,7 @@ composition remain pending. No convergence or trained accuracy is claimed.
 
 ```sh
 uv sync --locked --extra training
-uv run python examples/training_losses.py
+uv run python tools/training_losses.py
 ```
 
 SciPy supplies `scipy.optimize.linear_sum_assignment`, the assignment solver used

@@ -43,7 +43,7 @@ Separate image I/O accepts Pillow images or CPU uint8 RGB tensors using the same
 unclipped original-image xyxy boxes. Offline tests cover image I/O contracts and
 pinned upstream postprocessor parity; they do not measure dataset accuracy.
 Small offline tests cover component integration, gradients, and checkpoint
-validation; `examples/checkpoint_parity.py --full-model` checks the official
+validation; `tools/checkpoint_parity.py --full-model` checks the official
 weights on a seeded synthetic 640×640 input. That comparison is separate from
 dataset evaluation, GPU fixture capture, and latency measurement.
 The [recorded parity result](../benchmarks/full-model-parity.json) includes source
