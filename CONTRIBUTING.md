@@ -1,5 +1,7 @@
 # Contributing
 
+[日本語版](CONTRIBUTING.ja.md)
+
 ## Branch strategy
 
 This repository uses lightweight trunk-based development. `main` should remain
@@ -25,21 +27,27 @@ branch only when a release requires independent stabilization or maintenance.
 
 ## Development setup
 
-Python 3.13 and 3.14 are supported; local development defaults to 3.14.
-Runtime dependencies are PyTorch and
-jaxtyping; beartype, pytest, pytest-cov, Hypothesis, Ruff, and ty are in the
-development group.
+Python 3.13 and 3.14 are supported; local development defaults to 3.14. The uv
+workspace contains the `clean-rtdetr`, `clean-rtdetr-export`, and
+`clean-rtdetr-training` distributions. Export and training depend on core, but
+not on each other. Each distribution owns a `packages/<member>/pyproject.toml`,
+README, source tree, and test tree. The root `pyproject.toml` is workspace and
+shared-tool configuration, not publishable package metadata. Runtime
+dependencies belong to the package that uses them; beartype, pytest,
+pytest-cov, Hypothesis, Ruff, and ty are development tools.
 Pillow is available through the optional `inference` extra and is also installed
 for development image tests. Core model imports and postprocessing remain
-independent of Pillow. Use the committed lockfile:
+independent of Pillow. Install the complete development workspace:
 
 ```sh
-uv sync --locked
+uv sync --all-packages
 ```
 
-When changing dependencies, edit `pyproject.toml`, run `uv lock`, and include
-the resulting `uv.lock` change. Keep experiment-specific tools in the `dev`
-dependency group unless they are required by the package at runtime.
+`uv sync` uses the repository's `uv.lock` file and may update it when project
+dependencies change. When changing package dependencies, edit the owning member
+`pyproject.toml`, run `uv lock`, and include the resulting `uv.lock` change. Keep shared
+experiment-specific tools in the root `dev` dependency group unless a member
+requires them for its own development or runtime.
 
 Install the repository hooks once per checkout:
 
@@ -48,7 +56,9 @@ uv run pre-commit install
 ```
 
 The hooks apply Ruff fixes and run ty before each commit. Run them manually on
-all tracked files with `uv run pre-commit run --all-files`. The full pytest
+all tracked files with
+`uv run pre-commit run --all-files`.
+The full pytest
 suite remains a CI/handoff check because it is more expensive than a commit
 hook.
 
@@ -57,21 +67,25 @@ hook.
 Run the test suite, linters, type checker, and example with:
 
 ```sh
-uv run pytest --cov=clean_rtdetr --cov-report=term-missing
+uv run pytest \
+  --cov=clean_rtdetr --cov=clean_rtdetr_export --cov=clean_rtdetr_training \
+  --cov-report=term-missing
 uv run ruff check .
 uv run ruff format --check .
 uv run ty check
-uv run python examples/query_selection.py
+uv run python tools/query_selection.py
 ```
 
 The test command also emits a coverage report. New behavior should include
-focused tests; a repository-wide coverage threshold will be introduced once
-the complete detector stages are present.
+focused tests. The suite checks contracts and parity; passing it does not
+establish dataset accuracy or training convergence. Before handoff, also run the
+builds and metadata dry runs in [Distribution artifacts](#distribution-artifacts).
 
 During development, run a focused test with, for example:
 
 ```sh
-uv run pytest tests/test_stages.py -k selection
+uv run pytest \
+  packages/core/tests/test_stages.py -k selection
 ```
 
 Hypothesis tests should focus on cheap tensor-contract and geometry invariants
@@ -83,9 +97,13 @@ caches must not be committed.
 
 For a new model stage:
 
-1. Define or update the explicit tensor contract in `src/clean_rtdetr/core`.
-2. Implement the stage under `src/clean_rtdetr/models`.
-3. Add focused contract, gradient, and shape tests under `tests`.
+1. Define or update the explicit tensor contract in
+   `packages/core/src/clean_rtdetr/core`.
+2. Implement core stages under `packages/core/src/clean_rtdetr/models`, export behavior under
+   `packages/export/src/clean_rtdetr_export`, and training behavior under
+   `packages/training/src/clean_rtdetr_training`.
+3. Add focused contract, gradient, and shape tests under the owning member's
+   `tests` directory.
 4. Add parity tests against unchanged upstream code when the stage is derived
    from RT-DETR.
 5. Update the roadmap and README when the supported scope changes.
@@ -93,12 +111,20 @@ For a new model stage:
 
 Keep upstream-derived source and provenance under `third_party/RT-DETR`.
 When updating pinned upstream source, update its commit and SHA-256 in
-`benchmarks/baseline.json` and `tests/oracle.py`, retain license and attribution
-notices, and re-run all parity tests. Do not rewrite the oracle implementation
-into the package under test.
+`benchmarks/baseline.json` and `packages/core/tests/oracle.py`, retain license
+and attribution notices, and re-run all parity tests. Do not rewrite the oracle
+implementation into the package under test.
 
-CI runs the same checks on Python 3.13 and 3.14, plus a Python 3.13 export job
-with `uv sync --locked --extra export` and `uv run pytest tests/test_export.py`.
+CI runs the same checks on Python 3.13 and 3.14. Package-boundary jobs select
+members explicitly. CI passes `--locked` to verify that the committed `uv.lock`
+is current. For example, the export job uses:
+
+```sh
+uv sync --locked --package clean-rtdetr-export
+uv run pytest \
+  packages/export/tests/test_export.py packages/export/tests/test_export_cli.py
+```
+
 A local pass does not justify
 claiming complete-detector AP, latency, checkpoint, or export support; those
 claims require the corresponding implementation and fixtures.
@@ -108,18 +134,47 @@ conflicts, pytest assertions and upstream private-method access, and example
 output. The hash-verified oracle loader has one local `S102` exemption for
 executing the pinned methods. Modules with jaxtyping shape strings
 exempt `F722` because these strings are not Python forward references; `F821`
-remains enabled. ty checks `src`, `tests`, and `examples` without rule
-suppressions. The unchanged vendored upstream source is outside both tools'
-check scope.
+remains enabled. ty checks package-local `src` and `tests` trees plus `tools`
+without rule suppressions. The unchanged vendored upstream source is outside
+both tools' check scope.
+
+## Distribution artifacts
+
+The three members are independent PyPI distributions. Build both the sdist and
+wheel for each member, then validate the metadata locally:
+
+```sh
+uv build --package clean-rtdetr --no-sources --out-dir dist/core
+uv build --package clean-rtdetr-export --no-sources --out-dir dist/export
+uv build --package clean-rtdetr-training --no-sources --out-dir dist/training
+uv publish --dry-run dist/core/*
+uv publish --dry-run dist/export/*
+uv publish --dry-run dist/training/*
+```
+
+Inspect the resulting archives to ensure each contains only its own Python
+namespace, package data, README, license, and provenance files. The public
+namespaces are `clean_rtdetr`, `clean_rtdetr_export`, and
+`clean_rtdetr_training`; do not restore `clean_rtdetr.export` or
+`clean_rtdetr.training` compatibility shims. Release versions must satisfy the
+member dependency constraints, and `clean-rtdetr` must be available on the
+target index before publishing export or training.
 
 ## Implementation notes
 
 COCO prediction generation must work without pycocotools. Keep its imports and
 foreign object types inside the private evaluation adapter; public interfaces
 use project-owned records and plain metric dictionaries. Run the optional
-metric tests with `uv sync --locked --extra evaluation` followed by
-`uv run pytest tests/test_coco.py tests/test_coco_cli.py`. The extra uses wheels
-only under the committed uv configuration. See [evaluation](docs/evaluation.md).
+metric tests with:
+
+```sh
+uv sync --package clean-rtdetr --extra evaluation
+uv run pytest \
+  packages/core/tests/test_coco.py packages/core/tests/test_coco_cli.py
+```
+
+The extra uses wheels only under the committed uv configuration. See
+[evaluation](docs/evaluation.md).
 
 Validators use eager checks and host-visible shape metadata. The fixed-shape
 export adapter validates a copied model before capture, then reuses internal

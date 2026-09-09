@@ -1,7 +1,33 @@
 # Implementation roadmap
 
+English | [日本語](ja/roadmap.md)
+
 The design proposal is an architectural target. This file records implemented
 scope separately so a passing small-stage test cannot imply complete reproduction.
+The uv workspace publishes core, fixed-shape export, and training as separate
+distributions with one-way dependencies on `clean-rtdetr`.
+
+## Current implementation
+
+The PyTorch inference path connects images → R50vd backbone → HybridEncoder →
+projected memory → selected queries → iterative decoder predictions.
+
+| Area | Implemented and validated scope | Details |
+| --- | --- | --- |
+| Model stages | Frozen tensor contracts with jaxtyping annotations and eager validation; row-major memory projection and level offsets; anchors and top-k selection preserving upstream masks | [Extension guide](extensions.md) |
+| Decoder and gradients | Explicit execution/output plans, self-attention, multi-scale deformable cross-attention, iterative refinement, content/reference detach boundaries, differentiable encoder auxiliary predictions | [Gradient ownership](extensions.md#gradient-ownership) |
+| Composition | Component-injected `RTDETR`, an R50vd factory, optional AIFI features, and hierarchical Hydra configs for model and training components | [Lightning configuration](lightning.md#hierarchical-configuration-and-dependency-injection) |
+| Checkpoints and inference | Strict official inference-weight loading, CPU FP32 full-model parity, Pillow/uint8 preprocessing, and upstream-compatible top-k postprocessing | [Inference I/O](inference.md) |
+| COCO evaluation | Prediction JSON and an optional bbox metric adapter, tested on synthetic annotations; pycocotools is loaded only for metrics | [COCO evaluation](evaluation.md) |
+| ONNX export | `FixedShapeRTDETR` and CPU FP32 ONNX Runtime parity for fixed batch-1 640×640, with graph optimizations disabled | [Export profile](inference.md#fixed-shape-onnx-export) |
+| Matching and losses | Single-process Hungarian matching and Varifocal/L1/GIoU losses, including decoder/encoder auxiliary supervision and CPU loss/gradient parity | [Training losses](training.md) |
+| Denoising | Contrastive queries, registered class embeddings in the training wrapper, and per-layer DN losses with CPU upstream parity | [Contrastive denoising](training.md#contrastive-denoising) |
+| Training loop | Lightning adapter with baseline AdamW groups, EMA, and CPU FP32 synthetic epoch-boundary resume | [Lightning training](lightning.md) |
+
+Forward and gradient parity tests use SHA-256-pinned upstream methods.
+Full-dataset training, GPU/DDP/AMP validation, research-method composition,
+measured full-dataset COCO AP, and latency remain pending. Dynamic-shape ONNX
+and TensorRT are outside the validated export scope.
 
 ## First increment
 
@@ -24,7 +50,12 @@ scope separately so a passing small-stage test cannot imply complete reproductio
    The prediction JSON and optional metric adapter are implemented and tested
    on synthetic annotations; full-dataset accuracy measurement remains pending.
 6. [x] Add fixed-shape ONNX export and CPU FP32 runtime parity.
-7. [ ] Add DN, criterion, training/resume, and composition.
+7. [x] Add DN queries, criterion, and CPU loss/gradient parity.
+8. [x] Add synthetic CPU FP32 Lightning training and epoch-boundary resume.
+9. [ ] Validate full-dataset training and GPU/DDP/AMP execution.
+10. [ ] Implement research-method composition.
+
+## Validation evidence
 
 The single-process FP32/FP64 matching criterion is implemented with Hungarian
 assignment and Varifocal/L1/GIoU losses, including decoder and encoder auxiliary
@@ -34,8 +65,7 @@ is covered by offline tests; see [training losses](training.md). The optional
 [Lightning adapter](lightning.md) adds a CPU FP32 training loop and epoch-boundary
 resume, including optimizer, scheduler, EMA, and application RNG state. Hierarchical
 Hydra configs inject baseline model stages and optimizer/scheduler factories. Full
-dataset training, GPU/DDP/AMP validation, and research-method composition remain pending, so
-step 7 is not complete.
+dataset training, GPU/DDP/AMP validation, and research-method composition remain pending.
 
 The image-to-prediction API returns raw class logits and normalized cxcywh boxes.
 Separate image I/O accepts Pillow images or CPU uint8 RGB tensors using the same

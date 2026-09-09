@@ -1,13 +1,16 @@
 # Inference I/O
 
+English | [日本語](ja/inference.md)
+
 Pillow is an optional dependency. Install image support with:
 
 ```sh
-uv sync --locked --extra inference
+uv sync --package clean-rtdetr --extra inference
 ```
 
-For ONNX export and its CPU ONNX Runtime verifier, install the separate export
-extra with `uv sync --locked --extra export`.
+For ONNX export and its CPU ONNX Runtime verifier, install the separate
+`clean-rtdetr-export` workspace package with
+`uv sync --package clean-rtdetr-export`.
 
 ## Model tensors
 
@@ -23,14 +26,24 @@ also carries differentiable encoder predictions and optional AIFI features.
 
 ## Python API
 
+After installing image support, provide `image.jpg` and the local official
+checkpoint listed in [baseline metadata](../benchmarks/baseline.json):
+
 ```python
 import torch
 from PIL import Image
 
-from clean_rtdetr import DecoderPlan
-from clean_rtdetr.data import preprocess_images
-from clean_rtdetr.postprocessing import postprocess
+from clean_rtdetr import DecoderPlan, rtdetr_r50vd
+from clean_rtdetr.compatibility import load_official_model_weights
+from clean_rtdetr.inference import postprocess, preprocess_images
 
+model = rtdetr_r50vd().eval()
+load_official_model_weights(
+    "checkpoints/rtdetr_r50vd_6x_coco_from_paddle.pth",
+    model=model,
+    source="ema",
+    expected_sha256="dfaafa5a3d29958a360c35f1fad553a6f287bfae9967e8ee007e65cff21ddf45",
+)
 with Image.open("image.jpg") as image:
     batch = preprocess_images([image])
 with torch.inference_mode():
@@ -65,9 +78,16 @@ checkpoint, its selected source, and expected SHA-256. It prints all 300
 detections per image as JSON and runs all six decoder layers by default. The
 example does not download images or weights; `--device` defaults to `cpu`.
 
+```sh
+uv run clean-rtdetr-predict image.jpg \
+  --checkpoint checkpoints/rtdetr_r50vd_6x_coco_from_paddle.pth \
+  --source ema \
+  --expected-sha256 dfaafa5a3d29958a360c35f1fad553a6f287bfae9967e8ee007e65cff21ddf45
+```
+
 ## Fixed-shape ONNX export
 
-`clean_rtdetr.export` exposes the `FixedShapeRTDETR` tensor-only wrapper and
+`clean_rtdetr_export` exposes the `FixedShapeRTDETR` tensor-only wrapper and
 the `export_onnx(model, destination, *, input_shape=(1, 3, 640, 640))` API.
 The default profile is batch 1, 640×640, CPU FP32, and ONNX opset 18. It emits
 raw class logits `[1,300,80]` and normalized cxcywh boxes `[1,300,4]`, then
@@ -100,7 +120,9 @@ session = ort.InferenceSession(
 logits, boxes = session.run(["logits", "boxes"], {"images": images.numpy()})
 ```
 
-The CLI equivalent is `clean-rtdetr-export`; `--checkpoint`, `--source`,
+Run the CLI with
+`uv run clean-rtdetr-export`;
+`--checkpoint`, `--source`,
 `--expected-sha256`, and `--output` are required. `--report` optionally selects
 the JSON report path (default: output with a `.json` suffix). It loads only a
 local, SHA-256-verified official checkpoint and does not download weights.

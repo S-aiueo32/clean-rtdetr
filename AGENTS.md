@@ -15,8 +15,11 @@ Full training and measured full-dataset COCO AP remain outside the validated sco
 
 ## Repository guidance
 
-- Put package code under `src/clean_rtdetr`.
-- Put regression and parity tests under `tests`.
+- Put core package code under `packages/core/src/clean_rtdetr`, export package code under
+  `packages/export/src/clean_rtdetr_export`, and training package code under
+  `packages/training/src/clean_rtdetr_training`.
+- Put each package's regression and parity tests under its own
+  `packages/<member>/tests` directory.
 - Keep upstream-derived code and provenance under `third_party/RT-DETR`.
 - Preserve tensor contracts, validation behavior, and upstream parity semantics
   when changing model stages.
@@ -48,21 +51,34 @@ merge short-lived branches through pull requests; do not create a permanent
 
 ## Development
 
-Use the committed environment and lockfile:
+Use the workspace development environment:
 
 ```sh
-uv sync --locked
+uv sync --all-packages
 ```
 
 Before handing off changes, run:
 
 ```sh
-uv run pytest --cov=clean_rtdetr --cov-report=term-missing
+uv run pytest \
+  --cov=clean_rtdetr --cov=clean_rtdetr_export --cov=clean_rtdetr_training \
+  --cov-report=term-missing
 uv run ruff check .
 uv run ruff format --check .
 uv run ty check
 uv run python tools/query_selection.py
+uv build --package clean-rtdetr --no-sources --out-dir dist/core
+uv build --package clean-rtdetr-export --no-sources --out-dir dist/export
+uv build --package clean-rtdetr-training --no-sources --out-dir dist/training
+uv publish --dry-run dist/core/*
+uv publish --dry-run dist/export/*
+uv publish --dry-run dist/training/*
 ```
 
-Ruff and ty configuration lives in `pyproject.toml`. The vendored upstream
-directory is excluded from those checks.
+The root is a non-package uv workspace. Workspace and shared Ruff/ty
+configuration lives in its `pyproject.toml`; package metadata, dependencies,
+source, tests, and build configuration live in each member. The published
+namespaces are `clean_rtdetr`, `clean_rtdetr_export`, and
+`clean_rtdetr_training`; do not add compatibility shims for the former
+`clean_rtdetr.export` or `clean_rtdetr.training` paths. The vendored upstream
+directory is excluded from static checks.

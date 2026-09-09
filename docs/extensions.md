@@ -1,5 +1,7 @@
 # First extension boundary
 
+English | [日本語](ja/extensions.md)
+
 `QuerySelector` accepts ordinary `nn.Module` instances. Injected modules are
 registered children, retain their initialization, participate in autograd, and
 appear in `state_dict()` and `parameters()`.
