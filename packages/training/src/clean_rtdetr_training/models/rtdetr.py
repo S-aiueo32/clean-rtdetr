@@ -2,6 +2,7 @@
 """Training composition that owns DN parameters and keeps the core target-free."""
 
 from collections.abc import Sequence
+from typing import Protocol, runtime_checkable
 
 from jaxtyping import Float
 from torch import Tensor
@@ -10,6 +11,15 @@ from clean_rtdetr.contracts import DecoderPlan, ModelOutput
 from clean_rtdetr.models.interfaces import Detector
 from clean_rtdetr_training.contracts import DetectionTarget
 from clean_rtdetr_training.interfaces import DenoisingGenerator, TrainingModel
+
+
+@runtime_checkable
+class DenoisingFactory[DenoisingT: DenoisingGenerator](Protocol):
+    """Construct a generator using dimensions from the initialized detector."""
+
+    def __call__(self, *, hidden_dim: int, num_classes: int) -> DenoisingT:
+        """Return a fully initialized denoising generator."""
+        ...
 
 
 class DenoisingTrainingModel[
@@ -27,6 +37,14 @@ class DenoisingTrainingModel[
         self.model = model
         self.denoising = denoising
         self.train(model.training)
+
+    @classmethod
+    def from_factory(
+        cls, model: DetectorT, denoising_factory: DenoisingFactory[DenoisingT]
+    ) -> "DenoisingTrainingModel[DetectorT, DenoisingT]":
+        """Build and register DN parameters after the detector resolves its dimensions."""
+        denoising = denoising_factory(hidden_dim=model.hidden_dim, num_classes=model.num_classes)
+        return cls(model, denoising)
 
     def forward(
         self,

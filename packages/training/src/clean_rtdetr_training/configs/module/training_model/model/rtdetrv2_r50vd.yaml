@@ -1,0 +1,3 @@
+_target_: clean_rtdetr.create_model
+name: rtdetrv2_r50vd
+num_classes: 3

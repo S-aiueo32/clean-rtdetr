@@ -1,0 +1,9 @@
+defaults:
+  - training_model: denoising
+  - criterion: set
+  - optimizer_factory: adamw
+  - scheduler_factory: multistep
+  - parameter_groups_factory: rtdetr
+  - _self_
+
+_target_: clean_rtdetr_training.lightning.RTDETRLightningModule

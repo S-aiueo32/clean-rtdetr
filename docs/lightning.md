@@ -48,31 +48,106 @@ config = compose_training_config("lightning_training")
 ```text
 packages/training/src/clean_rtdetr_training/configs/
   lightning_training.yaml
-  criterion/set.yaml
-  matcher/hungarian.yaml
-  denoising/contrastive.yaml
-  datamodule/synthetic.yaml
-  model/
-    compact.yaml
-    backbone/r50vd.yaml
-    encoder/compact.yaml
-    projector/compact.yaml
-    selector/compact.yaml
-    decoder/compact.yaml
-  optimizer/
-    adamw.yaml
-    sgd.yaml
-  scheduler/
-    multistep.yaml
-    step.yaml
+  module/
+    rtdetr.yaml
+    training_model/
+      denoising.yaml
+      denoising_factory/contrastive.yaml
+      model/
+        compact.yaml
+        rtdetr*.yaml
+        backbone/r50vd.yaml
+        encoder/compact.yaml
+        projector/compact.yaml
+        selector/compact.yaml
+        assembler/default.yaml
+        decoder/compact.yaml
+    criterion/
+      set.yaml
+      matcher/hungarian.yaml
+    parameter_groups_factory/rtdetr.yaml
+    optimizer_factory/
+      adamw.yaml
+      sgd.yaml
+    scheduler_factory/
+      multistep.yaml
+      step.yaml
+  datamodule/
+    synthetic.yaml
+    dataset_factory/synthetic.yaml
+    dataloader_factory/
+      default.yaml
+      collate_fn/detection.yaml
+  trainer/
+    cpu.yaml
+    callbacks/
+      default.yaml
+      rng/epoch_boundary.yaml
+      ema/rtdetr.yaml
+      checkpoint/last.yaml
 ```
 
-The model group recursively instantiates package components: `PResNet`,
+Directories follow the instantiated object's ownership: each parent recipe selects
+its direct children through relative defaults. The root selects the module,
+datamodule, and trainer. The trainer selects its callbacks
+through `callbacks: default` in `trainer/cpu.yaml`. Component implementations
+have their own config groups; scalar options and small config dataclasses stay
+with the component that consumes them. Group overrides use paths such as
+`module/optimizer_factory=sgd`; value overrides use dotted paths such as
+`module.optimizer_factory.lr=0.001`. The former top-level groups and
+`model@module.training_model.model=...` override syntax have been replaced by
+this hierarchy. For example, use `module/training_model/model=...` for a model
+and `module/criterion/matcher=...` for a matcher. Callback groups live under
+`trainer/callbacks`, such as `trainer/callbacks/ema=rtdetr`.
+
+The default `compact` model group recursively instantiates package components: `PResNet`,
 `HybridEncoder`, `MemoryProjector`, `QuerySelector`, `QueryAssembler`, and
-`Decoder`, then injects them into `RTDETR`. Shared dimensions are interpolated
-from the root configuration. Existing component validation rejects incompatible
+`Decoder`, then injects them into `RTDETR`. Dimensions belong to the model stages:
+`encoder.config.hidden_dim` supplies model-local interpolations, while
+`selector.config.num_queries` and `decoder.config.num_layers` own their values.
+For example, change compact width with
+`module.training_model.model.encoder.config.hidden_dim=64`.
+Existing component validation rejects incompatible
 feature specs or dimensions. Constructors accept feature specs as a sequence,
 so YAML uses ordinary lists; each module stores an immutable tuple internally.
+
+Select any of the ten named [model presets](extensions.md#named-model-presets)
+through the public `clean_rtdetr.create_model` factory:
+
+```sh
+uv run clean-rtdetr-train \
+  module/training_model/model=rtdetrv2_r18vd \
+  module.training_model.model.num_classes=80 trainer.max_epochs=1
+```
+
+The model group accepts `rtdetr_r18vd`, `rtdetr_r34vd`, `rtdetr_r50vd_m`,
+`rtdetr_r50vd`, `rtdetr_r101vd`, and their `rtdetrv2_` counterparts. Each preset
+gets its architecture dimensions from the factory. The model owns the class
+count: named presets expose `module.training_model.model.num_classes`
+(default: 3), while compact exposes
+`module.training_model.model.selector.config.num_classes` and interpolates it
+into the decoder. Architecture sizes
+are fixed by the factory; use `compact` for stage and dimension experiments.
+These configurations initialize random weights and provide synthetic wiring
+examples, not full-dataset training recipes.
+
+The DN recipe uses `DenoisingTrainingModel.from_factory` and a
+`denoising_factory` configured with `_partial_: true`. Once the detector exists,
+the wrapper creates DN with the detector's actual `hidden_dim` and `num_classes`.
+All parameters exist before optimizer construction; no parameters are created
+on the first forward pass. Direct construction with a ready-made DN generator
+is also supported.
+
+Synthetic data defaults to `datamodule.dataset_factory.image_size=auto`.
+During dataset setup, it chooses an aligned square size using the built RT-DETR
+projector's strides and query count, with enough memory positions for query
+selection and at least two cells along each side at the coarsest level. This
+resolves to 64×64 for the default compact model and 128×128 for the named
+300-query presets. Set `datamodule.dataset_factory.image_size=256` to specify a
+size explicitly; setup validates that it is positive, stride-aligned, and large
+enough. The synthetic dataset also derives its class count from the built model;
+its factory has no separate `num_classes` argument. There is no shared root
+`dimensions` group or per-preset copy of these values.
 
 The Lightning module receives a training model, criterion, parameter-group policy,
 optimizer factory, and scheduler factory through constructor injection. Optimizer
@@ -84,8 +159,8 @@ For example, change both optimizer and scheduler through config groups:
 
 ```sh
 uv run clean-rtdetr-train \
-  optimizer@module.optimizer_factory=sgd \
-  scheduler@module.scheduler_factory=step \
+  module/optimizer_factory=sgd \
+  module/scheduler_factory=step \
   trainer.max_epochs=1 output_dir=outputs/sgd
 ```
 
@@ -144,15 +219,15 @@ model = rtdetr_r50vd()
 ```
 
 The training distribution packages its model groups with the training recipe.
-Their shared dimensions are controlled by the root recipe and checked against the
-DN generator and dataset during composition and construction.
+DN dimensions come from the built detector, and synthetic image dimensions are
+resolved when the dataset is constructed.
 
-The `criterion`, `matcher`, and `denoising` config groups expose those choices
+The nested `criterion`, `matcher`, and `denoising_factory` config groups expose those choices
 alongside the existing model-stage, optimizer, and scheduler groups. For
 example, after adding
-`packages/training/src/clean_rtdetr_training/configs/matcher/experimental.yaml`,
+`packages/training/src/clean_rtdetr_training/configs/module/criterion/matcher/experimental.yaml`,
 select it with
-`matcher@module.criterion.matcher=experimental`. A replacement config supplies
+`module/criterion/matcher=experimental`. A replacement config supplies
 its own `_target_` and constructor arguments. No command-line module is required.
 
 `predict` is the target-free path and preserves the caller's train/eval mode.
@@ -187,14 +262,22 @@ this schema rather than treating those files as compatible resumes.
 
 ## Application composition
 
-The application instantiates a `LightningDataModule` from the `datamodule` config
-group and passes it to `Trainer.fit(..., datamodule=...)`. The default
-`DetectionDataModule` receives dataset and DataLoader factories through Hydra
-partials. It constructs the dataset during `setup("fit")`, then supplies the
+The application constructs the Lightning module first, then injects its built
+training model into the `datamodule` config target. The default
+`DetectionDataModule.from_training_model` binds that model to a dataset factory;
+dataset and DataLoader factories are Hydra partials. It constructs the dataset
+during `setup("fit")`, then supplies the
 loader through `train_dataloader()`. Repeated setup retains the same dataset.
 Collation, batching, and shuffling are configured under the loader factory.
-Another experiment can replace the entire datamodule with its own
-`LightningDataModule` implementation.
+The datamodule is passed to `Trainer.fit(..., datamodule=...)`.
+Custom dataset factories used with `from_training_model` accept a
+`training_model: TrainingModel` argument. The default
+`SyntheticDetectionDataset.from_training_model` specifically requires a
+`DenoisingTrainingModel` wrapping `RTDETR` to inspect its projector strides.
+Direct dataset and datamodule constructors remain available. Another experiment
+can replace the entire datamodule with its own `LightningDataModule`
+implementation whose configured target accepts the injected training model and
+generator.
 
 The application injects the **same** generator object into the datamodule and
 `EpochBoundaryState`. The datamodule passes that generator to its DataLoader,

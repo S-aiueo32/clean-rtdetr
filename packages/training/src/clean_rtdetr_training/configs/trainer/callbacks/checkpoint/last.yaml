@@ -1,0 +1,4 @@
+_target_: lightning.pytorch.callbacks.ModelCheckpoint
+dirpath: ${output_dir}
+save_last: true
+save_on_train_epoch_end: true

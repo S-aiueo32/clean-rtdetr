@@ -272,6 +272,8 @@ def test_full_loader_maps_front_and_back_and_excludes_dn_and_frozen_counters(
     for key in markers:
         state[key].fill_(0.25)
     state["decoder.denoising_class_embed.weight"] = torch.randn(8, 256)
+    state["decoder.anchors"] = torch.randn(1, 8400, 4)
+    state["decoder.valid_mask"] = torch.ones(1, 8400, 1, dtype=torch.bool)
     state["backbone.conv1.conv1_1.norm.num_batches_tracked"] = torch.tensor(9, dtype=torch.int64)
     path = _save(tmp_path, state)
     report = load_official_model_weights(
@@ -281,6 +283,8 @@ def test_full_loader_maps_front_and_back_and_excludes_dn_and_frozen_counters(
         expected_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
     )
     assert report.excluded_keys["decoder.denoising_class_embed.weight"]
+    assert report.excluded_keys["decoder.anchors"]
+    assert report.excluded_keys["decoder.valid_mask"]
     assert report.excluded_keys["backbone.conv1.conv1_1.norm.num_batches_tracked"]
     assert report.key_mapping["backbone.conv1.conv1_1.conv.weight"] == (
         "backbone.conv1.conv1_1.conv.weight"

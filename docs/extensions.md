@@ -2,6 +2,32 @@
 
 English | [日本語](ja/extensions.md)
 
+## Named model presets
+
+`create_model(name, num_classes=80)` constructs the official PResNet variants
+listed by `list_models()`: R18vd, R34vd, R50vd-M, R50vd, and R101vd for both
+RT-DETR and RT-DETRv2. The corresponding named functions remain available when
+a statically precise return type is useful.
+
+```python
+from clean_rtdetr import create_model, get_model_preset
+
+model = create_model("rtdetr_r101vd", num_classes=20)
+preset = get_model_preset("rtdetr_r101vd")
+print(preset.config_url, preset.checkpoint_url)
+```
+
+`ModelPreset` freezes the resolved architecture values and upstream provenance.
+The URLs do not trigger downloads. Only the existing `rtdetr_r50vd` official
+conversion and parity path is validated; the other constructors currently cover
+architecture and state-dictionary structure.
+
+The v2 presets inject named encoder projections, a named selector projection,
+point-scale state, and identity FFN residual handling into the shared stages.
+The medium presets also inject a default inference `DecoderPlan`; training and
+an explicit depth still execute the requested decoder prefix. Model execution
+contains no v1/v2 family switch.
+
 `QuerySelector` accepts ordinary `nn.Module` instances. Injected modules are
 registered children, retain their initialization, participate in autograd, and
 appear in `state_dict()` and `parameters()`.

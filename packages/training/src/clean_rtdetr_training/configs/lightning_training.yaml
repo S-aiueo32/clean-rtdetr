@@ -1,53 +1,10 @@
 # Small CPU recipe for the Hydra + Lightning integration example.
 defaults:
-  - model@module.training_model.model: compact
-  - denoising@module.training_model.denoising: contrastive
-  - criterion@module.criterion: set
-  - matcher@module.criterion.matcher: hungarian
-  - optimizer@module.optimizer_factory: adamw
-  - scheduler@module.scheduler_factory: multistep
+  - module: rtdetr
   - datamodule: synthetic
+  - trainer: cpu
   - _self_
-
-dimensions:
-  hidden_dim: 8
-  num_classes: 3
-  num_queries: 2
-  num_layers: 2
 
 seed: 41
 output_dir: outputs/lightning
 resume: null
-
-module:
-  _target_: clean_rtdetr_training.lightning.RTDETRLightningModule
-  training_model:
-    _target_: clean_rtdetr_training.DenoisingTrainingModel
-  parameter_groups_factory:
-    _target_: clean_rtdetr_training.lightning.RTDETRParameterGroups
-    backbone_lr: 0.00001
-
-callbacks:
-  rng:
-    _target_: clean_rtdetr_training.lightning.EpochBoundaryState
-  ema:
-    _target_: clean_rtdetr_training.lightning.RTDETREMA
-  checkpoint:
-    _target_: lightning.pytorch.callbacks.ModelCheckpoint
-    dirpath: ${output_dir}
-    save_last: true
-    save_on_train_epoch_end: true
-
-trainer:
-  _target_: lightning.pytorch.Trainer
-  accelerator: cpu
-  devices: 1
-  precision: 32-true
-  deterministic: true
-  max_epochs: 2
-  gradient_clip_val: 0.1
-  gradient_clip_algorithm: norm
-  accumulate_grad_batches: 1
-  logger: false
-  enable_progress_bar: false
-  enable_model_summary: false

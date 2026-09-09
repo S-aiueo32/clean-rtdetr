@@ -1,9 +1,9 @@
 _target_: clean_rtdetr.Decoder
 config:
   _target_: clean_rtdetr.DecoderConfig
-  hidden_dim: ${dimensions.hidden_dim}
-  num_classes: ${dimensions.num_classes}
-  num_layers: ${dimensions.num_layers}
+  hidden_dim: ${...encoder.config.hidden_dim}
+  num_classes: ${...selector.config.num_classes}
+  num_layers: 2
   num_heads: 2
   num_levels: 3
   num_points: 1

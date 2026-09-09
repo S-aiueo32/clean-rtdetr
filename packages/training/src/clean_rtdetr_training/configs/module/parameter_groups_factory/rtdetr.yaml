@@ -1,0 +1,2 @@
+_target_: clean_rtdetr_training.lightning.RTDETRParameterGroups
+backbone_lr: 0.00001

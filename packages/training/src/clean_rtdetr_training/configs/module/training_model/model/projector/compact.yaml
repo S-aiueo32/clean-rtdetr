@@ -1,12 +1,12 @@
 _target_: clean_rtdetr.MemoryProjector
 specs:
   - _target_: clean_rtdetr.FeatureSpec
-    channels: ${dimensions.hidden_dim}
+    channels: ${...hidden_dim}
     stride: 8
   - _target_: clean_rtdetr.FeatureSpec
-    channels: ${dimensions.hidden_dim}
+    channels: ${...hidden_dim}
     stride: 16
   - _target_: clean_rtdetr.FeatureSpec
-    channels: ${dimensions.hidden_dim}
+    channels: ${...hidden_dim}
     stride: 32
-hidden_dim: ${dimensions.hidden_dim}
+hidden_dim: ${..encoder.config.hidden_dim}

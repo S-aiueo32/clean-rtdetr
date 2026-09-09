@@ -82,11 +82,25 @@ class _MLP(nn.Module):
         return self.layers[-1](values)
 
 
+class _ClampFloat16(nn.Module):
+    """Clamp a residual to the finite float16 range used by RT-DETR v1."""
+
+    def forward(self, value: Float[Tensor, "..."]) -> Float[Tensor, "..."]:
+        """Return the elementwise-clamped residual."""
+        return value.clamp(min=-65504, max=65504)
+
+
 class DecoderLayer(nn.Module):
     """Self-attention, deformable cross-attention, and feed-forward decoder layer."""
 
-    def __init__(self, config: DecoderConfig) -> None:
-        """Build the three upstream decoder sublayers."""
+    def __init__(
+        self,
+        config: DecoderConfig,
+        *,
+        cross_attention: MultiScaleDeformableAttention | None = None,
+        residual_stabilizer: nn.Module | None = None,
+    ) -> None:
+        """Build decoder sublayers with injectable attention and FFN stabilization."""
         super().__init__()
         self.config = config
         self.self_attn = nn.MultiheadAttention(
@@ -97,11 +111,15 @@ class DecoderLayer(nn.Module):
         )
         self.dropout1 = nn.Dropout(config.dropout)
         self.norm1 = nn.LayerNorm(config.hidden_dim)
-        self.cross_attn = MultiScaleDeformableAttention(
-            config.hidden_dim,
-            config.num_heads,
-            config.num_levels,
-            config.num_points,
+        self.cross_attn = (
+            MultiScaleDeformableAttention(
+                config.hidden_dim,
+                config.num_heads,
+                config.num_levels,
+                config.num_points,
+            )
+            if cross_attention is None
+            else cross_attention
         )
         self.dropout2 = nn.Dropout(config.dropout)
         self.norm2 = nn.LayerNorm(config.hidden_dim)
@@ -111,6 +129,9 @@ class DecoderLayer(nn.Module):
         self.linear2 = nn.Linear(config.feedforward_dim, config.hidden_dim)
         self.dropout4 = nn.Dropout(config.dropout)
         self.norm3 = nn.LayerNorm(config.hidden_dim)
+        self.residual_stabilizer = (
+            _ClampFloat16() if residual_stabilizer is None else residual_stabilizer
+        )
 
     def forward(  # noqa: PLR0913, PLR0917
         self,
@@ -193,9 +214,9 @@ class DecoderLayer(nn.Module):
     def _feed_forward(
         self, target: Float[Tensor, "batch queries channels"]
     ) -> Float[Tensor, "batch queries channels"]:
-        """Transform channels and clamp the residual before final normalization."""
+        """Transform channels and apply the injected residual stabilization."""
         feedforward = self.linear2(self.dropout3(self.activation(self.linear1(target))))
-        return self.norm3((target + self.dropout4(feedforward)).clamp(min=-65504, max=65504))
+        return self.norm3(self.residual_stabilizer(target + self.dropout4(feedforward)))
 
     def checkpoint_config(self) -> dict[str, object]:
         """Record the configuration used to construct this layer's operations."""
@@ -210,10 +231,18 @@ class Decoder(DecoderInterface):
         config: DecoderConfig,
         *,
         layer: DecoderLayer | None = None,
+        default_eval_plan: DecoderPlan | None = None,
     ) -> None:
-        """Clone the layer prototype and construct independent prediction heads."""
+        """Clone the layer prototype and retain an optional inference plan."""
         super().__init__()
         self.config = config
+        self.default_eval_plan = DecoderPlan() if default_eval_plan is None else default_eval_plan
+        if (
+            self.default_eval_plan.num_layers is not None
+            and not 1 <= self.default_eval_plan.num_layers <= config.num_layers
+        ):
+            msg = "Default eval plan must select a nonempty configured prefix"
+            raise ValueError(msg)
         prototype = DecoderLayer(config) if layer is None else layer
         self.layers = nn.ModuleList(copy.deepcopy(prototype) for _ in range(config.num_layers))
         self.query_pos_head = _MLP(
@@ -256,9 +285,22 @@ class Decoder(DecoderInterface):
     ) -> DecoderOutput:
         """Execute the requested layer prefix and collect predictions per the plan."""
         self._validate_inputs(queries, features)
-        selected_plan = DecoderPlan() if plan is None else plan
+        selected_plan = self._resolve_plan(plan)
         executed_layers = self._execution_depth(selected_plan)
         return self._decode(queries, features, executed_layers, selected_plan)
+
+    def _resolve_plan(self, plan: DecoderPlan | None) -> DecoderPlan:
+        """Apply the injected eval depth while preserving caller output choices."""
+        if self.training:
+            return DecoderPlan() if plan is None else plan
+        if plan is None:
+            return self.default_eval_plan
+        if plan.num_layers is None and self.default_eval_plan.num_layers is not None:
+            return DecoderPlan(
+                num_layers=self.default_eval_plan.num_layers,
+                collect_intermediate=plan.collect_intermediate,
+            )
+        return plan
 
     def _validate_inputs(self, queries: DecoderInput, features: EncodedFeatures) -> None:
         """Check query and memory dimensions against the configured decoder."""
@@ -364,8 +406,9 @@ class Decoder(DecoderInterface):
         return result
 
     def checkpoint_config(self) -> dict[str, object]:
-        """Describe decoder dimensions and execution settings."""
+        """Describe decoder dimensions, layers, and the injected eval plan."""
         return {
             "config": asdict(self.config),
+            "default_eval_plan": asdict(self.default_eval_plan),
             "layers": [module_checkpoint_config(layer) for layer in self.layers],
         }

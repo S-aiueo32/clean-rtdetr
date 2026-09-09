@@ -1,6 +1,0 @@
-_target_: clean_rtdetr.QuerySelector
-config:
-  _target_: clean_rtdetr.QuerySelectorConfig
-  hidden_dim: ${dimensions.hidden_dim}
-  num_classes: ${dimensions.num_classes}
-  num_queries: ${dimensions.num_queries}

@@ -1,0 +1,6 @@
+_target_: clean_rtdetr.QuerySelector
+config:
+  _target_: clean_rtdetr.QuerySelectorConfig
+  hidden_dim: ${...encoder.config.hidden_dim}
+  num_classes: 3
+  num_queries: 2

@@ -16,7 +16,7 @@ PyTorch の推論経路は、images → R50vd backbone → HybridEncoder → 投
 | --- | --- | --- |
 | モデル stage | jaxtyping annotation と eager validation による固定 tensor contract、row-major memory projection と level offset、upstream mask を保つ anchor と top-k selection | [拡張ガイド](extensions.md) |
 | Decoder と勾配 | 明示的な execution/output plan、self-attention、multi-scale deformable cross-attention、反復 refinement、content/reference detach 境界、微分可能な encoder auxiliary prediction | [勾配の所有権](extensions.md#gradient-ownership) |
-| 構成 | component を注入できる `RTDETR`、R50vd factory、optional AIFI feature、model と学習 component 用の階層的 Hydra config | [Lightning 設定](lightning.md#hierarchical-configuration-and-dependency-injection) |
+| 構成 | component を注入できる `RTDETR`、公式 RT-DETR/RT-DETRv2 PResNet 10 種の名前付き architecture factory、optional AIFI feature、model と学習 component 用の階層的 Hydra config | [拡張ガイド](extensions.md#名前付きモデルプリセット) |
 | Checkpoint と推論 | 公式推論 weight の strict loading、CPU FP32 full-model parity、Pillow/uint8 preprocessing、upstream 互換 top-k postprocessing | [Inference I/O](inference.md) |
 | COCO 評価 | synthetic annotation でテストした prediction JSON と optional bbox metric adapter。pycocotools は metric の場合のみ読み込む | [COCO 評価](evaluation.md) |
 | ONNX エクスポート | 固定 batch-1 640×640 向けの `FixedShapeRTDETR` と CPU FP32 ONNX Runtime parity。graph optimization は無効化 | [エクスポート設定](inference.md#fixed-shape-onnx-export) |

@@ -25,6 +25,16 @@ Source: [lyuwenyu/RT-DETR](https://github.com/lyuwenyu/RT-DETR)
 - SHA-256: `be594d0ee141b74e47368afff5674b2212b8c3e849163a6b821fb901e58f6d3c`
 - License: [Apache-2.0](LICENSE). The source attribution is retained in the file.
 
+The named RT-DETR/RT-DETRv2 presets and the RT-DETRv2 state-dictionary layout
+are adapted from the same repository at commit
+`29320b6fd828f8e0987a71426cf2d961b09dfed7`. The exact upstream references are
+`hubconf.py`, `rtdetr_pytorch/configs/rtdetr/`,
+`rtdetrv2_pytorch/configs/rtdetrv2/`, and
+`rtdetrv2_pytorch/src/zoo/rtdetr/rtdetrv2_decoder.py`. Factory metadata links
+to the configuration files at this immutable revision. The v2 behavior is
+expressed by injected modules in the shared production stages; these upstream
+files are provenance references rather than a second vendored implementation.
+
 The hashes above describe the checked-in files. `box_ops.py` has one added
 trailing newline; its upstream bytes have SHA-256
 `a670ce02bce95c3b2304a6708c7c609f281237a7bbe8d63bcef56393a80baa4c`.

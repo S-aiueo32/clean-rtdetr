@@ -14,6 +14,10 @@ from clean_rtdetr import (
     FeatureSpec,
     HybridEncoder,
     HybridEncoderConfig,
+    ModelFactory,
+    create_model,
+    get_model_preset,
+    list_models,
     rtdetr_r50vd,
 )
 
@@ -22,6 +26,37 @@ BASELINE_QUERIES = 300
 BASELINE_LAYERS = 6
 BASELINE_HIDDEN = 256
 BASELINE_LEVELS = 3
+CUSTOM_CLASSES = 7
+MODEL_NAMES = (
+    "rtdetr_r18vd",
+    "rtdetr_r34vd",
+    "rtdetr_r50vd_m",
+    "rtdetr_r50vd",
+    "rtdetr_r101vd",
+    "rtdetrv2_r18vd",
+    "rtdetrv2_r34vd",
+    "rtdetrv2_r50vd_m",
+    "rtdetrv2_r50vd",
+    "rtdetrv2_r101vd",
+)
+MODEL_ARTIFACTS = {
+    "rtdetr_r18vd": ("rtdetr_r18vd_6x_coco.yml", "v0.1/rtdetr_r18vd_dec3_6x_coco_from_paddle.pth"),
+    "rtdetr_r34vd": ("rtdetr_r34vd_6x_coco.yml", "v0.1/rtdetr_r34vd_dec4_6x_coco_from_paddle.pth"),
+    "rtdetr_r50vd_m": ("rtdetr_r50vd_m_6x_coco.yml", "v0.1/rtdetr_r50vd_m_6x_coco_from_paddle.pth"),
+    "rtdetr_r50vd": ("rtdetr_r50vd_6x_coco.yml", "v0.1/rtdetr_r50vd_6x_coco_from_paddle.pth"),
+    "rtdetr_r101vd": ("rtdetr_r101vd_6x_coco.yml", "v0.1/rtdetr_r101vd_6x_coco_from_paddle.pth"),
+    "rtdetrv2_r18vd": (
+        "rtdetrv2_r18vd_120e_coco.yml",
+        "v0.2/rtdetrv2_r18vd_120e_coco_rerun_48.1.pth",
+    ),
+    "rtdetrv2_r34vd": ("rtdetrv2_r34vd_120e_coco.yml", "v0.1/rtdetrv2_r34vd_120e_coco_ema.pth"),
+    "rtdetrv2_r50vd_m": ("rtdetrv2_r50vd_m_7x_coco.yml", "v0.1/rtdetrv2_r50vd_m_7x_coco_ema.pth"),
+    "rtdetrv2_r50vd": ("rtdetrv2_r50vd_6x_coco.yml", "v0.1/rtdetrv2_r50vd_6x_coco_ema.pth"),
+    "rtdetrv2_r101vd": (
+        "rtdetrv2_r101vd_6x_coco.yml",
+        "v0.1/rtdetrv2_r101vd_6x_coco_from_paddle.pth",
+    ),
+}
 
 
 def test_model_matches_manual_stage_composition() -> None:
@@ -152,3 +187,53 @@ def test_r50vd_factory_uses_pinned_baseline_dimensions() -> None:
     assert model.decoder.config.num_layers == BASELINE_LAYERS
     assert model.decoder.config.hidden_dim == BASELINE_HIDDEN
     assert model.decoder.config.num_levels == BASELINE_LEVELS
+
+
+def test_named_factory_exposes_all_official_presets() -> None:
+    """The generic entry point preserves upstream hub model ordering."""
+    assert list_models() == MODEL_NAMES
+
+
+@pytest.mark.parametrize("name", MODEL_NAMES)
+def test_named_factory_builds_each_official_architecture(name: str) -> None:
+    """Every advertised preset constructs its resolved stage dimensions."""
+    preset = get_model_preset(name)
+    with torch.device("meta"):
+        model = create_model(name, num_classes=CUSTOM_CLASSES)
+    assert model.backbone.depth == preset.backbone_depth
+    assert model.encoder.hidden_dim == preset.hidden_dim
+    assert model.encoder.config.expansion == preset.encoder_expansion
+    assert model.selector.num_classes == CUSTOM_CLASSES
+    assert model.decoder.config.num_layers == preset.decoder_layers
+    assert model.decoder.default_eval_plan == (preset.default_eval_plan or DecoderPlan())
+    point_scale_key = "decoder.layers.0.cross_attn.num_points_scale"
+    assert (point_scale_key in model.state_dict()) is (preset.family == "rtdetrv2")
+    residual_stabilizer = model.decoder.get_submodule("layers.0.residual_stabilizer")
+    assert isinstance(residual_stabilizer, torch.nn.Identity) is (preset.family == "rtdetrv2")
+
+
+def test_model_presets_retain_official_source_and_checkpoint_urls() -> None:
+    """Factory metadata points to each selected upstream YAML and weight artifact."""
+    for name in MODEL_NAMES:
+        preset = get_model_preset(name)
+        assert preset.config_url.startswith(
+            "https://github.com/lyuwenyu/RT-DETR/blob/29320b6fd828f8e0987a71426cf2d961b09dfed7/"
+        )
+        config, checkpoint = MODEL_ARTIFACTS[name]
+        assert preset.config_url.endswith(config)
+        assert preset.checkpoint_url.startswith(
+            "https://github.com/lyuwenyu/storage/releases/download/"
+        )
+        assert preset.checkpoint_url.endswith(checkpoint)
+
+
+def test_model_factory_requires_matching_preset_and_builder_names() -> None:
+    """A custom factory cannot advertise a preset without a builder."""
+    with pytest.raises(ValueError, match="identical names"):
+        ModelFactory({}, {"extra": lambda _classes: small_model()})
+
+
+def test_model_factory_reports_unknown_name_and_available_models() -> None:
+    """Unknown names fail before construction and advertise valid choices."""
+    with pytest.raises(ValueError, match=r"Unknown model 'missing'.*rtdetr_r50vd"):
+        create_model("missing")

@@ -17,8 +17,10 @@ from clean_rtdetr import (
     QuerySet,
 )
 from clean_rtdetr.contracts import EncodedFeatures
-from clean_rtdetr.models.attention import deformable_attention_core
+from clean_rtdetr.models.attention import MultiScaleDeformableAttention, deformable_attention_core
 from clean_rtdetr.models.selector import BoxHead
+
+DEFAULT_EVAL_LAYERS = 2
 
 
 def decoder_config() -> DecoderConfig:
@@ -88,6 +90,27 @@ def test_deformable_attention_core_samples_level_pixel_centers() -> None:
     result = deformable_attention_core(value, shapes, locations, weights)
 
     torch.testing.assert_close(result, torch.tensor([[[7.75], [7.0]]]))
+
+
+def test_v2_standard_attention_registers_scale_and_matches_v1() -> None:
+    """Use the official v2 scale buffer with equivalent four-point sampling."""
+    torch.manual_seed(37)
+    v1 = MultiScaleDeformableAttention(8, 2, 2, 4)
+    v2 = MultiScaleDeformableAttention(8, 2, 2, 4, point_scale=torch.full((8,), 0.25))
+    assert isinstance(v1.value_proj, nn.Linear)
+    assert isinstance(v1.output_proj, nn.Linear)
+    v2.load_state_dict(v1.state_dict(), strict=False)
+    assert "num_points_scale" not in v1.state_dict()
+    assert "value_proj.weight" in v2.state_dict()
+    assert "output_proj.weight" in v2.state_dict()
+    torch.testing.assert_close(v2.num_points_scale, torch.full((8,), 0.25))
+    query = torch.randn(2, 5, 8)
+    features = encoded()
+    references = torch.rand(2, 5, 2, 4)
+    torch.testing.assert_close(
+        v2(query, references, features.memory, features.spatial_shapes),
+        v1(query, references, features.memory, features.spatial_shapes),
+    )
 
 
 @pytest.mark.parametrize("training", [False, True])
@@ -211,6 +234,45 @@ def test_decoder_plan_selects_prefix_and_output_collection_explicitly() -> None:
     torch.testing.assert_close(final_only.final.boxes, all_outputs.final.boxes)
     with pytest.raises(ValueError, match="num_layers"):
         decoder(inputs, features, plan=DecoderPlan(num_layers=0))
+
+
+def test_injected_eval_plan_controls_default_depth_but_explicit_depth_takes_precedence() -> None:
+    """Apply the injected eval depth while preserving explicit execution plans."""
+    config = decoder_config()
+    decoder = Decoder(
+        config,
+        default_eval_plan=DecoderPlan(
+            num_layers=DEFAULT_EVAL_LAYERS,
+            collect_intermediate=False,
+        ),
+    ).eval()
+    inputs = QueryAssembler()(query_set())
+    features = encoded()
+    calls = [0, 0, 0]
+    hooks = [
+        layer.register_forward_hook(
+            lambda _module, _args, _output, index=index: calls.__setitem__(index, calls[index] + 1)
+        )
+        for index, layer in enumerate(decoder.layers)
+    ]
+    default = decoder(inputs, features)
+    assert calls == [1, 1, 0]
+    assert default.logits.shape[0] == 1
+    collected = decoder(inputs, features, plan=DecoderPlan(collect_intermediate=True))
+    assert calls == [2, 2, 0]
+    assert collected.logits.shape[0] == DEFAULT_EVAL_LAYERS
+    explicit_depth = config.num_layers
+    explicit = decoder(
+        inputs,
+        features,
+        plan=DecoderPlan(num_layers=explicit_depth, collect_intermediate=True),
+    )
+    assert explicit.logits.shape[0] == explicit_depth
+    decoder.train()
+    trained = decoder(inputs, features)
+    assert trained.logits.shape[0] == config.num_layers
+    for hook in hooks:
+        hook.remove()
 
 
 def test_decoder_rejects_mismatched_feature_levels() -> None:

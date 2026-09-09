@@ -1,0 +1,3 @@
+_target_: clean_rtdetr_training.data.SyntheticDetectionDataset.from_training_model
+_partial_: true
+image_size: auto
