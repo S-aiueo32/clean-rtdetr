@@ -15,38 +15,52 @@ GPU/DDP/AMP, arbitrary mid-epoch resume, and research-method composition remain 
 
 ## Install and run
 
+Run these commands from the repository root. The CLI requires both
+`--config-dir configs` and `--config-name lightning_training`; positional Hydra
+overrides continue after those options.
+
 ```sh
 uv sync --package clean-rtdetr-training
 uv run clean-rtdetr-train \
+  --config-dir configs --config-name lightning_training \
   trainer.max_epochs=1 output_dir=outputs/lightning
 uv run clean-rtdetr-train \
+  --config-dir configs --config-name lightning_training \
   trainer.max_epochs=2 output_dir=outputs/lightning \
   resume=outputs/lightning/last.ckpt
 ```
 
 `trainer.max_epochs` is the total target epoch count, including restored epochs.
-The default recipe uses a compact detector with a partially frozen R50vd backbone
+The example recipe uses a compact detector with a partially frozen R50vd backbone
 and synthetic 64×64 images. It downloads no checkpoints or datasets. It
 exercises execution and restart, not an official trained model or accuracy.
 
 Lightning is owned by the `clean-rtdetr-training` distribution. Installing or
 importing the core `clean-rtdetr` package does not install or import the training
-stack. Hydra is confined to the training distribution and its experiment recipes.
+stack. Hydra reads the repository's external configuration tree; the training
+distribution does not bundle YAML files.
 
 ## Hierarchical configuration and dependency injection
 
 The application uses Hydra's Compose API and `hydra.utils.instantiate` through
-`clean_rtdetr_training.compose_training_config`. Configuration is packaged in
-the training distribution; no configured target imports a command-line module.
+`clean_rtdetr_training.compose_training_config`. The configuration tree lives
+at the repository root in `configs/` and must be supplied explicitly; no YAML
+files are bundled in the training distribution, and no configured target imports
+a command-line module.
+
+Its signature is `compose_training_config(name, overrides=(), *,
+config_dir: str | Path)`, so callers must provide `config_dir` explicitly.
+Relative paths are resolved from the current working directory; use an absolute
+path to select the same tree from another directory.
 
 ```python
 from clean_rtdetr_training import compose_training_config
 
-config = compose_training_config("lightning_training")
+config = compose_training_config("lightning_training", config_dir="configs")
 ```
 
 ```text
-packages/training/src/clean_rtdetr_training/configs/
+configs/
   lightning_training.yaml
   module/
     rtdetr.yaml
@@ -116,6 +130,7 @@ through the public `clean_rtdetr.create_model` factory:
 
 ```sh
 uv run clean-rtdetr-train \
+  --config-dir configs --config-name lightning_training \
   module/training_model/model=rtdetrv2_r18vd \
   module.training_model.model.num_classes=80 trainer.max_epochs=1
 ```
@@ -159,12 +174,13 @@ For example, change both optimizer and scheduler through config groups:
 
 ```sh
 uv run clean-rtdetr-train \
+  --config-dir configs --config-name lightning_training \
   module/optimizer_factory=sgd \
   module/scheduler_factory=step \
   trainer.max_epochs=1 output_dir=outputs/sgd
 ```
 
-The default AdamW recipe follows pinned R50vd settings: LR `1e-4`, backbone LR
+The example AdamW recipe follows pinned R50vd settings: LR `1e-4`, backbone LR
 `1e-5`, betas `(0.9, 0.999)`, weight decay `1e-4`, and an epoch-based
 `MultiStepLR(milestones=[1000], gamma=0.1)`. `RTDETRParameterGroups` is an
 independently injectable callable that maps parameter names to upstream names
@@ -218,14 +234,16 @@ from clean_rtdetr import rtdetr_r50vd
 model = rtdetr_r50vd()
 ```
 
-The training distribution packages its model groups with the training recipe.
-DN dimensions come from the built detector, and synthetic image dimensions are
-resolved when the dataset is constructed.
+The repository's external configuration tree provides the model groups and
+training recipe. DN dimensions come from the built detector, and synthetic
+image dimensions are resolved when the dataset is constructed. Installed users
+must provide their own configuration tree (or copy the repository's `configs/`
+tree).
 
 The nested `criterion`, `matcher`, and `denoising_factory` config groups expose those choices
 alongside the existing model-stage, optimizer, and scheduler groups. For
 example, after adding
-`packages/training/src/clean_rtdetr_training/configs/module/criterion/matcher/experimental.yaml`,
+`configs/module/criterion/matcher/experimental.yaml`,
 select it with
 `module/criterion/matcher=experimental`. A replacement config supplies
 its own `_target_` and constructor arguments. No command-line module is required.

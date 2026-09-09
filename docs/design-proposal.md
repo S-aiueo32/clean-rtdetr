@@ -451,8 +451,9 @@ packages/
     tests/
   training/
     pyproject.toml
-    src/clean_rtdetr_training/            # losses, DN, Lightning, and configs
+    src/clean_rtdetr_training/            # losses, DN, and Lightning
     tests/
+configs/                                  # external training YAML tree
 benchmarks/                               # reproducible benchmark harness and manifests
 tools/                                    # checkout-only developer diagnostics
 experiments/                              # research recipes and ablation definitions

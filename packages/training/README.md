@@ -14,7 +14,7 @@ The validated scope is CPU FP32/FP64 loss and gradient parity, plus a small
 single-process CPU FP32 Lightning integration with epoch-boundary resume. It
 does not claim full-dataset training, convergence, COCO AP, GPU/DDP/AMP,
 training augmentation, or distributed normalization. Synthetic data in the
-default recipe exercises program wiring and is not a production data pipeline.
+example recipe exercises program wiring and is not a production data pipeline.
 
 For development from source:
 
@@ -26,11 +26,18 @@ uv run clean-rtdetr-train --help
 uv run pytest packages/training/tests
 ```
 
-Run the packaged two-epoch synthetic Lightning example on CPU with:
+From the repository root, run the two-epoch synthetic Lightning example on CPU
+with the external configuration tree:
 
 ```sh
-uv run clean-rtdetr-train
+uv run clean-rtdetr-train \
+  --config-dir configs --config-name lightning_training
 ```
+
+The YAML tree is kept at the repository root in `configs/` and is not bundled
+in the training distribution. Installed users must provide their own tree or a
+copy of the repository's tree. Positional Hydra overrides can follow the two
+config options, for example `trainer.max_epochs=1`.
 
 For loss construction, the public API accepts normalized cxcywh targets with
 zero-based contiguous class labels:

@@ -8,7 +8,7 @@
 python -m pip install clean-rtdetr-training
 ```
 
-検証済み範囲は、CPU FP32/FP64 の loss と勾配のパリティ、および epoch 境界で再開できる小規模な単一プロセス CPU FP32 Lightning 統合です。データセット全体の学習、収束、COCO AP、GPU/DDP/AMP、学習時 augmentation、分散正規化は主張しません。既定レシピの合成データはプログラムの配線を確認するもので、本番用データパイプラインではありません。
+検証済み範囲は、CPU FP32/FP64 の loss と勾配のパリティ、および epoch 境界で再開できる小規模な単一プロセス CPU FP32 Lightning 統合です。データセット全体の学習、収束、COCO AP、GPU/DDP/AMP、学習時 augmentation、分散正規化は主張しません。サンプルレシピの合成データはプログラムの配線を確認するもので、本番用データパイプラインではありません。
 
 ソースから開発する場合は次を実行します。
 
@@ -20,11 +20,14 @@ uv run clean-rtdetr-train --help
 uv run pytest packages/training/tests
 ```
 
-CPU 上でパッケージ化された 2 epoch の合成 Lightning 例を実行します。
+リポジトリルートから、外部の設定ツリーを使って CPU 上で 2 epoch の合成 Lightning 例を実行します。
 
 ```sh
-uv run clean-rtdetr-train
+uv run clean-rtdetr-train \
+  --config-dir configs --config-name lightning_training
 ```
+
+設定ツリーはリポジトリルートの `configs/` に置き、YAML は training distribution に同梱しません。インストール利用者は独自の設定ツリー、または `configs/` のコピーを指定してください。設定オプションに続けて `trainer.max_epochs=1` などの Hydra override を渡せます。
 
 loss の構築では、公開 API は正規化された cxcywh の target と、0 始まりで連続したクラスラベルを受け取ります。
 

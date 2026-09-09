@@ -10,33 +10,42 @@
 
 ## インストールと実行
 
+以下のコマンドはリポジトリルートで実行します。CLI には
+`--config-dir configs` と `--config-name lightning_training` の両方が必要で、
+その後ろに従来どおり positional な Hydra override を続けられます。
+
 ```sh
 uv sync --package clean-rtdetr-training
 uv run clean-rtdetr-train \
+  --config-dir configs --config-name lightning_training \
   trainer.max_epochs=1 output_dir=outputs/lightning
 uv run clean-rtdetr-train \
+  --config-dir configs --config-name lightning_training \
   trainer.max_epochs=2 output_dir=outputs/lightning \
   resume=outputs/lightning/last.ckpt
 ```
 
-`trainer.max_epochs` は復元済み epoch を含む最終的な目標 epoch 数です。既定 recipe は一部を freeze した R50vd backbone と合成 64×64 画像の小型 detector を使います。checkpoint や dataset はダウンロードしません。実行と再起動を確認するもので、公式学習済みモデルや精度を示しません。
+`trainer.max_epochs` は復元済み epoch を含む最終的な目標 epoch 数です。例示 recipe は一部を freeze した R50vd backbone と合成 64×64 画像の小型 detector を使います。checkpoint や dataset はダウンロードしません。実行と再起動を確認するもので、公式学習済みモデルや精度を示しません。
 
-Lightning は `clean-rtdetr-training` distribution が所有します。core `clean-rtdetr` のインストール・import は training stack をインストールも import もしません。Hydra は training distribution とその実験 recipe に閉じています。
+Lightning は `clean-rtdetr-training` distribution が所有します。core `clean-rtdetr` のインストール・import は training stack をインストールも import もしません。Hydra はリポジトリの外部 `configs/` ツリーを読み込み、training distribution に YAML を同梱しません。
 
 <a id="hierarchical-configuration-and-dependency-injection"></a>
 
 ## 階層設定と依存性注入
 
-アプリケーションは `clean_rtdetr_training.compose_training_config` 経由で Hydra Compose API と `hydra.utils.instantiate` を使います。設定は training distribution に同梱され、target が command-line module を import することはありません。
+アプリケーションは `clean_rtdetr_training.compose_training_config` 経由で Hydra Compose API と `hydra.utils.instantiate` を使います。設定ツリーはリポジトリルートの `configs/` に置き、明示的に渡します。YAML は training distribution に同梱されず、target が command-line module を import することもありません。
+
+シグネチャは `compose_training_config(name, overrides=(), *, config_dir: str | Path)`
+であり、`config_dir` は必ず明示します。相対パスは実行時のカレントディレクトリを基準に解決します。別のディレクトリから同じ設定を使う場合は絶対パスを指定できます。
 
 ```python
 from clean_rtdetr_training import compose_training_config
 
-config = compose_training_config("lightning_training")
+config = compose_training_config("lightning_training", config_dir="configs")
 ```
 
 ```text
-packages/training/src/clean_rtdetr_training/configs/
+configs/
   lightning_training.yaml
   module/
     rtdetr.yaml
@@ -85,6 +94,7 @@ packages/training/src/clean_rtdetr_training/configs/
 
 ```sh
 uv run clean-rtdetr-train \
+  --config-dir configs --config-name lightning_training \
   module/training_model/model=rtdetrv2_r18vd \
   module.training_model.model.num_classes=80 trainer.max_epochs=1
 ```
@@ -99,6 +109,7 @@ Lightning module は training model、criterion、parameter-group policy、optim
 
 ```sh
 uv run clean-rtdetr-train \
+  --config-dir configs --config-name lightning_training \
   module/optimizer_factory=sgd \
   module/scheduler_factory=step \
   trainer.max_epochs=1 output_dir=outputs/sgd
@@ -132,9 +143,9 @@ from clean_rtdetr import rtdetr_r50vd
 model = rtdetr_r50vd()
 ```
 
-training distribution は model group を training recipe とともに package します。DN の次元は構築済み detector から取得し、合成画像のサイズは dataset 構築時に解決します。
+リポジトリルートの外部 `configs/` ツリーが model group と training recipe を提供します。DN の次元は構築済み detector から取得し、合成画像のサイズは dataset 構築時に解決します。インストール利用者は自分で用意した設定ツリー（またはリポジトリの `configs/` ツリーのコピー）を渡してください。
 
-階層化された `criterion`、`matcher`、`denoising_factory` config group は model-stage、optimizer、scheduler group とともに選択肢を公開します。例えば `packages/training/src/clean_rtdetr_training/configs/module/criterion/matcher/experimental.yaml` を追加した後、`module/criterion/matcher=experimental` で選べます。replacement config は独自の `_target_` と constructor 引数を提供し、command-line module は不要です。
+階層化された `criterion`、`matcher`、`denoising_factory` config group は model-stage、optimizer、scheduler group とともに選択肢を公開します。例えば `configs/module/criterion/matcher/experimental.yaml` を追加した後、`module/criterion/matcher=experimental` で選べます。replacement config は独自の `_target_` と constructor 引数を提供し、command-line module は不要です。
 
 `predict` は target-free 経路で、呼び出し元の train/eval mode を保ちます。criterion は重み付きで微分可能な scalar loss の辞書を返します。`checkpoint_config()` は tensor 以外の設定を primitive、sequence、mapping で返し、resume 時に実装 identity と設定を検査します。tensor state は PyTorch の `state_dict` に残ります。adapter は model の `.model`/`.denoising` や criterion の `.matcher`/`.config` に侵入しません。
 
