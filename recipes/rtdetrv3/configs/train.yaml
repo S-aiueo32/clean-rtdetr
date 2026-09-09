@@ -1,0 +1,62 @@
+defaults:
+  - data: penn_fudan
+  - _self_
+
+seed: 41
+output_dir: outputs/rtdetrv3
+resume: null
+
+module:
+  _target_: clean_rtdetr_training.lightning.RTDETRLightningModule
+  training_model:
+    _target_: rtdetrv3_recipe.model.create_training_model
+    name: rtdetr_r18vd
+    num_classes: 1
+    sap_groups: 3
+    mask_probability: 0.1
+    o2m_queries: 450
+    num_denoising: 4
+  criterion:
+    _target_: rtdetrv3_recipe.criterion.RTDETRv3Criterion
+    repeats: 4
+    weight_o2o: 1.0
+    weight_o2m: 1.0
+    weight_cnn: 1.0
+  optimizer_factory:
+    _target_: torch.optim.AdamW
+    _partial_: true
+    lr: 0.0001
+    weight_decay: 0.0001
+
+datamodule:
+  _target_: clean_rtdetr_training.lightning.DetectionDataModule
+  dataset_factory: ${data}
+  dataloader_factory:
+    _target_: torch.utils.data.DataLoader
+    _partial_: true
+    batch_size: 2
+    shuffle: true
+    num_workers: 0
+    collate_fn:
+      _target_: clean_rtdetr_training.data.collate_detection_batch
+      _partial_: true
+
+trainer:
+  _target_: lightning.pytorch.Trainer
+  accelerator: cpu
+  devices: 1
+  precision: 32-true
+  deterministic: true
+  max_epochs: 1
+  gradient_clip_val: 0.1
+  logger: false
+  enable_progress_bar: false
+  enable_model_summary: false
+  callbacks:
+    rng:
+      _target_: clean_rtdetr_training.lightning.EpochBoundaryState
+    checkpoint:
+      _target_: lightning.pytorch.callbacks.ModelCheckpoint
+      dirpath: ${output_dir}/checkpoints
+      save_last: true
+      save_top_k: 0
