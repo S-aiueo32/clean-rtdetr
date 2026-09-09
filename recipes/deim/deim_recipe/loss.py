@@ -1,5 +1,11 @@
 # Copyright 2026 Clean RT-DETR contributors
-"""Matchability-aware classification; see ../NOTICE.md for the equation source."""
+"""Matchability-aware classification from the pinned DEIM MAL reference.
+
+The equation follows ``DEIMCriterion.loss_labels_mal`` at commit
+``09d35d53d39ee3145a1e61e3a989b28b9468d1dd``; see ``../NOTICE.md``. This
+implementation adapts the equation to Clean RT-DETR tensors and leaves loss
+weighting to the recipe criterion.
+"""
 
 import math
 

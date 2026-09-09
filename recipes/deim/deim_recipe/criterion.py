@@ -1,5 +1,11 @@
 # Copyright 2026 Clean RT-DETR contributors
-"""Recipe-owned MAL objective using explicit standard set-supervision helpers."""
+"""Recipe-owned MAL objective using explicit standard set-supervision helpers.
+
+The MAL classification equation follows the pinned DEIM reference
+(``09d35d53d39ee3145a1e61e3a989b28b9468d1dd``; see ``../NOTICE.md``), while
+stage traversal, public TrainingOutput handling, and configured MAL/L1/GIoU
+weights are adapted to Clean RT-DETR's training contracts.
+"""
 
 import math
 from collections.abc import Sequence

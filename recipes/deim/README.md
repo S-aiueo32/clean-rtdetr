@@ -10,6 +10,10 @@ DEIM 全体の再現や収束・COCO AP を検証した recipe ではありま�
 既存 Lightning adapter に合わせ、単一プロセス CPU FP32 で動作します。
 式と参照 commit は [NOTICE.md](NOTICE.md) に記録しています。
 
+この recipe のソースは Apache-2.0 で、出典と変更範囲は [NOTICE.md](NOTICE.md) に
+記録しています。外部の重み・データ・依存パッケージにはそれぞれの利用条件が適用されます。
+リポジトリ全体の方針は [ライセンス案内](../../docs/ja/licensing.md) を参照してください。
+
 ## インストールと実行
 
 Python 3.13 以降と uv を使います。recipe ごとに `pyproject.toml`、`uv.lock`、
