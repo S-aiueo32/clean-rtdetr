@@ -7,6 +7,7 @@ from jaxtyping import Float
 from torch import Tensor
 
 from clean_rtdetr.core.contracts import (
+    QUERY_RANK,
     DecoderOutput,
     DecoderPlan,
     DenoisingBatch,
@@ -94,6 +95,16 @@ class RTDETR(Detector, Generic[BackboneT, EncoderT, ProjectorT, SelectorT, Assem
         denoising: DenoisingBatch | None = None,
     ) -> ModelOutput:
         """Run images through all stages and return decoder and auxiliary predictions."""
+        if denoising is not None:
+            count = denoising.metadata.num_queries
+            if (
+                type(count) is not int
+                or count <= 0
+                or denoising.queries.content.ndim != QUERY_RANK
+                or count != denoising.queries.content.shape[1]
+            ):
+                msg = "Denoising metadata query count must be a positive integer matching queries"
+                raise ValueError(msg)
         features = self.backbone(images)
         encoded_features = self.encoder(features, collect_aifi=collect_aifi)
         encoded = self.projector(encoded_features.features)

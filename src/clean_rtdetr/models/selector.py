@@ -14,6 +14,7 @@ from torch import Tensor, nn
 
 from clean_rtdetr.core.contracts import EncodedFeatures, QuerySet, SelectionOutput
 from clean_rtdetr.core.geometry import MAX_PROBABILITY_EPS, generate_anchors
+from clean_rtdetr.models._checkpoint import module_checkpoint_config
 from clean_rtdetr.models.interfaces import Selector
 
 
@@ -43,6 +44,7 @@ class BoxHead(nn.Module):
     def __init__(self, hidden_dim: int) -> None:
         """Build the upstream MLP and zero-initialize its final regression layer."""
         super().__init__()
+        self.hidden_dim = hidden_dim
         layers = [
             nn.Linear(hidden_dim, hidden_dim),
             nn.Linear(hidden_dim, hidden_dim),
@@ -57,6 +59,10 @@ class BoxHead(nn.Module):
         for layer in self.layers[:-1]:
             values = torch.relu(layer(values))
         return self.layers[-1](values)
+
+    def checkpoint_config(self) -> dict[str, object]:
+        """Record the dimensions used by the fixed three-layer box head."""
+        return {"hidden_dim": self.hidden_dim}
 
 
 class QuerySelector(Selector):
@@ -159,4 +165,8 @@ class QuerySelector(Selector):
 
     def checkpoint_config(self) -> dict[str, object]:
         """Describe selector dimensions and query initialization settings."""
-        return {"config": asdict(self.config)}
+        return {
+            "config": asdict(self.config),
+            "score_head": module_checkpoint_config(self.enc_score_head),
+            "box_head": module_checkpoint_config(self.enc_bbox_head),
+        }

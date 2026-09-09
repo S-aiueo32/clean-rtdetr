@@ -18,6 +18,7 @@ from torch.nn import functional
 
 from clean_rtdetr.core.contracts import DecoderInput, DecoderOutput, DecoderPlan, EncodedFeatures
 from clean_rtdetr.core.geometry import inverse_sigmoid
+from clean_rtdetr.models._checkpoint import module_checkpoint_config
 from clean_rtdetr.models.attention import MultiScaleDeformableAttention
 from clean_rtdetr.models.interfaces import Decoder as DecoderInterface
 from clean_rtdetr.models.selector import BoxHead
@@ -87,6 +88,7 @@ class DecoderLayer(nn.Module):
     def __init__(self, config: DecoderConfig) -> None:
         """Build the three upstream decoder sublayers."""
         super().__init__()
+        self.config = config
         self.self_attn = nn.MultiheadAttention(
             config.hidden_dim,
             config.num_heads,
@@ -138,6 +140,10 @@ class DecoderLayer(nn.Module):
         target = self.norm2(target + self.dropout2(attended))
         feedforward = self.linear2(self.dropout3(self.activation(self.linear1(target))))
         return self.norm3((target + self.dropout4(feedforward)).clamp(min=-65504, max=65504))
+
+    def checkpoint_config(self) -> dict[str, object]:
+        """Record the configuration used to construct this layer's operations."""
+        return {"config": asdict(self.config)}
 
 
 class Decoder(DecoderInterface):
@@ -261,4 +267,7 @@ class Decoder(DecoderInterface):
 
     def checkpoint_config(self) -> dict[str, object]:
         """Describe decoder dimensions and execution settings."""
-        return {"config": asdict(self.config)}
+        return {
+            "config": asdict(self.config),
+            "layers": [module_checkpoint_config(layer) for layer in self.layers],
+        }

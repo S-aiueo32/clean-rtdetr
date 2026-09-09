@@ -155,6 +155,16 @@ mappings; implementation identity and these settings are checked during resume.
 Tensor state stays in PyTorch's `state_dict`. The adapter never reaches into a
 model's `.model` or `.denoising`, or a criterion's `.matcher` or `.config`.
 
+Injected decoder layers and selector score/box heads also form part of the
+checkpoint recipe, including their concrete types and non-tensor configuration.
+The built-in `DecoderLayer`, `BoxHead`, and exact `torch.nn.Linear` type provide
+these settings. Every custom concrete type, including subclasses of those types,
+must explicitly define `checkpoint_config()` and return a dictionary describing
+all settings that affect its behavior. An opaque module remains usable for
+ordinary forward execution, but requesting its checkpoint recipe raises
+`TypeError`. This prevents a restart from silently changing injected dropout or
+head behavior while accepting identically shaped weights.
+
 The baseline DN wrapper and set criterion implement these interfaces. Another
 model/criterion pair can use its own prediction type and internal structure, then
 be selected through Hydra `_target_` configuration. It need not inherit either

@@ -172,6 +172,23 @@ def test_model_splits_dn_predictions_and_preserves_matching_outputs() -> None:
     torch.testing.assert_close(first.decoder.boxes, second.decoder.boxes)
 
 
+@pytest.mark.parametrize("count", [0, -1, True, 7, 9])
+def test_detector_rejects_inconsistent_dn_count_before_backbone(count: int) -> None:
+    """The public detector must not split DN slots into matching predictions."""
+    wrapper = _dn_model()
+    prepared = wrapper.denoising(_targets(), num_queries=wrapper.model.num_queries)
+    assert prepared is not None
+    malformed = replace(prepared, metadata=replace(prepared.metadata, num_queries=count))
+    hook = wrapper.model.backbone.register_forward_pre_hook(
+        lambda *_: pytest.fail("Invalid DN metadata reached the backbone")
+    )
+    try:
+        with pytest.raises(ValueError, match="metadata query count"):
+            wrapper.model(torch.zeros(2, 3, 64, 64), denoising=malformed)
+    finally:
+        hook.remove()
+
+
 def test_mixed_targets_dn_losses_reach_class_embedding_and_obey_plan() -> None:
     """DN remains trainable with uneven target counts and a decoder layer prefix."""
     model = _dn_model().train()
