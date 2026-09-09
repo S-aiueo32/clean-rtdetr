@@ -44,6 +44,26 @@ uv run pre-commit install
 
 `uv sync` はリポジトリの `uv.lock` を使い、プロジェクトの依存関係が変わると更新することがあります。パッケージの依存関係を変更する場合は、所有するメンバーの `pyproject.toml` を編集し、`uv lock` を実行して、生成された `uv.lock` の変更も含めます。共有の実験専用ツールは、メンバー自身が開発時または実行時に必要としない限り、ルートの `dev` 依存関係グループに置きます。
 
+<a id="development-smoke-test"></a>
+
+## 開発用の動作確認
+
+合成特徴量とランダムな重みを使って、特徴量の射影、クエリ選択、デコードの実行経路を確認する。画像、データセット、チェックポイントは不要だ。セットアップ済みの環境で次を実行する。
+
+```sh
+uv run python tools/query_selection.py
+```
+
+成功時は次の形状が出力される。これは実行経路とテンソル形状が正しいことを確認するものであり、検出精度を示すものではない。
+
+```text
+memory: (2, 336, 32)
+query content: (2, 20, 32)
+encoder auxiliary boxes: (2, 20, 4)
+decoder logits: (2, 20, 80)
+decoder boxes: (2, 20, 4)
+```
+
 <a id="validation"></a>
 
 ## 検証

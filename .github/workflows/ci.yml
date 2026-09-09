@@ -45,6 +45,7 @@ jobs:
           packages/core/tests/test_model.py
           packages/core/tests/test_model_parity.py
           packages/core/tests/test_postprocessing.py
+          packages/core/tests/test_predict_cli.py
           packages/core/tests/test_preprocessing.py
           packages/core/tests/test_properties.py
           packages/core/tests/test_stages.py
