@@ -20,17 +20,17 @@ from lightning.pytorch.callbacks import ModelCheckpoint  # noqa: E402
 from training_model_fixtures import small_model  # noqa: E402
 
 from clean_rtdetr_training import DetectionTarget, HungarianMatcher, SetCriterion  # noqa: E402
-from clean_rtdetr_training.denoising import (  # noqa: E402
-    DenoisingConfig,
-    DenoisingQueryGenerator,
-    DenoisingTrainingModel,
-)
 from clean_rtdetr_training.lightning import (  # noqa: E402
     RTDETREMA,
     DetectionDataModule,
     EpochBoundaryState,
     RTDETRLightningModule,
     RTDETRParameterGroups,
+)
+from clean_rtdetr_training.models import (  # noqa: E402
+    DenoisingConfig,
+    DenoisingQueryGenerator,
+    DenoisingTrainingModel,
 )
 
 if TYPE_CHECKING:

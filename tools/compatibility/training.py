@@ -12,7 +12,7 @@ from jaxtyping import Shaped
 from torch import Tensor
 
 from clean_rtdetr.models.rtdetr import BaselineRTDETR
-from clean_rtdetr_training.denoising import DenoisingQueryGenerator, DenoisingTrainingModel
+from clean_rtdetr_training.models import DenoisingQueryGenerator, DenoisingTrainingModel
 from tools.compatibility import CheckpointLoadReport, load_official_model_weights
 
 _DN_SOURCE_KEY = "decoder.denoising_class_embed.weight"

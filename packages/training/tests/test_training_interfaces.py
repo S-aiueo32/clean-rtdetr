@@ -35,7 +35,6 @@ from clean_rtdetr_training.contracts import (  # noqa: E402
     MatchIndices,
     validate_detection,
 )
-from clean_rtdetr_training.denoising import DenoisingBatch as LegacyDenoisingBatch  # noqa: E402
 from clean_rtdetr_training.interfaces import (  # noqa: E402
     DenoisingGenerator,
     Matcher,
@@ -43,6 +42,7 @@ from clean_rtdetr_training.interfaces import (  # noqa: E402
     TrainingModel,
 )
 from clean_rtdetr_training.lightning import RTDETRLightningModule  # noqa: E402
+from clean_rtdetr_training.models import DenoisingBatch as ModelsDenoisingBatch  # noqa: E402
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -507,7 +507,7 @@ def test_denoising_wrapper_uses_only_detector_and_generator_interfaces() -> None
 def test_denoising_batch_keeps_public_compatibility_exports() -> None:
     """Existing public import paths resolve to the canonical core contract."""
     assert PublicDenoisingBatch is DenoisingBatch
-    assert LegacyDenoisingBatch is DenoisingBatch
+    assert ModelsDenoisingBatch is DenoisingBatch
 
 
 def test_denoising_wrapper_rejects_interface_metadata_mismatches() -> None:
