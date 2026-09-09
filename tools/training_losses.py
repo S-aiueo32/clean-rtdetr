@@ -20,7 +20,7 @@ def main() -> None:
         ),
         DetectionTarget(torch.empty(0, dtype=torch.int64), torch.empty(0, 4)),
     ]
-    losses = SetCriterion(matcher=HungarianMatcher())(predictions, targets)
+    losses = SetCriterion(matcher=HungarianMatcher()).stage_losses(predictions, targets)
     total = torch.stack(list(losses.values())).sum()
     total.backward()
     print({name: float(loss.detach()) for name, loss in losses.items()})

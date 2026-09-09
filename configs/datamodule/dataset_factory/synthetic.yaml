@@ -1,3 +1,5 @@
-_target_: clean_rtdetr_training.data.SyntheticDetectionDataset.from_training_model
+_target_: clean_rtdetr_training.data.SyntheticDetectionDataset
 _partial_: true
-image_size: auto
+image_size: 128
+# Support the named factory and the explicit stage graph recipes.
+num_classes: ${oc.select:module.training_model.model.num_classes,${oc.select:module.training_model.model.selector.config.num_classes}}

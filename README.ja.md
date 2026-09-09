@@ -94,9 +94,11 @@ flowchart TD
 
 ## ライセンス
 
-Clean RT-DETR は [Apache License, Version 2.0](LICENSE) で提供される。
+Clean RT-DETR のソースコードは [Apache License, Version 2.0](LICENSE) で提供される。
 同梱した RT-DETR ソースとその改変には、上流の Apache-2.0 ライセンスと帰属表示を保持している。
 詳細は [third_party/RT-DETR/README.md](third_party/RT-DETR/README.md) を参照する。
+外部の重み・データセット・依存ライブラリ・サンプル画像には、それぞれの条件が適用される。
+DINOv3 と teacher の重みを含む checkpoint の扱いは[ライセンスの適用範囲](docs/ja/licensing.md)を参照する。
 
 ## 出典
 

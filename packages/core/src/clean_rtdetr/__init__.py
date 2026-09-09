@@ -4,8 +4,6 @@
 from clean_rtdetr.contracts import (
     DecoderInput,
     DecoderOutput,
-    DenoisingMetadata,
-    DenoisingOutput,
     DenoisingQueries,
     DetectionOutput,
     FeatureSpec,
@@ -46,8 +44,6 @@ __all__ = [
     "DecoderInput",
     "DecoderOutput",
     "DecoderPlan",
-    "DenoisingMetadata",
-    "DenoisingOutput",
     "DenoisingQueries",
     "DetectionOutput",
     "FeatureSpec",

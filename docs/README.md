@@ -31,6 +31,8 @@ metadata or dependency selections change.
 
 ## User guides
 
+- [License scope](licensing.md): source licenses, attribution, external data and
+  weights, and teacher-containing checkpoints.
 - [Inference I/O](inference.md): model and image contracts, a Python inference
   example, checkpoint loading, postprocessing, and fixed-shape ONNX execution.
 - [COCO evaluation](evaluation.md): local dataset requirements, prediction JSON,
@@ -55,6 +57,8 @@ not download those artifacts; checkpoint provenance is recorded in
   required validation, and distribution builds.
 - [Extension guide](extensions.md): component injection, tensor annotations,
   and gradient ownership.
+- [Recipe responsibilities](recipe-boundaries.md): library APIs extracted from
+  four recipes, and user-owned algorithms, data, state and validation.
 - [Implementation roadmap](roadmap.md): completed work and remaining validation.
 - [Design proposal](design-proposal.md): intended research architecture and
   future integrations; it is not a list of supported features.

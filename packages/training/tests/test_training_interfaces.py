@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import partial
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, assert_type, cast
 
 import pytest
 import torch
@@ -18,9 +18,6 @@ from lightning.pytorch.callbacks import ModelCheckpoint  # noqa: E402
 from clean_rtdetr.contracts import (  # noqa: E402
     DecoderInput,
     DecoderOutput,
-    DenoisingBatch,
-    DenoisingMetadata,
-    DenoisingOutput,
     DenoisingQueries,
     DetectionOutput,
     ModelOutput,
@@ -31,8 +28,11 @@ from clean_rtdetr.models.queries import QueryAssembler  # noqa: E402
 from clean_rtdetr_training import DenoisingBatch as PublicDenoisingBatch  # noqa: E402
 from clean_rtdetr_training import DenoisingTrainingModel, SetCriterion  # noqa: E402
 from clean_rtdetr_training.contracts import (  # noqa: E402
+    DenoisingBatch,
+    DenoisingMetadata,
     DetectionTarget,
     MatchIndices,
+    TrainingOutput,
     validate_detection,
 )
 from clean_rtdetr_training.interfaces import (  # noqa: E402
@@ -189,7 +189,7 @@ class ToyDetector(Detector):
         *,
         plan: DecoderPlan | None = None,
         collect_aifi: bool = False,
-        denoising: DenoisingBatch | None = None,
+        denoising: DenoisingQueries | None = None,
     ) -> ModelOutput:
         """Return all DN queries before one learned matching query."""
         del plan, collect_aifi
@@ -197,25 +197,16 @@ class ToyDetector(Detector):
         matching = images.mean(dim=(1, 2, 3))[:, None, None].expand(
             batch, self.num_queries, self.hidden_dim
         )
-        queries = None if denoising is None else denoising.queries
-        content = matching if queries is None else torch.cat((queries.content, matching), dim=1)
+        content = matching if denoising is None else torch.cat((denoising.content, matching), dim=1)
         all_logits = self.head(content).unsqueeze(0)
         all_boxes = self.box_logit.sigmoid().expand(batch, content.shape[1], 4).unsqueeze(0)
-        count = 0 if denoising is None else denoising.metadata.num_queries
-        decoded = DecoderOutput(all_logits[:, :, count:], all_boxes[:, :, count:])
-        denoising_output = None
-        if denoising is not None:
-            denoising_output = DenoisingOutput(
-                DecoderOutput(all_logits[:, :, :count], all_boxes[:, :, :count]),
-                denoising.metadata,
-            )
+        decoded = DecoderOutput(all_logits, all_boxes)
         encoder_logits = self.head(matching)
         encoder_boxes = self.box_logit.sigmoid().expand(batch, self.num_queries, 4)
         return ModelOutput(
             decoded,
             DetectionOutput(encoder_logits, encoder_boxes),
             None,
-            denoising_output,
         )
 
     def checkpoint_config(self) -> dict[str, object]:
@@ -438,7 +429,7 @@ def test_set_criterion_accepts_matcher_interface_and_preserves_module_behavior()
         DetectionTarget(torch.tensor([2]), torch.tensor([[0.6, 0.6, 0.3, 0.3]])),
     ]
 
-    losses = criterion(output, targets)
+    losses = criterion.stage_losses(output, targets)
     torch.stack(list(losses.values())).sum().backward()
 
     assert hook_calls == [None]
@@ -471,6 +462,12 @@ def test_denoising_wrapper_uses_only_detector_and_generator_interfaces() -> None
     detector = ToyDetector()
     generator = ToyDenoisingGenerator()
     wrapper = DenoisingTrainingModel(detector, generator)
+    module = RTDETRLightningModule(
+        wrapper,
+        SetCriterion(matcher=FixedMatcher()),
+        optimizer_factory=partial(torch.optim.SGD, lr=0.01),
+    )
+    assert_type(module, RTDETRLightningModule[TrainingOutput])
     detector_hooks: list[object] = []
     generator_hooks: list[object] = []
     detector.register_forward_hook(lambda *_: detector_hooks.append(None))
@@ -482,12 +479,12 @@ def test_denoising_wrapper_uses_only_detector_and_generator_interfaces() -> None
     ]
 
     output = wrapper(images, targets=targets)
-    assert output.decoder.logits.shape == (1, 2, 1, 3)
+    assert output.predictions.decoder.logits.shape == (1, 2, 1, 3)
     assert output.denoising is not None
     assert output.denoising.decoder.logits.shape == (1, 2, 2, 3)
     assert detector_hooks == [None]
     assert generator_hooks == [None]
-    (output.decoder.logits.sum() + output.denoising.decoder.logits.sum()).backward()
+    (output.predictions.decoder.logits.sum() + output.denoising.decoder.logits.sum()).backward()
     assert detector.head.weight.grad is not None
     assert generator.content.grad is not None
     assert "model.head.weight" in wrapper.state_dict()
@@ -504,8 +501,8 @@ def test_denoising_wrapper_uses_only_detector_and_generator_interfaces() -> None
     }
 
 
-def test_denoising_batch_keeps_public_compatibility_exports() -> None:
-    """Existing public import paths resolve to the canonical core contract."""
+def test_denoising_batch_is_exported_from_training() -> None:
+    """Public training import paths resolve to the canonical training contract."""
     assert PublicDenoisingBatch is DenoisingBatch
     assert ModelsDenoisingBatch is DenoisingBatch
 

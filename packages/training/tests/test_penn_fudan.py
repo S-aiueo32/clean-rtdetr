@@ -98,3 +98,11 @@ def test_invalid_root_and_val_size_are_rejected(tmp_path: Path) -> None:
     (tmp_path / "PedMasks" / "FUDAN_0_mask.png").unlink()
     with pytest.raises(FileNotFoundError, match="FUDAN_0_mask"):
         PennFudanDetectionDataset(tmp_path)
+
+
+def test_dataset_exposes_fixed_person_label_space(tmp_path: Path) -> None:
+    """Person labels are dataset facts and do not depend on a training wrapper."""
+    _write_dataset(tmp_path, count=2)
+    dataset = PennFudanDetectionDataset(tmp_path, split="all", val_size=1)
+    assert dataset.num_classes == 1
+    assert all(set(target.labels.tolist()) <= {0} for _, target in dataset)

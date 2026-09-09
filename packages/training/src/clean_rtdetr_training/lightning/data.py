@@ -2,7 +2,6 @@
 """Injected Lightning data-module boundary for detection training."""
 
 from collections.abc import Callable
-from functools import partial
 from typing import Protocol, runtime_checkable
 
 import torch
@@ -10,16 +9,6 @@ from lightning.pytorch import LightningDataModule
 from torch.utils.data import DataLoader, Dataset
 
 from clean_rtdetr_training.data.contracts import DetectionSample
-from clean_rtdetr_training.interfaces import TrainingModel
-
-
-@runtime_checkable
-class TrainingDatasetFactory(Protocol):
-    """Resolve a dataset using an already constructed training model."""
-
-    def __call__(self, *, training_model: TrainingModel) -> Dataset[DetectionSample]:
-        """Build a dataset using model metadata when needed."""
-        ...
 
 
 @runtime_checkable
@@ -51,21 +40,6 @@ class DetectionDataModule(LightningDataModule):
         self.dataloader_factory = dataloader_factory
         self.generator = generator
         self._train_dataset: Dataset[DetectionSample] | None = None
-
-    @classmethod
-    def from_training_model(
-        cls,
-        dataset_factory: TrainingDatasetFactory,
-        dataloader_factory: DetectionDataLoaderFactory,
-        generator: torch.Generator,
-        training_model: TrainingModel,
-    ) -> "DetectionDataModule":
-        """Bind the model to a dataset factory; create the dataset during setup."""
-        return cls(
-            dataset_factory=partial(dataset_factory, training_model=training_model),
-            dataloader_factory=dataloader_factory,
-            generator=generator,
-        )
 
     def setup(self, stage: str | None = None) -> None:
         """Create the training dataset once for fit or an unspecified stage."""

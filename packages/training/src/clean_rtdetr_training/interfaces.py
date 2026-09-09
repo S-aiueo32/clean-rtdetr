@@ -8,8 +8,8 @@ import torch
 from jaxtyping import Float
 from torch import Tensor, nn
 
-from clean_rtdetr.contracts import DenoisingBatch, DetectionOutput
-from clean_rtdetr_training.contracts import DetectionTarget, MatchIndices
+from clean_rtdetr.contracts import DetectionOutput
+from clean_rtdetr_training.contracts import DenoisingBatch, DetectionTarget, MatchIndices
 
 type TrainingLosses = dict[str, Float[Tensor, ""]]
 
@@ -85,7 +85,11 @@ class TrainingModel[PredictionT](nn.Module, ABC):
 
 
 class TrainingCriterion[PredictionT](nn.Module, ABC):
-    """Consume a model's prediction payload and return weighted scalar losses."""
+    """Consume a model's prediction payload and return weighted scalar losses.
+
+    Bind PredictionT to the paired TrainingModel's output contract. Convenience
+    inputs for individual stages belong in separate, explicitly typed methods.
+    """
 
     @abstractmethod
     def forward(self, output: PredictionT, targets: Sequence[DetectionTarget]) -> TrainingLosses:

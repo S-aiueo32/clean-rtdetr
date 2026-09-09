@@ -7,6 +7,11 @@ they are not included in the Apache-2.0 Python distribution. See the source page
 for attribution and dataset information: Wang, Shi, Song, and Shen, *Object
 Detection Combining Recognition and Segmentation*, ACCV 2007.
 
+The distribution page does not state an Apache-2.0 grant for the images or
+annotations. The loader's code license does not license the dataset. Check the
+provider's terms for your intended use and obtain clarification from the provider
+when reuse or redistribution permission is unclear.
+
 ## Prepare
 
 Run from the repository root (or worktree root):
@@ -40,6 +45,11 @@ train = PennFudanDetectionDataset("datasets/PennFudanPed", split="train")
 val = PennFudanDetectionDataset("datasets/PennFudanPed", split="val")
 image, target = train[0]
 ```
+
+The dataset constructor is independent of a model and takes only `root`,
+`split`, `seed`, and `val_size`. It always emits the fixed foreground class
+`person=0`; choose the corresponding one-class model in the recipe or CLI
+configuration. Dataset factories receive no training-model object.
 
 - The default split sorts filenames, shuffles with a private PyTorch generator
   seeded with 41, and reserves the final 50 images for validation: 120 train,

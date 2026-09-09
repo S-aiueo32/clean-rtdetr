@@ -2,8 +2,8 @@
 
 English | [日本語](ja/lightning.md)
 
-`clean_rtdetr_training.lightning` provides a thin adapter around the existing
-DN training model. Lightning's `Trainer` owns automatic optimization, gradient
+`clean_rtdetr_training.lightning` provides a thin adapter for paired training
+models and criteria, including the baseline DN model and set criterion. Lightning's `Trainer` owns automatic optimization, gradient
 clipping, epoch scheduling, logging, and checkpoint serialization/restoration.
 This project supplies the RT-DETR loss step, optimizer parameter groups, EMA,
 and application RNG callback state.
@@ -11,7 +11,8 @@ and application RNG callback state.
 The validated profile is **single-process CPU FP32**, with one optimizer step
 per batch, one DataLoader, a dedicated CPU generator, and `num_workers=0`.
 Tests use synthetic data. COCO training augmentation, full training convergence,
-GPU/DDP/AMP, arbitrary mid-epoch resume, and research-method composition remain pending.
+GPU/DDP/AMP, and arbitrary mid-epoch resume remain outside this validated scope.
+The separate [recipes](recipe-boundaries.md) demonstrate bounded method compositions.
 
 ## Install and run
 
@@ -32,7 +33,7 @@ uv run clean-rtdetr-train \
 
 `trainer.max_epochs` is the total target epoch count, including restored epochs.
 The example recipe uses a compact detector with a partially frozen R50vd backbone
-and synthetic 64×64 images. It downloads no checkpoints or datasets. It
+and synthetic 128×128 images. It downloads no checkpoints or datasets. It
 exercises execution and restart, not an official trained model or accuracy.
 
 Lightning is owned by the `clean-rtdetr-training` distribution. Installing or
@@ -137,12 +138,11 @@ uv run clean-rtdetr-train \
 
 The model group accepts `rtdetr_r18vd`, `rtdetr_r34vd`, `rtdetr_r50vd_m`,
 `rtdetr_r50vd`, `rtdetr_r101vd`, and their `rtdetrv2_` counterparts. Each preset
-gets its architecture dimensions from the factory. The model owns the class
-count: named presets expose `module.training_model.model.num_classes`
-(default: 3), while compact exposes
+gets its architecture dimensions from the factory. Named presets expose the
+factory argument `module.training_model.model.num_classes`; their default is 3.
+The `compact` stage graph instead exposes
 `module.training_model.model.selector.config.num_classes` and interpolates it
-into the decoder. Architecture sizes
-are fixed by the factory; use `compact` for stage and dimension experiments.
+into the decoder. Use `compact` for stage and dimension experiments.
 These configurations initialize random weights and provide synthetic wiring
 examples, not full-dataset training recipes.
 
@@ -153,16 +153,12 @@ All parameters exist before optimizer construction; no parameters are created
 on the first forward pass. Direct construction with a ready-made DN generator
 is also supported.
 
-Synthetic data defaults to `datamodule.dataset_factory.image_size=auto`.
-During dataset setup, it chooses an aligned square size using the built RT-DETR
-projector's strides and query count, with enough memory positions for query
-selection and at least two cells along each side at the coarsest level. This
-resolves to 64×64 for the default compact model and 128×128 for the named
-300-query presets. Set `datamodule.dataset_factory.image_size=256` to specify a
-size explicitly; setup validates that it is positive, stride-aligned, and large
-enough. The synthetic dataset also derives its class count from the built model;
-its factory has no separate `num_classes` argument. There is no shared root
-`dimensions` group or per-preset copy of these values.
+Synthetic data defaults to explicit `datamodule.dataset_factory.image_size=128`.
+Set another positive, stride-aligned size explicitly when needed. Its factory
+also receives an explicit `num_classes` value, linked by configuration interpolation
+to the named factory or compact selector setting. It never inspects a model
+object. Query selection must still have enough projected memory positions;
+128×128 provides 336 positions for the shipped stride-8/16/32 pyramids.
 
 The Lightning module receives a training model, criterion, parameter-group policy,
 optimizer factory, and scheduler factory through constructor injection. Optimizer
@@ -198,6 +194,12 @@ parameter/buffer registration, forward hooks, device transfer, and state dicts.
 The generic prediction type connects the model to its paired criterion; the
 Lightning adapter does not inspect the prediction payload.
 
+Each criterion binds `PredictionT` to its paired model's output contract.
+`DenoisingTrainingModel` and `SetCriterion` both use `TrainingOutput`, as does the
+DEIM recipe's `MALCriterion`. A standalone detection stage uses the concrete
+criterion's `stage_losses` method. Distillation composes a
+`TrainingCriterion[TrainingOutput]` because that is the detection payload it passes.
+
 | Interface | Required operations |
 | --- | --- |
 | `TrainingModel[PredictionT]` | `forward(images, targets=...)`, `predict(images)`, `checkpoint_config()` |
@@ -214,17 +216,21 @@ and validate the detection/target inputs. The criterion obtains resume settings
 through `checkpoint_config()`, without requiring a matcher `.config` attribute.
 
 The DN wrapper depends on `Detector` and `DenoisingGenerator`. It uses their
-public dimensions, device, dtype, and checkpoint configuration rather than
-inspecting decoder/selector configs or a particular embedding layout. Prepared
-DN queries contain their assignment metadata; the detector returns separated
-matching and DN predictions, preserving the `ModelOutput.final` contract.
+public dimensions, the generator's device and dtype, and their checkpoint
+configuration rather than inspecting decoder/selector configs or a particular
+embedding layout. The generator returns a training-owned `DenoisingBatch` with
+prepared query tensors and assignment metadata. Only its `DenoisingQueries`
+tensors enter the core detector, which returns all decoded queries together.
+The wrapper splits matching and DN predictions into `TrainingOutput`; its
+`final` property exposes matching predictions only. `TrainingModel` itself
+requires no class-count metadata or nested detector attribute.
 
 `RTDETR` in turn accepts abstract backbone, encoder, projector, selector,
 assembler, and decoder stages from `clean_rtdetr.models.interfaces`. Each stage
 declares its tensor boundary, compatibility metadata, and checkpoint settings.
 Implementations remain registered PyTorch modules. Core exposes the fixed inference
 baseline through `rtdetr_r50vd()` without requiring a configuration framework.
-Experimental compositions remain in the training distribution's Hydra config groups.
+Experimental compositions live in caller-owned code and external Hydra config groups.
 
 The baseline factory is available after installing the core wheel:
 
@@ -235,8 +241,8 @@ model = rtdetr_r50vd()
 ```
 
 The repository's external configuration tree provides the model groups and
-training recipe. DN dimensions come from the built detector, and synthetic
-image dimensions are resolved when the dataset is constructed. Installed users
+training recipe. DN dimensions come from the built detector; synthetic image
+size and class count come from explicit configuration values. Installed users
 must provide their own configuration tree (or copy the repository's `configs/`
 tree).
 
@@ -280,22 +286,21 @@ this schema rather than treating those files as compatible resumes.
 
 ## Application composition
 
-The application constructs the Lightning module first, then injects its built
-training model into the `datamodule` config target. The default
-`DetectionDataModule.from_training_model` binds that model to a dataset factory;
+The application constructs the Lightning module and datamodule with explicit
+configuration values. The CLI passes a DataLoader generator and a zero-argument
+dataset factory to the datamodule;
 dataset and DataLoader factories are Hydra partials. It constructs the dataset
 during `setup("fit")`, then supplies the
 loader through `train_dataloader()`. Repeated setup retains the same dataset.
 Collation, batching, and shuffling are configured under the loader factory.
 The datamodule is passed to `Trainer.fit(..., datamodule=...)`.
-Custom dataset factories used with `from_training_model` accept a
-`training_model: TrainingModel` argument. The default
-`SyntheticDetectionDataset.from_training_model` specifically requires a
-`DenoisingTrainingModel` wrapping `RTDETR` to inspect its projector strides.
+Custom dataset factories receive configured arguments without a
+`training_model` argument. Penn-Fudan uses fixed `person=0`; synthetic class
+count and image size are explicit configuration values.
 Direct dataset and datamodule constructors remain available. Another experiment
 can replace the entire datamodule with its own `LightningDataModule`
-implementation whose configured target accepts the injected training model and
-generator.
+implementation whose configured target accepts the injected `generator` and
+its own configuration arguments.
 
 The application injects the **same** generator object into the datamodule and
 `EpochBoundaryState`. The datamodule passes that generator to its DataLoader,
@@ -307,9 +312,11 @@ The supported CLI accepts Hydra override expressions, not Hydra's launcher/multi
 
 Each batch is `(images, targets)`: FP32 RGB images `[B,3,H,W]` and a list of
 `DetectionTarget` instances. See [target contracts](training.md#api-and-targets).
-The adapter explicitly transfers immutable targets, retains every decoder layer,
-sums all weighted matching and DN losses, and logs `train/loss`. Validation and
-COCO metrics remain separate from this training adapter.
+The adapter explicitly transfers immutable targets, passes the model output to
+its paired criterion, sums the returned weighted losses, and logs `train/loss`.
+The baseline wrapper retains decoder layers and separates DN predictions; its
+criterion computes the matching and DN losses. Validation and COCO metrics
+remain separate from this training adapter.
 
 ## State and reproducibility
 
@@ -326,6 +333,9 @@ and callback state in its ordinary checkpoint format. We add:
 - Recipe metadata: factory targets and arguments, loss/DN/model configuration, trainable parameter
   names, and update-affecting Trainer settings. Incompatible resume settings
   are rejected. Required EMA/RNG callbacks must also be supplied when resuming.
+  User callbacks can be declared with `required_callback_keys`; saved requirements
+  survive omission of the declaration on a later resume. See
+  [callback responsibilities](recipe-boundaries.md#observable-structure-and-callback-state).
 
 Resume requires the same dataset, batch size, sampler configuration, transforms,
 and software/runtime environment. Those are caller responsibilities; arbitrary
@@ -341,8 +351,10 @@ ordinary PyTorch modules, so inference does not require a Lightning Trainer.
 The checkout-only
 `tools.compatibility.training.load_official_training_weights` can initialize
 `training_model` before constructing the Lightning adapter. For a packaged
-workflow, save `training_model.state_dict()` with `torch.save` and use the core
-native `clean_rtdetr.checkpoint.load_model_weights` loader. The installed
+workflow, save `training_model.state_dict()` with `torch.save`, reconstruct the
+same wrapper, and pass it as `model=` to the core native
+`clean_rtdetr.checkpoint.load_model_weights` loader. To use the baseline detector
+with the prediction/export CLIs, save `training_model.model.state_dict()` instead. The installed
 `clean-rtdetr-convert` command converts the official envelope for inference only;
 official weights are not Lightning resume checkpoints.
 

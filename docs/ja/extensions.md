@@ -1,4 +1,4 @@
-# 最初の拡張境界
+# 拡張境界
 
 [English version](../extensions.md)
 
@@ -105,12 +105,13 @@ Python 型を検査し、既存の `validate()` メソッドが runtime contract
 
 ## 勾配の所有権
 
-この境界では `QuerySet.ref_logits` は引き続き勾配を持ちます。将来の query assembler は
-optional な DN reference logits を連結し、decode 前に結果を detach する必要があります。
+この境界では `QuerySet.ref_logits` は引き続き勾配を持ちます。`QueryAssembler` は
+optional な DN reference logits を連結し、decode 前に結果を detach します。
 encoder auxiliary box prediction は固有の graph を保持します。テストではこの二つの経路を
 明確に区別します。
 
-これは意図的に範囲を絞った最初の境界です。D-FINE の distribution state、query group、
-AIFI feature tap、training method、capability validation は
-[設計提案](design-proposal.md) で計画されています。placeholder API でこれらを
-シミュレートすることはありません。
+現在は 4 つの独立した recipe が、分類損失の差し替え、分布回帰 decoder、query 分岐、
+AIFI 蒸留を公開 interface から利用しています。そこから追加したライブラリ API と、
+ユーザー側で所有するアルゴリズム・状態・検証の範囲は
+[recipe の責務分担](recipe-boundaries.md) を参照してください。
+[設計提案](design-proposal.md) はより広い設計案を記録しており、各手法の対応表ではありません。

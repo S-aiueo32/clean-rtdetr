@@ -2,9 +2,9 @@
 
 [English version](../lightning.md)
 
-`clean_rtdetr_training.lightning` は既存の DN training model 用の薄いアダプターです。Lightning の `Trainer` が automatic optimization、gradient clipping、epoch scheduling、logging、checkpoint の保存と復元を管理します。本プロジェクトは RT-DETR の loss step、optimizer parameter group、EMA、アプリケーション RNG callback state を提供します。
+`clean_rtdetr_training.lightning` は training model と criterion の組を受け取る薄いアダプターです。標準の DN model と set criterion もこの組として使います。Lightning の `Trainer` が automatic optimization、gradient clipping、epoch scheduling、logging、checkpoint の保存と復元を管理します。本プロジェクトは RT-DETR の loss step、optimizer parameter group、EMA、アプリケーション RNG callback state を提供します。
 
-検証済みプロファイルは **単一プロセス CPU FP32** で、batch ごとに optimizer step を 1 回、DataLoader を 1 つ、専用 CPU generator を 1 つ使い、`num_workers=0` とします。テストは合成データを使います。COCO augmentation、完全な収束、GPU/DDP/AMP、epoch 途中の任意再開、研究手法の組み合わせは未実装です。
+検証済みプロファイルは **単一プロセス CPU FP32** で、batch ごとに optimizer step を 1 回、DataLoader を 1 つ、専用 CPU generator を 1 つ使い、`num_workers=0` とします。テストは合成データを使います。COCO augmentation、完全な収束、GPU/DDP/AMP、epoch 途中の任意再開は検証対象外です。個別の[recipe](recipe-boundaries.md)では、範囲を限定した手法の組み合わせを実装しています。
 
 <a id="install-and-run"></a>
 
@@ -25,7 +25,7 @@ uv run clean-rtdetr-train \
   resume=outputs/lightning/last.ckpt
 ```
 
-`trainer.max_epochs` は復元済み epoch を含む最終的な目標 epoch 数です。例示 recipe は一部を freeze した R50vd backbone と合成 64×64 画像の小型 detector を使います。checkpoint や dataset はダウンロードしません。実行と再起動を確認するもので、公式学習済みモデルや精度を示しません。
+`trainer.max_epochs` は復元済み epoch を含む最終的な目標 epoch 数です。例示 recipe は一部を freeze した R50vd backbone と合成 128×128 画像の小型 detector を使います。checkpoint や dataset はダウンロードしません。実行と再起動を確認するもので、公式学習済みモデルや精度を示しません。
 
 Lightning は `clean-rtdetr-training` distribution が所有します。core `clean-rtdetr` のインストール・import は training stack をインストールも import もしません。Hydra はリポジトリの外部 `configs/` ツリーを読み込み、training distribution に YAML を同梱しません。
 
@@ -99,11 +99,11 @@ uv run clean-rtdetr-train \
   module.training_model.model.num_classes=80 trainer.max_epochs=1
 ```
 
-指定できる名前は `rtdetr_r18vd`、`rtdetr_r34vd`、`rtdetr_r50vd_m`、`rtdetr_r50vd`、`rtdetr_r101vd` と、それぞれの `rtdetrv2_` 版です。モデルの構造上の次元はファクトリで固定されます。クラス数はモデルが所有し、名前付きプリセットでは `module.training_model.model.num_classes`、compact では `module.training_model.model.selector.config.num_classes` で変更します。compact の decoder は selector のクラス数を補間します。既定のクラス数は3です。stage や次元を変更する実験には `compact` を使います。これらはランダム重みで初期化する合成データの動作例であり、データセット全体の学習レシピではありません。
+指定できる名前は `rtdetr_r18vd`、`rtdetr_r34vd`、`rtdetr_r50vd_m`、`rtdetr_r50vd`、`rtdetr_r101vd` と、それぞれの `rtdetrv2_` 版です。モデルの構造上の次元はファクトリで固定されます。名前付きプリセットのクラス数は factory 引数の `module.training_model.model.num_classes` で変更します。`compact` の stage graph では `module.training_model.model.selector.config.num_classes` で変更し、decoder は selector のクラス数を補間します。どちらも既定のクラス数は3です。stage や次元を変更する実験には `compact` を使います。これらはランダム重みで初期化する合成データの動作例であり、データセット全体の学習レシピではありません。
 
 DN recipe は `DenoisingTrainingModel.from_factory` と、`_partial_: true` の `denoising_factory` を使います。detector の構築後、その実際の `hidden_dim` と `num_classes` で DN を生成します。optimizer 構築前に全パラメータが揃い、初回 forward でパラメータを作ることはありません。構築済み DN generator を渡す通常の constructor も引き続き使えます。
 
-合成データの既定値は `datamodule.dataset_factory.image_size=auto` です。dataset の setup 時に構築済み RT-DETR の projector stride と query 数を調べ、query 選択に十分な memory 位置があり、最も粗い特徴マップの各辺が最低2セルになる正方形サイズを決めます。既定 compact は 64×64、名前付きの 300-query プリセットは 128×128 になります。`datamodule.dataset_factory.image_size=256` と数値で明示することもでき、setup 時に正値、stride の倍数、十分な大きさであることを検査します。合成 dataset のクラス数も構築済みモデルから取得し、この factory は別の `num_classes` 引数を持ちません。共有する root `dimensions` group やプリセットごとの次元のコピーはありません。
+合成データの既定値は `datamodule.dataset_factory.image_size=128` です。クラス数は設定内の補間で named factory または compact selector の値に結び付けます。dataset は model object を参照しません。サイズ変更時は正値、stride の倍数、query 選択に十分な memory 位置を指定してください。例示モデルの stride 8/16/32 の pyramid では、128×128 が336位置を提供します。
 
 Lightning module は training model、criterion、parameter-group policy、optimizer factory、scheduler factory を constructor injection で受け取ります。optimizer と scheduler の config は `_partial_: true` なので、Hydra が先に factory を作り、`configure_optimizers` が実際の trainable parameter と結び付けます。adapter は固定の optimizer/scheduler class を instantiate しません。
 
@@ -123,6 +123,11 @@ uv run clean-rtdetr-train \
 
 adapter は `DenoisingTrainingModel` や `SetCriterion` ではなく `TrainingModel[PredictionT]` と `TrainingCriterion[PredictionT]` に依存します。どちらも abstract `nn.Module` subclass なので、通常の parameter/buffer 登録、forward hook、device 移動、state dict を維持します。generic prediction type が model と criterion を対応付け、Lightning adapter は prediction payload を調べません。
 
+各 criterion の `PredictionT` は対応する model の出力契約に揃えます。
+`DenoisingTrainingModel`、`SetCriterion`、DEIM recipe の `MALCriterion` は
+`TrainingOutput` を使います。単一段の損失計算には具象 criterion の `stage_losses` を使います。
+蒸留側も実際に渡す検出出力に合わせて `TrainingCriterion[TrainingOutput]` に依存します。
+
 | Interface | 必須操作 |
 | --- | --- |
 | `TrainingModel[PredictionT]` | `forward(images, targets=...)`, `predict(images)`, `checkpoint_config()` |
@@ -133,9 +138,9 @@ adapter は `DenoisingTrainingModel` や `SetCriterion` ではなく `TrainingMo
 
 `SetCriterion` は抽象 `Matcher` interface の注入実装を必要とします。baseline Hydra config は `HungarianMatcher` を明示的に構築し、別実装は `_target_` で選べます。Matcher は予測 device 上の画像ごとの `MatchIndices` を返し、detection/target を検証します。criterion は matcher の `.config` 属性を要求せず `checkpoint_config()` から再開設定を得ます。
 
-DN wrapper は `Detector` と `DenoisingGenerator` に依存します。decoder/selector config や特定の embedding layout を調べず、公開された dimensions、device、dtype、checkpoint configuration を使います。準備済み DN query は assignment metadata を含み、detector は matching と DN prediction を分離して返し `ModelOutput.final` の契約を保ちます。
+DN wrapper は `Detector` と `DenoisingGenerator` に依存します。decoder/selector config や特定の embedding layout を調べず、公開された dimensions、generator の device/dtype、各部品の checkpoint configuration を使います。generator は query tensor と assignment metadata を持つ training 側の `DenoisingBatch` を返します。core detector に渡すのは `DenoisingQueries` の tensor だけで、detector は全 query の予測をまとめて返します。wrapper が matching と DN prediction を分割して `TrainingOutput` にまとめ、その `final` は matching prediction だけを公開します。`TrainingModel` 自体はクラス数の metadata や内部 detector 属性を要求しません。
 
-`RTDETR` は `clean_rtdetr.models.interfaces` の抽象 backbone、encoder、projector、selector、assembler、decoder stage を受け取ります。各 stage は tensor 境界、互換性 metadata、checkpoint 設定を宣言します。実装は登録済み PyTorch module のままです。core は設定 framework に依存しない固定 inference baseline を `rtdetr_r50vd()` で公開し、実験 composition は training distribution の Hydra config group に残します。
+`RTDETR` は `clean_rtdetr.models.interfaces` の抽象 backbone、encoder、projector、selector、assembler、decoder stage を受け取ります。各 stage は tensor 境界、互換性 metadata、checkpoint 設定を宣言します。実装は登録済み PyTorch module のままです。core は設定 framework に依存しない固定 inference baseline を `rtdetr_r50vd()` で公開し、実験 composition は caller 側のコードと外部 Hydra config group に置きます。
 
 ```python
 from clean_rtdetr import rtdetr_r50vd
@@ -143,7 +148,7 @@ from clean_rtdetr import rtdetr_r50vd
 model = rtdetr_r50vd()
 ```
 
-リポジトリルートの外部 `configs/` ツリーが model group と training recipe を提供します。DN の次元は構築済み detector から取得し、合成画像のサイズは dataset 構築時に解決します。インストール利用者は自分で用意した設定ツリー（またはリポジトリの `configs/` ツリーのコピー）を渡してください。
+リポジトリルートの外部 `configs/` ツリーが model group と training recipe を提供します。DN の次元は構築済み detector から取得し、合成画像のサイズとクラス数は明示した設定値から取得します。インストール利用者は自分で用意した設定ツリー（またはリポジトリの `configs/` ツリーのコピー）を渡してください。
 
 階層化された `criterion`、`matcher`、`denoising_factory` config group は model-stage、optimizer、scheduler group とともに選択肢を公開します。例えば `configs/module/criterion/matcher/experimental.yaml` を追加した後、`module/criterion/matcher=experimental` で選べます。replacement config は独自の `_target_` と constructor 引数を提供し、command-line module は不要です。
 
@@ -159,13 +164,13 @@ interface ベースの checkpoint recipe は schema version 2 です。未リリ
 
 ## アプリケーション構成
 
-アプリケーションは Lightning module を先に構築し、その training model を `datamodule` config の target に注入します。既定の `DetectionDataModule.from_training_model` はその model を dataset factory に結び付けます。dataset/DataLoader factory は Hydra partial で受け取り、`setup("fit")` で dataset を作り、`train_dataloader()` で loader を提供します。繰り返しの setup でも同じ dataset を保持します。collation、batching、shuffling は loader factory で設定でき、datamodule は `Trainer.fit(..., datamodule=...)` に渡します。
+アプリケーションは明示した設定値で Lightning module と datamodule を構築します。CLI は generator と model object を受け取らない dataset factory を datamodule に渡します。dataset/DataLoader factory は Hydra partial で受け取り、`setup("fit")` で dataset を作り、`train_dataloader()` で loader を提供します。繰り返しの setup でも同じ dataset を保持します。collation、batching、shuffling は loader factory で設定でき、datamodule は `Trainer.fit(..., datamodule=...)` に渡します。
 
-`from_training_model` と使う独自 dataset factory は `training_model: TrainingModel` 引数を受け取ります。既定の `SyntheticDetectionDataset.from_training_model` は projector stride を参照するため、`RTDETR` を包む `DenoisingTrainingModel` を必要とします。dataset と datamodule の通常の constructor も引き続き使えます。別実験では、注入する training model と generator を target が受け取れる独自 `LightningDataModule` に置き換えられます。
+独自 dataset factory は `training_model` 引数を受け取りません。Penn-Fudan は固定の person=0 を使い、synthetic のクラス数と画像サイズは設定値です。dataset と datamodule の通常の constructor も引き続き使えます。別実験では、注入される `generator` と独自の設定引数を受け取る `LightningDataModule` に置き換えられます。
 
 datamodule と `EpochBoundaryState` には **同じ** generator object を注入します。datamodule はその generator を DataLoader に渡し、epoch 境界 RNG restore 契約を保ちます。entry point は composition と実行だけを行い model factory を持ちません。Hydra 1.3 の CLI help 構築が検証済み Python 3.14 argparse と非互換なため、小さな argument parser と Compose API を使います。CLI が受け付けるのは Hydra override expression で、launcher/multirun flag ではありません。
 
-各 batch は `(images, targets)`、すなわち FP32 RGB images `[B,3,H,W]` と `DetectionTarget` の list です。[target contracts](training.md#api-and-targets) を参照してください。adapter は immutable target を明示的に移動し、全 decoder layer を保持し、matching と DN の重み付き loss を合計して `train/loss` を log します。validation と COCO metric はこの adapter とは別です。
+各 batch は `(images, targets)`、すなわち FP32 RGB images `[B,3,H,W]` と `DetectionTarget` の list です。[target contracts](training.md#api-and-targets) を参照してください。adapter は immutable target を明示的に移動し、model output を対応する criterion に渡し、返された重み付き loss を合計して `train/loss` を log します。標準の wrapper が decoder layer を保持して DN prediction を分離し、criterion が matching と DN の loss を計算します。validation と COCO metric はこの adapter とは別です。
 
 <a id="state-and-reproducibility"></a>
 
@@ -175,11 +180,14 @@ Lightning は model、optimizer、scheduler、epoch、global step、loop progres
 
 - `RTDETREMA`: DN wrapper の別個の frozen copy、update count、decay、warmup 設定。浮動小数点 parameter/buffer は upstream の `decay * (1 - exp(-updates / warmups))` に従い、整数 buffer は初期値のままです。EMA は optimizer step 後に更新し live weight を置換しません。
 - `EpochBoundaryState`: Python、global NumPy、PyTorch CPU、供給された DataLoader generator の state。callback は Lightning の resume lifecycle で復元し、不完全な epoch の checkpoint を拒否します。
-- Recipe metadata: factory target と引数、loss/DN/model 設定、trainable parameter name、更新に影響する Trainer 設定。不一致の resume 設定は拒否されます。再開には EMA/RNG callback も必要です。
+- Recipe metadata: factory target と引数、loss/DN/model 設定、trainable parameter name、更新に影響する Trainer 設定。不一致の resume 設定は拒否されます。checkpoint に保存された EMA/RNG callback は再開時にも必要です。
+
+ユーザー独自の callback は `required_callback_keys` に宣言します。保存された必須 key は、
+再開先で宣言を省略しても引き継がれます。詳細は [recipe の責務分担](recipe-boundaries.md)を参照してください。
 
 再開には同じ dataset、batch size、sampler 設定、transform、software/runtime 環境が必要です。これらは呼び出し元の責任であり、任意の dataset object や private augmentation generator は serialize されません。worker RNG、stateful streaming dataset、world size の変更は検証対象外です。全 state を持つ完了済み epoch checkpoint を優先してください。重みだけのロードは optimizer history を引き継ぐ continuation ではなく初期化です。
 
-baseline wrapper では live detector は `module.training_model.model` にあります。fit 後、`ema.module` は evaluation mode の別 EMA wrapper を保持します。どちらも通常の PyTorch module なので inference に Lightning Trainer は不要です。checkout 専用の `tools.compatibility.training.load_official_training_weights` は Lightning adapter 構築前に `training_model` を初期化できます。パッケージで使う場合は `training_model.state_dict()` を `torch.save` で保存し、core の native loader `clean_rtdetr.checkpoint.load_model_weights` で読み込みます。公式 envelope の converter は推論専用で、公式重みは Lightning resume checkpoint ではありません。
+baseline wrapper では live detector は `module.training_model.model` にあります。fit 後、`ema.module` は evaluation mode の別 EMA wrapper を保持します。どちらも通常の PyTorch module なので inference に Lightning Trainer は不要です。checkout 専用の `tools.compatibility.training.load_official_training_weights` は Lightning adapter 構築前に `training_model` を初期化できます。パッケージで使う場合は `training_model.state_dict()` を `torch.save` で保存し、同じ wrapper を再構築して core の native loader `clean_rtdetr.checkpoint.load_model_weights` の `model=` に渡します。標準 detector を prediction/export CLI で使う場合は `training_model.model.state_dict()` を保存します。公式 envelope の converter は推論専用で、公式重みは Lightning resume checkpoint ではありません。
 
 <a id="validation"></a>
 

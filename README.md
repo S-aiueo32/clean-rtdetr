@@ -103,10 +103,13 @@ criteria for research results.
 
 ## License
 
-Clean RT-DETR is licensed under the [Apache License, Version 2.0](LICENSE).
+Clean RT-DETR's source code is licensed under the [Apache License, Version 2.0](LICENSE).
 The bundled RT-DETR source and its adaptations retain the upstream Apache-2.0
 license and attribution notices.
 See [third_party/RT-DETR/README.md](third_party/RT-DETR/README.md) for details.
+External weights, datasets, dependencies and sample images retain their own
+terms. See [license scope](docs/licensing.md), including DINOv3 and checkpoints
+that contain teacher weights.
 
 ## Provenance
 

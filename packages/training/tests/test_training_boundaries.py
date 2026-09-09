@@ -18,6 +18,7 @@ from clean_rtdetr_training import (
     HungarianMatcher,
     MatcherConfig,
     SetCriterion,
+    TrainingOutput,
 )
 
 if TYPE_CHECKING:
@@ -51,7 +52,7 @@ def test_prediction_eager_validation(field: str, tensor: Tensor, message: str) -
     output, targets = _batch()
     object.__setattr__(output, field, tensor)
     with pytest.raises(ValueError, match=message):
-        SetCriterion(matcher=HungarianMatcher())(output, targets)
+        SetCriterion(matcher=HungarianMatcher()).stage_losses(output, targets)
 
 
 @pytest.mark.parametrize(
@@ -76,7 +77,7 @@ def test_target_eager_validation(field: str, tensor: Tensor, message: str) -> No
     output, targets = _batch()
     object.__setattr__(targets[0], field, tensor)
     with pytest.raises(ValueError, match=message):
-        SetCriterion(matcher=HungarianMatcher())(output, targets)
+        SetCriterion(matcher=HungarianMatcher()).stage_losses(output, targets)
 
 
 def test_batch_target_count_must_match() -> None:
@@ -84,7 +85,7 @@ def test_batch_target_count_must_match() -> None:
     output, targets = _batch()
     for invalid in ([], targets + targets):
         with pytest.raises(ValueError, match="one target"):
-            SetCriterion(matcher=HungarianMatcher())(output, invalid)
+            SetCriterion(matcher=HungarianMatcher()).stage_losses(output, invalid)
 
 
 @pytest.mark.parametrize("field", ["weight_vfl", "weight_bbox", "weight_giou", "alpha", "gamma"])
@@ -111,14 +112,23 @@ def test_loss_config_rejects_all_zero_weights_and_alpha_above_one() -> None:
         CriterionConfig(alpha=1.1)
 
 
-def test_distributed_execution_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("scope", ["stage", "training"])
+def test_distributed_execution_is_rejected(monkeypatch: pytest.MonkeyPatch, scope: str) -> None:
     """Do not silently apply local normalization to a distributed training run."""
     monkeypatch.setattr(torch.distributed, "is_available", lambda: True)
     monkeypatch.setattr(torch.distributed, "is_initialized", lambda: True)
     monkeypatch.setattr(torch.distributed, "get_world_size", lambda: 2)
     output, targets = _batch()
+    criterion = SetCriterion(matcher=HungarianMatcher())
+    if scope == "stage":
+        with pytest.raises(ValueError, match="single-process"):
+            criterion.stage_losses(output, targets)
+        return
+    model_output = ModelOutput(
+        DecoderOutput(output.logits.unsqueeze(0), output.boxes.unsqueeze(0)), output, None
+    )
     with pytest.raises(ValueError, match="single-process"):
-        SetCriterion(matcher=HungarianMatcher())(output, targets)
+        criterion(TrainingOutput(model_output), targets)
 
 
 def test_encoder_classes_must_match_decoder() -> None:
@@ -130,7 +140,7 @@ def test_encoder_classes_must_match_decoder() -> None:
         None,
     )
     with pytest.raises(ValueError, match="Encoder predictions"):
-        SetCriterion(matcher=HungarianMatcher())(model_output, targets)
+        SetCriterion(matcher=HungarianMatcher())(TrainingOutput(model_output), targets)
 
 
 def test_training_import_and_empty_targets_do_not_need_scipy() -> None:
@@ -145,13 +155,13 @@ from clean_rtdetr_training import DetectionTarget, HungarianMatcher, SetCriterio
 output = DetectionOutput(torch.zeros(1, 2, 3, requires_grad=True),
                          torch.zeros(1, 2, 4, requires_grad=True))
 empty = DetectionTarget(torch.empty(0, dtype=torch.int64), torch.empty(0, 4))
-losses = SetCriterion(matcher=HungarianMatcher())(output, [empty])
+losses = SetCriterion(matcher=HungarianMatcher()).stage_losses(output, [empty])
 sum(losses.values()).backward()
 assert output.boxes.grad is not None
 assert output.boxes.grad.count_nonzero() == 0
 target = DetectionTarget(torch.tensor([1]), torch.full((1, 4), 0.25))
 try:
-    SetCriterion(matcher=HungarianMatcher())(output, [target])
+    SetCriterion(matcher=HungarianMatcher()).stage_losses(output, [target])
 except ImportError as error:
     assert 'clean-rtdetr-training' in str(error)
 else:

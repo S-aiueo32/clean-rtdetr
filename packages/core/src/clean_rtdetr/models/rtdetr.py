@@ -5,11 +5,8 @@ from jaxtyping import Float
 from torch import Tensor
 
 from clean_rtdetr.contracts import (
-    QUERY_RANK,
-    DecoderOutput,
     DecoderPlan,
-    DenoisingBatch,
-    DenoisingOutput,
+    DenoisingQueries,
     DetectionOutput,
     ModelOutput,
 )
@@ -90,7 +87,7 @@ class RTDETR[
         *,
         plan: DecoderPlan | None = None,
         collect_aifi: bool = False,
-        denoising: DenoisingBatch | None = None,
+        denoising: DenoisingQueries | None = None,
     ) -> ModelOutput:
         """Run images through all stages and return decoder and auxiliary predictions.
 
@@ -104,68 +101,27 @@ class RTDETR[
             prepared DN queries (optional) ─────────┘
 
             memory ──┐
-                     ├→ decoder → split ─┬─ matching outputs
-            queries ─┘                   └─ DN outputs (optional)
+                     ├→ decoder → predictions for all assembled queries
+            queries ─┘
 
         ``after_aifi`` is optional; encoder auxiliary predictions keep the
         selector's gradient path. Prepared DN queries enter at the assembler and
-        their leading decoder slots are separated after all requested layers run.
+        their leading decoder slots remain in the returned predictions. The
+        training wrapper owns supervision metadata and prediction splitting.
         ``plan`` controls decoder depth and retained intermediate predictions.
         This boundary returns raw logits and normalized cxcywh boxes.
         """
-        self._validate_denoising(denoising)
         features = self.backbone(images)
         encoded_features = self.encoder(features, collect_aifi=collect_aifi)
         encoded = self.projector(encoded_features.features)
         selected = self.selector(encoded)
-        queries = self.assembler(selected.queries, None if denoising is None else denoising.queries)
+        queries = self.assembler(selected.queries, denoising)
         decoded = self.decoder(queries, encoded, plan=plan)
-        matching, dn_output = self._split_predictions(decoded, denoising)
         return ModelOutput(
-            decoder=matching,
+            decoder=decoded,
             encoder_aux=DetectionOutput(selected.encoder_logits, selected.encoder_boxes),
             after_aifi=encoded_features.after_aifi,
-            denoising=dn_output,
         )
-
-    def _validate_denoising(self, denoising: DenoisingBatch | None) -> None:
-        """Check DN query counts before executing any model stage."""
-        if denoising is not None:
-            count = denoising.metadata.num_queries
-            if (
-                type(count) is not int
-                or count <= 0
-                or denoising.queries.content.ndim != QUERY_RANK
-                or count != denoising.queries.content.shape[1]
-            ):
-                msg = "Denoising metadata query count must be a positive integer matching queries"
-                raise ValueError(msg)
-
-    def _split_predictions(
-        self, decoded: DecoderOutput, denoising: DenoisingBatch | None
-    ) -> tuple[DecoderOutput, DenoisingOutput | None]:
-        """Separate the leading DN predictions from the matching query predictions.
-
-        Decoder tensors have layout ``[layers, B, D+Q, ...]``. Slice ``:D`` for
-        denoising and ``D:`` for matching, retaining every collected layer. Slices
-        preserve autograd connections; DN metadata travels with its predictions.
-        A DN prefix must leave at least one matching query. Without DN, the
-        original ``DecoderOutput`` is returned directly.
-        """
-        if denoising is None:
-            matching = decoded
-            dn_output = None
-        else:
-            count = denoising.metadata.num_queries
-            if count <= 0 or count >= decoded.logits.shape[2]:
-                msg = "Denoising query count must leave matching queries"
-                raise ValueError(msg)
-            matching = DecoderOutput(decoded.logits[:, :, count:], decoded.boxes[:, :, count:])
-            dn_output = DenoisingOutput(
-                DecoderOutput(decoded.logits[:, :, :count], decoded.boxes[:, :, :count]),
-                denoising.metadata,
-            )
-        return matching, dn_output
 
     @property
     def num_classes(self) -> int:

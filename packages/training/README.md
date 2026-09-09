@@ -6,6 +6,13 @@
 denoising queries, and an optional Lightning adapter for `clean-rtdetr`. It
 requires Python 3.13 or newer.
 
+`SetCriterion` owns the standard VFL/L1/GIoU losses; the former caller-owned
+`ClassificationLoss` hook was removed. `HungarianMatcher` offers an explicit
+`prediction_box_range="unbounded"` policy for distribution regression. The
+Lightning adapter preserves declared `required_callback_keys`
+across resume. See [recipe responsibilities](../../docs/recipe-boundaries.md)
+for these contracts and the algorithms, data and state owned by the caller.
+
 ```sh
 python -m pip install clean-rtdetr-training
 ```
@@ -43,6 +50,11 @@ For a small real-image benchmark, the optional `benchmark` extra provides a
 Penn-Fudan loader with a reproducible 120/50 train/validation split. See the
 [dataset setup and training example](benchmarks/penn_fudan.md).
 
+`PennFudanDetectionDataset` takes `root`, `split`, `seed`, and `val_size`; it
+uses the fixed foreground class `person=0`. Dataset factories are constructed
+without a model object. Synthetic image size and class count are explicit
+configuration values.
+
 For loss construction, the public API accepts normalized cxcywh targets with
 zero-based contiguous class labels:
 
@@ -59,10 +71,14 @@ model_output = DetectionOutput(
 labels = torch.tensor([1], dtype=torch.int64)
 boxes = torch.tensor([[0.5, 0.5, 0.25, 0.25]])
 criterion = SetCriterion(matcher=HungarianMatcher())
-losses = criterion(model_output, [DetectionTarget(labels=labels, boxes=boxes)])
+losses = criterion.stage_losses(model_output, [DetectionTarget(labels=labels, boxes=boxes)])
 total_loss = sum(losses.values())
 total_loss.backward()
 ```
+
+For complete training predictions, use `criterion(training_output, targets)`.
+The module input is `TrainingOutput`; wrap a core `ModelOutput` in
+`TrainingOutput(model_output)` when training without denoising.
 
 The Python API is exposed from `clean_rtdetr_training`; it depends on the
 matching `clean-rtdetr` release and does not install the export package. It

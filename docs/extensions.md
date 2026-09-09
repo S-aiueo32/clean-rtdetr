@@ -1,4 +1,4 @@
-# First extension boundary
+# Extension boundaries
 
 English | [日本語](ja/extensions.md)
 
@@ -105,11 +105,14 @@ a false `F821` without disabling undefined-name checks.
 
 ## Gradient ownership
 
-`QuerySet.ref_logits` still has gradients at this boundary. The future query
-assembler must concatenate optional DN reference logits and detach the result
+`QuerySet.ref_logits` still has gradients at this boundary. `QueryAssembler`
+concatenates optional DN reference logits and detaches the result
 before decoding. Encoder auxiliary box predictions retain their own graph. The
 tests explicitly distinguish these two routes.
 
-This is a deliberately narrow first boundary. D-FINE distribution state, query
-groups, AIFI feature taps, training methods, and capability validation are planned
-in the [proposal](design-proposal.md). They are not simulated with placeholder APIs.
+The four independent recipes now exercise custom classification, distribution
+decoding, query branches and AIFI distillation through public interfaces.
+See [recipe responsibilities](recipe-boundaries.md) for the resulting library
+APIs and the algorithms, state and validation that remain user-owned. The
+[proposal](design-proposal.md) records broader design ideas; it is not a support
+matrix for those algorithms.

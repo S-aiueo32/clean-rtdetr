@@ -1,5 +1,5 @@
 # Copyright 2026 Clean RT-DETR contributors
-"""Assemble matching and prepared denoising queries for the decoder."""
+"""Assemble decoder query tensors without supervision metadata."""
 
 import torch
 
@@ -75,6 +75,9 @@ class QueryAssembler(Assembler):
 
     def _validate_denoising(self, matching: QuerySet, denoising: DenoisingQueries) -> None:
         """Check DN dimensions and mask coverage before concatenating queries."""
+        if denoising.content.ndim != QUERY_RANK or denoising.ref_logits.ndim != QUERY_RANK:
+            msg = "Denoising queries must have rank-three content and reference tensors"
+            raise ValueError(msg)
         batch, matching_queries, channels = matching.content.shape
         denoising_queries = denoising.content.shape[1]
         if denoising.content.shape[:1] + denoising.content.shape[2:] != (batch, channels):

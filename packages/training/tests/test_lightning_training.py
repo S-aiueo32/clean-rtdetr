@@ -296,7 +296,7 @@ def test_forward_and_target_transfer_preserve_typed_contract() -> None:
     module.train()
     output = module(moved_images)
     assert output.denoising is None
-    assert output.decoder.logits.shape == (2, 2, 2, 3)
+    assert output.predictions.decoder.logits.shape == (2, 2, 2, 3)
 
 
 def test_data_module_uses_injected_factories_and_shared_generator() -> None:

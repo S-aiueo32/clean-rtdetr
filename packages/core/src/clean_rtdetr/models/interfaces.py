@@ -10,7 +10,6 @@ from clean_rtdetr.contracts import (
     DecoderInput,
     DecoderOutput,
     DecoderPlan,
-    DenoisingBatch,
     DenoisingQueries,
     EncodedFeatures,
     FeatureSpec,
@@ -113,7 +112,7 @@ class Decoder(Stage):
 
 
 class Detector(nn.Module, ABC):
-    """Image-to-prediction boundary used by training integrations."""
+    """Map images and optional prepared query tensors to model predictions."""
 
     num_classes: int
     hidden_dim: int
@@ -126,9 +125,9 @@ class Detector(nn.Module, ABC):
         *,
         plan: DecoderPlan | None = None,
         collect_aifi: bool = False,
-        denoising: DenoisingBatch | None = None,
+        denoising: DenoisingQueries | None = None,
     ) -> ModelOutput:
-        """Return matching predictions and optional denoising predictions."""
+        """Return predictions for all supplied queries without target assignments."""
         raise NotImplementedError
 
     @abstractmethod

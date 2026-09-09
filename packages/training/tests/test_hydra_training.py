@@ -60,7 +60,7 @@ def test_external_config_tree_composes_away_from_checkout(
             "lightning_training", ["module/optimizer_factory=custom"], config_dir=directory
         )
         assert config.module.optimizer_factory.lr == learning_rate
-        assert config.datamodule._target_.endswith("DetectionDataModule.from_training_model")
+        assert config.datamodule._target_.endswith("DetectionDataModule")
 
 
 def test_missing_external_config_does_not_fall_back_to_repository(tmp_path: Path) -> None:
@@ -127,7 +127,7 @@ def test_named_model_config_builds_compatible_training_components(name: str) -> 
     assert model.decoder.config.num_layers == preset.decoder_layers
     assert model.num_queries == num_queries
     dataset_factory = instantiate(config.datamodule.dataset_factory, _convert_="all")
-    dataset = dataset_factory(training_model=module.training_model)
+    dataset = dataset_factory()
     assert dataset.num_classes == num_classes
     images, _ = dataset[0]
     height, width = images.shape[-2:]
@@ -143,10 +143,14 @@ def test_named_model_config_runs_training_forward(name: str) -> None:
     config = _compose([f"module/training_model/model={name}"])
     module = instantiate(config.module, _convert_="all")
     dataset_factory = instantiate(config.datamodule.dataset_factory, _convert_="all")
-    images, target = dataset_factory(training_model=module.training_model)[0]
+    images, target = dataset_factory()[0]
     with torch.no_grad():
         output = module.training_model(images.unsqueeze(0), targets=[target])
-    assert output.final.logits.shape == (1, 300, module.training_model.model.num_classes)
+    assert output.predictions.final.logits.shape == (
+        1,
+        300,
+        module.training_model.model.num_classes,
+    )
 
 
 def test_hydra_replaces_an_independent_model_stage_and_records_its_recipe() -> None:
@@ -173,7 +177,7 @@ def test_hydra_replaces_an_independent_model_stage_and_records_its_recipe() -> N
 
 
 def test_owned_dimensions_reach_model_and_delayed_factories() -> None:
-    """DN and synthetic data consume the constructed model's dimensions."""
+    """Config interpolation links labels while DN consumes the constructed model dimensions."""
     hidden_dim = 16
     num_classes = 2
     config = _compose(
@@ -184,7 +188,7 @@ def test_owned_dimensions_reach_model_and_delayed_factories() -> None:
     )
     module = instantiate(config.module, _convert_="all")
     dataset_factory = instantiate(config.datamodule.dataset_factory, _convert_="all")
-    dataset = dataset_factory(training_model=module.training_model)
+    dataset = dataset_factory()
     model = module.training_model.model
 
     assert dataset.num_classes == num_classes

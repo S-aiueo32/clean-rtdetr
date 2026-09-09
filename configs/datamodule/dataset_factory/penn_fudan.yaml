@@ -1,4 +1,4 @@
-_target_: clean_rtdetr_training.data.PennFudanDetectionDataset.from_training_model
+_target_: clean_rtdetr_training.data.PennFudanDetectionDataset
 _partial_: true
 root: datasets/PennFudanPed
 split: train

@@ -44,6 +44,7 @@ jobs:
           packages/core/tests/test_core_jaxtyping_coverage.py
           packages/core/tests/test_model.py
           packages/core/tests/test_model_parity.py
+          packages/core/tests/test_package_boundaries.py
           packages/core/tests/test_postprocessing.py
           packages/core/tests/test_predict_cli.py
           packages/core/tests/test_preprocessing.py
