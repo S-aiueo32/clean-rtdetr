@@ -102,6 +102,8 @@ training distribution は model group を training recipe とともに package �
 
 `predict` は target-free 経路で、呼び出し元の train/eval mode を保ちます。criterion は重み付きで微分可能な scalar loss の辞書を返します。`checkpoint_config()` は tensor 以外の設定を primitive、sequence、mapping で返し、resume 時に実装 identity と設定を検査します。tensor state は PyTorch の `state_dict` に残ります。adapter は model の `.model`/`.denoising` や criterion の `.matcher`/`.config` に侵入しません。
 
+注入された decoder layer と selector の score/box head も checkpoint recipe に含まれ、具体的な型と tensor 以外の設定が検査されます。組み込みの `DecoderLayer`、`BoxHead`、正確な `torch.nn.Linear` 型はこの設定を提供します。これらの型の subclass を含む custom concrete type は `checkpoint_config()` を明示的に定義し、動作に影響する全設定を辞書で返す必要があります。opaque module は通常の forward には使えますが、checkpoint recipe を要求すると `TypeError` になります。これにより、同じ shape の weight を受け入れながら dropout や head の動作が再開時に黙って変わることを防ぎます。
+
 baseline DN wrapper と set criterion はこれらの interface を実装します。別の model/criterion pair は独自 prediction type と内部構造を使い、Hydra `_target_` で選択できます。baseline 実装を継承する必要はありません。学習可能な全パラメータをまとめる既定のグループ分けには `parameter_groups_factory: null` を使います。必要に応じて適切な方針を注入することもできます。`RTDETRParameterGroups` は RT-DETR parameter name 専用です。trainable criterion parameter も登録・最適化され、model と共有する parameter は一度だけ含めます。
 
 interface ベースの checkpoint recipe は schema version 2 です。未リリースの以前の concrete adapter recipe の checkpoint は拒否されるため、新しい run を使ってください。
