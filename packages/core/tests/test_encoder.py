@@ -1,12 +1,13 @@
 # Copyright 2026 Clean RT-DETR contributors
 """Contract tests for the hybrid feature encoder."""
 
+from collections import OrderedDict
 from dataclasses import replace
 
 import pytest
 import torch
 from official_oracle import hybrid_encoder_oracle
-from torch import Tensor
+from torch import Tensor, nn
 
 from clean_rtdetr.contracts import FeatureSpec, MultiScaleFeatures
 from clean_rtdetr.models.encoder import HybridEncoder, HybridEncoderConfig
@@ -209,3 +210,30 @@ def test_encoder_rejects_bad_width_geometry() -> None:
     )
     with pytest.raises(ValueError, match="widths"):
         encoder(bad)
+
+
+def test_v2_encoder_uses_official_named_projection_keys() -> None:
+    """Injected projections expose v2 names while retaining anonymous v1 keys."""
+    _, specs = _features()
+    v1_keys = HybridEncoder(
+        specs, HybridEncoderConfig(hidden_dim=8, num_heads=2, feedforward_dim=16)
+    ).state_dict()
+    projections = [
+        nn.Sequential(
+            OrderedDict(
+                (
+                    ("conv", nn.Conv2d(spec.channels, 8, 1, bias=False)),
+                    ("norm", nn.BatchNorm2d(8)),
+                )
+            )
+        )
+        for spec in specs
+    ]
+    v2_keys = HybridEncoder(
+        specs,
+        HybridEncoderConfig(hidden_dim=8, num_heads=2, feedforward_dim=16),
+        input_proj=projections,
+    ).state_dict()
+    assert "input_proj.0.0.weight" in v1_keys
+    assert "input_proj.0.conv.weight" in v2_keys
+    assert "input_proj.0.norm.weight" in v2_keys

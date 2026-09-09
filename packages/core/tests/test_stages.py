@@ -2,6 +2,7 @@
 """Verify tensor contracts, constructor injection, and parity with pinned upstream stages."""
 
 import copy
+from collections import OrderedDict
 from dataclasses import replace
 
 import pytest
@@ -171,7 +172,7 @@ def test_selector_rejects_incompatible_head_output() -> None:
 def test_invalid_anchors_mask_memory_but_are_not_removed_from_topk() -> None:
     """Keep upstream score-selection behavior even when an invalid anchor wins."""
     selector = QuerySelector(QuerySelectorConfig(hidden_dim=2, num_classes=1, num_queries=1))
-    projection = selector.enc_output[0]
+    projection = selector.enc_output.get_submodule("0")
     score_head = selector.enc_score_head
     assert isinstance(projection, nn.Linear)
     assert isinstance(score_head, nn.Linear)
@@ -198,6 +199,20 @@ def test_selector_rejects_too_few_positions() -> None:
     selector = QuerySelector(QuerySelectorConfig(hidden_dim=8, num_queries=300))
     with pytest.raises(ValueError, match="at least num_queries"):
         selector(encoded())
+
+
+def test_v2_selector_uses_official_named_encoder_output_keys() -> None:
+    """An injected projection exposes v2 names without changing v1 defaults."""
+    v1_keys = QuerySelector(QuerySelectorConfig(hidden_dim=8, num_queries=4)).state_dict()
+    encoder_output = nn.Sequential(
+        OrderedDict((("proj", nn.Linear(8, 8)), ("norm", nn.LayerNorm(8))))
+    )
+    v2_keys = QuerySelector(
+        QuerySelectorConfig(hidden_dim=8, num_queries=4), encoder_output=encoder_output
+    ).state_dict()
+    assert "enc_output.0.weight" in v1_keys
+    assert "enc_output.proj.weight" in v2_keys
+    assert "enc_output.norm.weight" in v2_keys
 
 
 def test_invalid_metadata_is_rejected_before_selection() -> None:

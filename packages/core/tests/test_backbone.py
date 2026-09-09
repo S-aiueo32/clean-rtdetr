@@ -1,5 +1,5 @@
 # Copyright 2026 Clean RT-DETR contributors
-"""Regression tests for the R50vd backbone contract."""
+"""Regression tests for the PResNet backbone contract."""
 
 from typing import cast
 
@@ -25,6 +25,48 @@ def test_r50vd_shapes_specs_and_gradients() -> None:
     sum(level.mean() for level in output.levels).backward()
     assert image.grad is not None
     assert next(model.conv1.parameters()).grad is not None
+
+
+@pytest.mark.parametrize(
+    ("depth", "channels"),
+    [
+        (18, (128, 256, 512)),
+        (34, (128, 256, 512)),
+        (50, (512, 1024, 2048)),
+        (101, (512, 1024, 2048)),
+    ],
+)
+def test_depth_architecture_and_specs(depth: int, channels: tuple[int, ...]) -> None:
+    """Select the official block type, stage counts, and output channels."""
+    model = PResNet(depth=depth, freeze_at=-1, freeze_norm=False)
+    assert model.specs == tuple(
+        FeatureSpec(channel, stride) for channel, stride in zip(channels, (8, 16, 32), strict=True)
+    )
+    assert model.checkpoint_config()["depth"] == depth
+    upstream = backbone_oracle(
+        depth=depth,
+        variant="d",
+        num_stages=4,
+        return_idx=[1, 2, 3],
+        freeze_at=-1,
+        freeze_norm=False,
+        pretrained=False,
+    )
+    assert model.state_dict().keys() == upstream.state_dict().keys()
+
+
+def test_default_depth_remains_r50vd() -> None:
+    """Keep construction without a depth argument compatible with R50vd."""
+    model = PResNet()
+    assert model.checkpoint_config()["depth"] == 50  # noqa: PLR2004 - documented default depth
+    assert model.specs == (FeatureSpec(512, 8), FeatureSpec(1024, 16), FeatureSpec(2048, 32))
+
+
+@pytest.mark.parametrize("depth", [17, 152, True])
+def test_depth_validation(depth: object) -> None:
+    """Reject depths outside the official supported configurations."""
+    with pytest.raises(ValueError, match="depth"):
+        PResNet(depth=cast("int", depth))
 
 
 def test_forward_and_gradient_parity_with_upstream() -> None:

@@ -33,7 +33,7 @@ class CheckpointLoadReport:
 
 
 def _validate_full_model(model: BaselineRTDETR) -> None:
-    """Restrict whole-checkpoint conversion to the pinned R50vd composition."""
+    """Restrict whole-checkpoint conversion to supported explicit stage types."""
     if not all(
         type(getattr(model, name, None)) is expected
         for name, expected in (
@@ -199,7 +199,7 @@ def load_official_model_weights(
     source: Literal["model", "ema"],
     expected_sha256: str,
 ) -> CheckpointLoadReport:
-    """Validate then load all inference stages of the default R50vd composition.
+    """Validate then load all inference stages of a supported preset composition.
 
     The model/EMA source and SHA-256 are mandatory. All target shapes and dtypes
     must match; missing BatchNorm counters are zero-initialized and reported.
@@ -227,6 +227,8 @@ def load_official_model_weights(
             excluded[key] = "FrozenBatchNorm counter is not part of the target module"
         elif key == "decoder.denoising_class_embed.weight":
             excluded[key] = "Training denoising generator is not configured"
+        elif key in {"decoder.anchors", "decoder.valid_mask"}:
+            excluded[key] = "Fixed-size inference geometry is generated from runtime features"
         else:
             msg = f"Unexpected checkpoint key: {key}"
             raise ValueError(msg)

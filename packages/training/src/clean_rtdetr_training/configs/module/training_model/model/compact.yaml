@@ -1,0 +1,10 @@
+defaults:
+  - backbone: r50vd
+  - encoder: compact
+  - projector: compact
+  - selector: compact
+  - assembler: default
+  - decoder: compact
+  - _self_
+
+_target_: clean_rtdetr.RTDETR

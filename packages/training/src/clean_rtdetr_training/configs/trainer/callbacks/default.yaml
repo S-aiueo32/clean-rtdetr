@@ -1,0 +1,5 @@
+defaults:
+  - rng: epoch_boundary
+  - ema: rtdetr
+  - checkpoint: last
+  - _self_

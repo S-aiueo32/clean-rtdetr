@@ -1,1 +1,5 @@
+defaults:
+  - matcher: hungarian
+  - _self_
+
 _target_: clean_rtdetr_training.SetCriterion

@@ -11,6 +11,6 @@ specs:
     stride: 32
 config:
   _target_: clean_rtdetr.HybridEncoderConfig
-  hidden_dim: ${dimensions.hidden_dim}
+  hidden_dim: 8
   num_heads: 2
   feedforward_dim: 16

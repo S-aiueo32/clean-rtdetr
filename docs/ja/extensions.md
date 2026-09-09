@@ -2,6 +2,31 @@
 
 [English version](../extensions.md)
 
+## 名前付きモデルプリセット
+
+`create_model(name, num_classes=80)` は `list_models()` に含まれる公式 PResNet
+variant を構築します。RT-DETR と RT-DETRv2 のそれぞれについて R18vd、R34vd、
+R50vd-M、R50vd、R101vd を選べます。静的に具体的な戻り値型が必要な場合は、対応する
+名前付き関数も利用できます。
+
+```python
+from clean_rtdetr import create_model, get_model_preset
+
+model = create_model("rtdetr_r101vd", num_classes=20)
+preset = get_model_preset("rtdetr_r101vd")
+print(preset.config_url, preset.checkpoint_url)
+```
+
+`ModelPreset` は解決済みのアーキテクチャ値と upstream の来歴を固定します。URL を
+参照してもダウンロードは実行しません。公式変換と parity が検証済みなのは従来の
+`rtdetr_r50vd` だけです。他の constructor は現在、アーキテクチャと state-dict 構造を
+検査しています。
+
+v2 preset は、名前付き encoder projection、selector projection、point-scale state、
+identity の FFN residual 処理を共通 stage へ注入します。medium preset は既定の推論用
+`DecoderPlan` も注入します。学習時と明示的な深度では要求された decoder prefix を
+実行します。モデル実行中に v1/v2 family を切り替える分岐はありません。
+
 `QuerySelector` は通常の `nn.Module` インスタンスを受け取ります。注入した
 モジュールは子モジュールとして登録され、初期化を保持し、autograd に参加し、
 `state_dict()` と `parameters()` に現れます。

@@ -38,33 +38,69 @@ config = compose_training_config("lightning_training")
 ```text
 packages/training/src/clean_rtdetr_training/configs/
   lightning_training.yaml
-  criterion/set.yaml
-  matcher/hungarian.yaml
-  denoising/contrastive.yaml
-  datamodule/synthetic.yaml
-  model/
-    compact.yaml
-    backbone/r50vd.yaml
-    encoder/compact.yaml
-    projector/compact.yaml
-    selector/compact.yaml
-    decoder/compact.yaml
-  optimizer/
-    adamw.yaml
-    sgd.yaml
-  scheduler/
-    multistep.yaml
-    step.yaml
+  module/
+    rtdetr.yaml
+    training_model/
+      denoising.yaml
+      denoising_factory/contrastive.yaml
+      model/
+        compact.yaml
+        rtdetr*.yaml
+        backbone/r50vd.yaml
+        encoder/compact.yaml
+        projector/compact.yaml
+        selector/compact.yaml
+        assembler/default.yaml
+        decoder/compact.yaml
+    criterion/
+      set.yaml
+      matcher/hungarian.yaml
+    parameter_groups_factory/rtdetr.yaml
+    optimizer_factory/
+      adamw.yaml
+      sgd.yaml
+    scheduler_factory/
+      multistep.yaml
+      step.yaml
+  datamodule/
+    synthetic.yaml
+    dataset_factory/synthetic.yaml
+    dataloader_factory/
+      default.yaml
+      collate_fn/detection.yaml
+  trainer/
+    cpu.yaml
+    callbacks/
+      default.yaml
+      rng/epoch_boundary.yaml
+      ema/rtdetr.yaml
+      checkpoint/last.yaml
 ```
 
-model group は `PResNet`、`HybridEncoder`、`MemoryProjector`、`QuerySelector`、`QueryAssembler`、`Decoder` を再帰的に instantiate し、`RTDETR` に注入します。共有次元は root config から補間され、互換性のない feature spec や次元は既存の validation が拒否します。constructor は feature spec を sequence で受け取るため YAML では通常の list を使い、各 module は内部で不変 tuple を保持します。
+ディレクトリは構築するオブジェクトの所有関係に合わせ、各親レシピが相対 defaults で直接の子を選びます。ルートでは module、datamodule、trainer を選択します。trainer は `trainer/cpu.yaml` の `callbacks: default` で子の callbacks を選択します。部品の実装には個別の config group を用意し、スカラー値や小さな設定 dataclass は利用する部品内に置きます。group の切り替えには `module/optimizer_factory=sgd` のようなパスを使い、値の変更には `module.optimizer_factory.lr=0.001` のようなドット区切りを使います。以前のトップ階層の group と `model@module.training_model.model=...` 形式はこの階層に置き換えました。モデルは `module/training_model/model=...`、matcher は `module/criterion/matcher=...` で選びます。callback group は `trainer/callbacks` 配下に置き、例えば `trainer/callbacks/ema=rtdetr` で選びます。
+
+既定の `compact` model group は `PResNet`、`HybridEncoder`、`MemoryProjector`、`QuerySelector`、`QueryAssembler`、`Decoder` を再帰的に instantiate し、`RTDETR` に注入します。次元は model stage が所有し、`encoder.config.hidden_dim` をモデル内で補間します。query 数は `selector.config.num_queries`、layer 数は `decoder.config.num_layers` に置きます。例えば compact の幅は `module.training_model.model.encoder.config.hidden_dim=64` で変更できます。互換性のない feature spec や次元は既存の validation が拒否します。constructor は feature spec を sequence で受け取るため YAML では通常の list を使い、各 module は内部で不変 tuple を保持します。
+
+公開ファクトリ `clean_rtdetr.create_model` 経由で、10種類の[名前付きモデルプリセット](extensions.md#名前付きモデルプリセット)を選べます。
+
+```sh
+uv run clean-rtdetr-train \
+  module/training_model/model=rtdetrv2_r18vd \
+  module.training_model.model.num_classes=80 trainer.max_epochs=1
+```
+
+指定できる名前は `rtdetr_r18vd`、`rtdetr_r34vd`、`rtdetr_r50vd_m`、`rtdetr_r50vd`、`rtdetr_r101vd` と、それぞれの `rtdetrv2_` 版です。モデルの構造上の次元はファクトリで固定されます。クラス数はモデルが所有し、名前付きプリセットでは `module.training_model.model.num_classes`、compact では `module.training_model.model.selector.config.num_classes` で変更します。compact の decoder は selector のクラス数を補間します。既定のクラス数は3です。stage や次元を変更する実験には `compact` を使います。これらはランダム重みで初期化する合成データの動作例であり、データセット全体の学習レシピではありません。
+
+DN recipe は `DenoisingTrainingModel.from_factory` と、`_partial_: true` の `denoising_factory` を使います。detector の構築後、その実際の `hidden_dim` と `num_classes` で DN を生成します。optimizer 構築前に全パラメータが揃い、初回 forward でパラメータを作ることはありません。構築済み DN generator を渡す通常の constructor も引き続き使えます。
+
+合成データの既定値は `datamodule.dataset_factory.image_size=auto` です。dataset の setup 時に構築済み RT-DETR の projector stride と query 数を調べ、query 選択に十分な memory 位置があり、最も粗い特徴マップの各辺が最低2セルになる正方形サイズを決めます。既定 compact は 64×64、名前付きの 300-query プリセットは 128×128 になります。`datamodule.dataset_factory.image_size=256` と数値で明示することもでき、setup 時に正値、stride の倍数、十分な大きさであることを検査します。合成 dataset のクラス数も構築済みモデルから取得し、この factory は別の `num_classes` 引数を持ちません。共有する root `dimensions` group やプリセットごとの次元のコピーはありません。
 
 Lightning module は training model、criterion、parameter-group policy、optimizer factory、scheduler factory を constructor injection で受け取ります。optimizer と scheduler の config は `_partial_: true` なので、Hydra が先に factory を作り、`configure_optimizers` が実際の trainable parameter と結び付けます。adapter は固定の optimizer/scheduler class を instantiate しません。
 
 ```sh
 uv run clean-rtdetr-train \
-  optimizer@module.optimizer_factory=sgd \
-  scheduler@module.scheduler_factory=step \
+  module/optimizer_factory=sgd \
+  module/scheduler_factory=step \
   trainer.max_epochs=1 output_dir=outputs/sgd
 ```
 
@@ -96,9 +132,9 @@ from clean_rtdetr import rtdetr_r50vd
 model = rtdetr_r50vd()
 ```
 
-training distribution は model group を training recipe とともに package します。共有 dimension は root recipe で制御し、DN generator と dataset との整合性を composition と構築時に検査します。
+training distribution は model group を training recipe とともに package します。DN の次元は構築済み detector から取得し、合成画像のサイズは dataset 構築時に解決します。
 
-`criterion`、`matcher`、`denoising` config group は model-stage、optimizer、scheduler group とともに選択肢を公開します。例えば `packages/training/src/clean_rtdetr_training/configs/matcher/experimental.yaml` を追加した後、`matcher@module.criterion.matcher=experimental` で選べます。replacement config は独自の `_target_` と constructor 引数を提供し、command-line module は不要です。
+階層化された `criterion`、`matcher`、`denoising_factory` config group は model-stage、optimizer、scheduler group とともに選択肢を公開します。例えば `packages/training/src/clean_rtdetr_training/configs/module/criterion/matcher/experimental.yaml` を追加した後、`module/criterion/matcher=experimental` で選べます。replacement config は独自の `_target_` と constructor 引数を提供し、command-line module は不要です。
 
 `predict` は target-free 経路で、呼び出し元の train/eval mode を保ちます。criterion は重み付きで微分可能な scalar loss の辞書を返します。`checkpoint_config()` は tensor 以外の設定を primitive、sequence、mapping で返し、resume 時に実装 identity と設定を検査します。tensor state は PyTorch の `state_dict` に残ります。adapter は model の `.model`/`.denoising` や criterion の `.matcher`/`.config` に侵入しません。
 
@@ -112,7 +148,9 @@ interface ベースの checkpoint recipe は schema version 2 です。未リリ
 
 ## アプリケーション構成
 
-アプリケーションは `datamodule` config group から `LightningDataModule` を instantiate し、`Trainer.fit(..., datamodule=...)` に渡します。既定 `DetectionDataModule` は Hydra partial の dataset/DataLoader factory を受け取り、`setup("fit")` で dataset を作り、`train_dataloader()` で loader を提供します。繰り返しの setup でも同じ dataset を保持します。collation、batching、shuffling は loader factory で設定できます。別実験では独自 `LightningDataModule` に置き換えられます。
+アプリケーションは Lightning module を先に構築し、その training model を `datamodule` config の target に注入します。既定の `DetectionDataModule.from_training_model` はその model を dataset factory に結び付けます。dataset/DataLoader factory は Hydra partial で受け取り、`setup("fit")` で dataset を作り、`train_dataloader()` で loader を提供します。繰り返しの setup でも同じ dataset を保持します。collation、batching、shuffling は loader factory で設定でき、datamodule は `Trainer.fit(..., datamodule=...)` に渡します。
+
+`from_training_model` と使う独自 dataset factory は `training_model: TrainingModel` 引数を受け取ります。既定の `SyntheticDetectionDataset.from_training_model` は projector stride を参照するため、`RTDETR` を包む `DenoisingTrainingModel` を必要とします。dataset と datamodule の通常の constructor も引き続き使えます。別実験では、注入する training model と generator を target が受け取れる独自 `LightningDataModule` に置き換えられます。
 
 datamodule と `EpochBoundaryState` には **同じ** generator object を注入します。datamodule はその generator を DataLoader に渡し、epoch 境界 RNG restore 契約を保ちます。entry point は composition と実行だけを行い model factory を持ちません。Hydra 1.3 の CLI help 構築が検証済み Python 3.14 argparse と非互換なため、小さな argument parser と Compose API を使います。CLI が受け付けるのは Hydra override expression で、launcher/multirun flag ではありません。
 

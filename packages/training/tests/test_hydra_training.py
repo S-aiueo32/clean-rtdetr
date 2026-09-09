@@ -18,7 +18,7 @@ from test_training_interfaces import (
     _loader,
 )
 
-from clean_rtdetr import RTDETR
+from clean_rtdetr import RTDETR, get_model_preset, list_models
 from clean_rtdetr_training.configuration import compose_training_config
 from clean_rtdetr_training.lightning import RTDETRLightningModule
 
@@ -52,9 +52,7 @@ def test_lightning_config_composes_full_model_without_command_targets() -> None:
 
 def test_lightning_config_group_overrides_build_optimizer_and_scheduler() -> None:
     """Config groups replace factories and bind them to the actual model parameters."""
-    config = _compose(
-        ["optimizer@module.optimizer_factory=sgd", "scheduler@module.scheduler_factory=step"]
-    )
+    config = _compose(["module/optimizer_factory=sgd", "module/scheduler_factory=step"])
     module = instantiate(config.module, _convert_="all")
     configured = module.configure_optimizers()
     assert isinstance(configured, dict)
@@ -63,6 +61,60 @@ def test_lightning_config_group_overrides_build_optimizer_and_scheduler() -> Non
     assert isinstance(optimizer, torch.optim.SGD)
     assert isinstance(scheduler, torch.optim.lr_scheduler.StepLR)
     assert "betas" not in optimizer.defaults
+
+
+def test_nested_optional_config_groups_can_be_removed() -> None:
+    """Removing a child group removes the instantiated component from its parent."""
+    config = _compose(["~module/scheduler_factory", "~trainer/callbacks/ema"])
+    module = instantiate(config.module, _convert_="all")
+    assert isinstance(module.configure_optimizers(), torch.optim.AdamW)
+    assert "callbacks" not in config
+    assert set(config.trainer.callbacks) == {"rng", "checkpoint"}
+
+
+@pytest.mark.parametrize("name", list_models())
+def test_named_model_config_builds_compatible_training_components(name: str) -> None:
+    """Every factory preset composes with DN and sufficiently large synthetic images."""
+    num_classes = 2
+    num_queries = 300
+    config = _compose(
+        [
+            f"module/training_model/model={name}",
+            f"module.training_model.model.num_classes={num_classes}",
+        ]
+    )
+    assert config.module.training_model.model._target_ == "clean_rtdetr.create_model"
+    with torch.device("meta"):
+        module = instantiate(config.module, _convert_="all")
+    model = module.training_model.model
+    preset = get_model_preset(name)
+    assert isinstance(model, RTDETR)
+    assert model.hidden_dim == preset.hidden_dim == module.training_model.denoising.hidden_dim
+    assert model.num_classes == module.training_model.denoising.num_classes == num_classes
+    assert "dimensions" not in config
+    assert model.decoder.config.num_layers == preset.decoder_layers
+    assert model.num_queries == num_queries
+    dataset_factory = instantiate(config.datamodule.dataset_factory, _convert_="all")
+    dataset = dataset_factory(training_model=module.training_model)
+    assert dataset.num_classes == num_classes
+    images, _ = dataset[0]
+    height, width = images.shape[-2:]
+    assert (
+        sum((height // spec.stride) * (width // spec.stride) for spec in model.backbone.specs)
+        >= num_queries
+    )
+
+
+@pytest.mark.parametrize("name", ["rtdetr_r18vd", "rtdetrv2_r18vd"])
+def test_named_model_config_runs_training_forward(name: str) -> None:
+    """Factory configs support real predictions with their default data and DN settings."""
+    config = _compose([f"module/training_model/model={name}"])
+    module = instantiate(config.module, _convert_="all")
+    dataset_factory = instantiate(config.datamodule.dataset_factory, _convert_="all")
+    images, target = dataset_factory(training_model=module.training_model)[0]
+    with torch.no_grad():
+        output = module.training_model(images.unsqueeze(0), targets=[target])
+    assert output.final.logits.shape == (1, 300, module.training_model.model.num_classes)
 
 
 def test_hydra_replaces_an_independent_model_stage_and_records_its_recipe() -> None:
@@ -88,18 +140,22 @@ def test_hydra_replaces_an_independent_model_stage_and_records_its_recipe() -> N
     }
 
 
-def test_dimension_overrides_reach_model_and_synthetic_data() -> None:
-    """Shared dimensions keep every model stage and generated label compatible."""
+def test_owned_dimensions_reach_model_and_delayed_factories() -> None:
+    """DN and synthetic data consume the constructed model's dimensions."""
     hidden_dim = 16
     num_classes = 2
     config = _compose(
-        [f"dimensions.hidden_dim={hidden_dim}", f"dimensions.num_classes={num_classes}"]
+        [
+            f"module.training_model.model.encoder.config.hidden_dim={hidden_dim}",
+            f"module.training_model.model.selector.config.num_classes={num_classes}",
+        ]
     )
     module = instantiate(config.module, _convert_="all")
     dataset_factory = instantiate(config.datamodule.dataset_factory, _convert_="all")
-    dataset = dataset_factory()
+    dataset = dataset_factory(training_model=module.training_model)
     model = module.training_model.model
 
+    assert dataset.num_classes == num_classes
     assert model.encoder.hidden_dim == hidden_dim
     assert model.projector.hidden_dim == hidden_dim
     assert model.selector.config.hidden_dim == hidden_dim

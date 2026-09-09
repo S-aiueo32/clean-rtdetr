@@ -16,7 +16,7 @@ projected memory → selected queries → iterative decoder predictions.
 | --- | --- | --- |
 | Model stages | Frozen tensor contracts with jaxtyping annotations and eager validation; row-major memory projection and level offsets; anchors and top-k selection preserving upstream masks | [Extension guide](extensions.md) |
 | Decoder and gradients | Explicit execution/output plans, self-attention, multi-scale deformable cross-attention, iterative refinement, content/reference detach boundaries, differentiable encoder auxiliary predictions | [Gradient ownership](extensions.md#gradient-ownership) |
-| Composition | Component-injected `RTDETR`, an R50vd factory, optional AIFI features, and hierarchical Hydra configs for model and training components | [Lightning configuration](lightning.md#hierarchical-configuration-and-dependency-injection) |
+| Composition | Component-injected `RTDETR`, named architecture factories for ten official RT-DETR/RT-DETRv2 PResNet presets, optional AIFI features, and hierarchical Hydra configs for model and training components | [Extension guide](extensions.md#named-model-presets) |
 | Checkpoints and inference | Strict official inference-weight loading, CPU FP32 full-model parity, Pillow/uint8 preprocessing, and upstream-compatible top-k postprocessing | [Inference I/O](inference.md) |
 | COCO evaluation | Prediction JSON and an optional bbox metric adapter, tested on synthetic annotations; pycocotools is loaded only for metrics | [COCO evaluation](evaluation.md) |
 | ONNX export | `FixedShapeRTDETR` and CPU FP32 ONNX Runtime parity for fixed batch-1 640×640, with graph optimizations disabled | [Export profile](inference.md#fixed-shape-onnx-export) |

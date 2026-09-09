@@ -169,9 +169,13 @@ class HybridEncoder(Encoder):
     """Project, self-attend, and fuse backbone feature levels."""
 
     def __init__(
-        self, specs: Sequence[FeatureSpec], config: HybridEncoderConfig | None = None
+        self,
+        specs: Sequence[FeatureSpec],
+        config: HybridEncoderConfig | None = None,
+        *,
+        input_proj: Sequence[nn.Module] | None = None,
     ) -> None:
-        """Derive projection and fusion dimensions from the supplied feature specs."""
+        """Derive dimensions and register optional input projection modules."""
         super().__init__()
         config = HybridEncoderConfig() if config is None else config
         if len(specs) != 3:  # noqa: PLR2004 - R50vd exposes three pyramid levels
@@ -183,13 +187,18 @@ class HybridEncoder(Encoder):
         self.specs = tuple(specs)
         self.config = config
         self.hidden_dim = config.hidden_dim
-        self.input_proj = nn.ModuleList(
-            nn.Sequential(
-                nn.Conv2d(s.channels, config.hidden_dim, 1, bias=False),
-                nn.BatchNorm2d(config.hidden_dim),
-            )
-            for s in specs
-        )
+        if input_proj is None:
+            input_proj = [
+                nn.Sequential(
+                    nn.Conv2d(spec.channels, config.hidden_dim, 1, bias=False),
+                    nn.BatchNorm2d(config.hidden_dim),
+                )
+                for spec in specs
+            ]
+        if len(input_proj) != len(specs):
+            msg = "Input projections must match the encoder feature levels"
+            raise ValueError(msg)
+        self.input_proj = nn.ModuleList(input_proj)
         layer = TransformerEncoderLayer(
             config.hidden_dim, config.num_heads, config.feedforward_dim, config.dropout
         )

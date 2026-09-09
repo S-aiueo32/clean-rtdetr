@@ -6,11 +6,14 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
+import torch
 from typer.testing import CliRunner
 
 import clean_rtdetr_training.cli as training_cli
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     import pytest
 
 
@@ -55,3 +58,16 @@ def test_train_cli_forwards_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert result.exit_code == 0
     assert calls == [["trainer.max_epochs=1", "output_dir=outputs/test"]]
+
+
+def test_train_cli_builds_nested_trainer_callbacks(tmp_path: Path) -> None:
+    """Nested callbacks train with the shared data RNG and save their checkpoint state."""
+    result = CliRunner().invoke(
+        training_cli.app,
+        ["trainer.max_epochs=1", f"output_dir={tmp_path}"],
+    )
+
+    assert result.exit_code == 0, result.output
+    checkpoint = torch.load(tmp_path / "last.ckpt", weights_only=False)
+    assert "EpochBoundaryState" in checkpoint["callbacks"]
+    assert "RTDETREMA" in checkpoint["callbacks"]

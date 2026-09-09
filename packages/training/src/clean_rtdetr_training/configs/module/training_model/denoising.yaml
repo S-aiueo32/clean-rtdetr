@@ -1,0 +1,6 @@
+defaults:
+  - model: compact
+  - denoising_factory: contrastive
+  - _self_
+
+_target_: clean_rtdetr_training.DenoisingTrainingModel.from_factory

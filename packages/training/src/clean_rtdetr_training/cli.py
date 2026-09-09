@@ -10,6 +10,7 @@ import torch
 import typer
 from hydra.utils import instantiate
 from lightning import seed_everything
+from omegaconf import OmegaConf
 
 from clean_rtdetr_training.configuration import compose_training_config
 
@@ -28,13 +29,24 @@ def run(config: DictConfig) -> None:
     seed_everything(int(config.seed), workers=False)
     Path(config.output_dir).mkdir(parents=True, exist_ok=True)
     generator = torch.Generator().manual_seed(int(config.seed))
-    datamodule = instantiate(config.datamodule, generator=generator, _convert_="all")
+    module = instantiate(config.module, _convert_="all")
+    datamodule = instantiate(
+        config.datamodule,
+        training_model=module.training_model,
+        generator=generator,
+        _convert_="all",
+    )
     callbacks = []
-    for name, callback_config in config.callbacks.items():
+    for name, callback_config in config.trainer.get("callbacks", {}).items():
         kwargs = {"generator": generator} if name == "rng" else {}
         callbacks.append(instantiate(callback_config, **kwargs, _convert_="all"))
-    trainer = instantiate(config.trainer, callbacks=callbacks, _convert_="all")
-    module = instantiate(config.module, _convert_="all")
+    # Callback recipes are a named mapping; Trainer expects the constructed list.
+    trainer_config = OmegaConf.to_container(config.trainer, resolve=True)
+    if not isinstance(trainer_config, dict):
+        msg = "Trainer configuration must be a mapping"
+        raise TypeError(msg)
+    trainer_config.pop("callbacks", None)
+    trainer = instantiate(trainer_config, callbacks=callbacks, _convert_="all")
     trainer.fit(module, datamodule=datamodule, ckpt_path=config.resume, weights_only=False)
 
 

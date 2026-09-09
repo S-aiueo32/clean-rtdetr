@@ -1,0 +1,9 @@
+defaults:
+  - collate_fn: detection
+  - _self_
+
+_target_: torch.utils.data.DataLoader
+_partial_: true
+batch_size: 2
+shuffle: true
+num_workers: 0

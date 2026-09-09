@@ -6,9 +6,10 @@ See third_party/RT-DETR/README.md.
 """
 
 import math
+from typing import cast
 
 import torch
-from jaxtyping import Float, Int64
+from jaxtyping import Float, Int64, Shaped
 from torch import Tensor, nn
 from torch.nn import functional
 
@@ -71,8 +72,10 @@ class MultiScaleDeformableAttention(nn.Module):
         num_heads: int,
         num_levels: int,
         num_points: int,
+        *,
+        point_scale: Shaped[Tensor, " points"] | None = None,
     ) -> None:
-        """Construct projections and initialize sampling offsets radially."""
+        """Construct projections with an optional persistent point-scale buffer."""
         super().__init__()
         self.hidden_dim = hidden_dim
         self.num_heads = num_heads
@@ -84,6 +87,13 @@ class MultiScaleDeformableAttention(nn.Module):
         self.attention_weights = nn.Linear(hidden_dim, total_points)
         self.value_proj = nn.Linear(hidden_dim, hidden_dim)
         self.output_proj = nn.Linear(hidden_dim, hidden_dim)
+        persistent_scale = point_scale is not None
+        if point_scale is None:
+            point_scale = torch.full((num_levels * num_points,), 1.0 / num_points)
+        if point_scale.shape != (num_levels * num_points,):
+            msg = "Point scale must have one value for every level and point"
+            raise ValueError(msg)
+        self.register_buffer("num_points_scale", point_scale, persistent=persistent_scale)
         self._reset_parameters()
 
     def _reset_parameters(self) -> None:
@@ -178,10 +188,15 @@ class MultiScaleDeformableAttention(nn.Module):
                 + offsets / normalizer
             )
         elif reference_points.shape[-1] == BOX_COORDINATES:
+            point_scale = (
+                cast("Tensor", self.num_points_scale)
+                .to(dtype=query.dtype)
+                .reshape(1, 1, 1, self.num_levels, self.num_points, 1)
+            )
             locations = (
                 reference_points[:, :, None, :, None, :SPATIAL_DIMENSIONS]
                 + offsets
-                / self.num_points
+                * point_scale
                 * reference_points[:, :, None, :, None, SPATIAL_DIMENSIONS:]
                 * 0.5
             )

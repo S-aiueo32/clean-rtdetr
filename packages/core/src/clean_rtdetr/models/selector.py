@@ -77,15 +77,18 @@ class QuerySelector(Selector):
         self,
         config: QuerySelectorConfig,
         *,
+        encoder_output: nn.Module | None = None,
         score_head: nn.Module | None = None,
         box_head: nn.Module | None = None,
     ) -> None:
         """Construct default heads or register the supplied research modules."""
         super().__init__()
         self.config = config
-        projection = nn.Linear(config.hidden_dim, config.hidden_dim)
-        self.enc_output = nn.Sequential(projection, nn.LayerNorm(config.hidden_dim))
-        nn.init.xavier_uniform_(projection.weight)
+        if encoder_output is None:
+            projection = nn.Linear(config.hidden_dim, config.hidden_dim)
+            nn.init.xavier_uniform_(projection.weight)
+            encoder_output = nn.Sequential(projection, nn.LayerNorm(config.hidden_dim))
+        self.enc_output = encoder_output
         if score_head is None:
             score_head = nn.Linear(config.hidden_dim, config.num_classes)
             nn.init.constant_(score_head.bias, -math.log(99.0))
