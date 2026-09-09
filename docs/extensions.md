@@ -21,6 +21,21 @@ The score head produces `[B,S,K]` logits and the box head produces `[B,S,4]`
 coordinate deltas. Incompatible output shapes raise an error. This example is
 a research architecture change, not a parity-preserving replacement by default.
 
+## Type parameters and aliases
+
+Use [PEP 695](https://peps.python.org/pep-0695/) syntax for generic classes,
+functions, and type aliases. The workspace requires Python 3.13 or newer, and
+Ruff targets Python 3.13 to enforce this convention. Declare parameters in their
+own scope (`class TrainingModel[PredictionT]`), retain component bounds
+(`DetectorT: Detector`), and let the type checker infer variance.
+
+Declare aliases with `type`, including jaxtyping tensor contracts.
+`BaselineRTDETR` is an annotation alias; construct models with `RTDETR(...)` or
+`rtdetr_r50vd()`. Type aliases are evaluated lazily and are not runtime classes
+or constructors. `ImageInput` keeps its static Pillow/tensor union and a runtime
+`object` alias so Pillow remains optional and explicit input validation retains
+its existing errors.
+
 ## Tensor annotation conventions
 
 Use [jaxtyping array annotations](https://docs.kidger.site/jaxtyping/api/array/)

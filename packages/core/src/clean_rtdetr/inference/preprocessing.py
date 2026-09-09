@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, TypeAlias
+from typing import TYPE_CHECKING
 
 import torch
 from jaxtyping import Float, Int64, Shaped, UInt8  # noqa: TC002
@@ -14,10 +14,10 @@ from torch import Tensor
 if TYPE_CHECKING:
     from PIL import Image
 
-    ImageInput: TypeAlias = Image.Image | UInt8[Tensor, "3 height width"]
+    type ImageInput = Image.Image | UInt8[Tensor, "3 height width"]
 else:
     # Keep Pillow optional at runtime; the concrete alias is for type checkers.
-    ImageInput: TypeAlias = object
+    type ImageInput = object
 
 _IMAGE_SIZE = (640, 640)
 _RGB_CHANNELS = 3

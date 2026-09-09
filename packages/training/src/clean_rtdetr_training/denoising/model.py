@@ -2,7 +2,6 @@
 """Training composition that owns DN parameters and keeps the core target-free."""
 
 from collections.abc import Sequence
-from typing import Generic, TypeVar
 
 from jaxtyping import Float
 from torch import Tensor
@@ -12,11 +11,10 @@ from clean_rtdetr.models.interfaces import Detector
 from clean_rtdetr_training.contracts import DetectionTarget
 from clean_rtdetr_training.interfaces import DenoisingGenerator, TrainingModel
 
-DetectorT = TypeVar("DetectorT", bound=Detector)
-DenoisingT = TypeVar("DenoisingT", bound=DenoisingGenerator)
 
-
-class DenoisingTrainingModel(TrainingModel[ModelOutput], Generic[DetectorT, DenoisingT]):
+class DenoisingTrainingModel[DetectorT: Detector, DenoisingT: DenoisingGenerator](
+    TrainingModel[ModelOutput]
+):
     """Register a detector and DN generator together for optimizers and state dicts."""
 
     def __init__(self, model: DetectorT, denoising: DenoisingT) -> None:

@@ -4,7 +4,7 @@
 from collections.abc import Callable, Iterable
 from dataclasses import asdict, is_dataclass
 from functools import partial
-from typing import Any, Generic, TypeVar
+from typing import Any
 
 import torch
 from jaxtyping import Float
@@ -15,11 +15,10 @@ from torch import Tensor, nn
 from clean_rtdetr_training.contracts import DetectionTarget
 from clean_rtdetr_training.interfaces import TrainingCriterion, TrainingModel
 
-TrainingBatch = tuple[Float[Tensor, "batch 3 height width"], list[DetectionTarget]]
-OptimizerFactory = Callable[[Iterable[Any]], torch.optim.Optimizer]
-SchedulerFactory = Callable[[torch.optim.Optimizer], torch.optim.lr_scheduler.LRScheduler]
-ParameterGroupsFactory = Callable[[nn.Module], list[dict[str, Any]]]
-PredictionT = TypeVar("PredictionT")
+type TrainingBatch = tuple[Float[Tensor, "batch 3 height width"], list[DetectionTarget]]
+type OptimizerFactory = Callable[[Iterable[Any]], torch.optim.Optimizer]
+type SchedulerFactory = Callable[[torch.optim.Optimizer], torch.optim.lr_scheduler.LRScheduler]
+type ParameterGroupsFactory = Callable[[nn.Module], list[dict[str, Any]]]
 
 
 def _factory_recipe(factory: object) -> dict[str, Any] | None:
@@ -40,7 +39,7 @@ def _factory_recipe(factory: object) -> dict[str, Any] | None:
     raise TypeError(msg)
 
 
-class RTDETRLightningModule(LightningModule, Generic[PredictionT]):
+class RTDETRLightningModule[PredictionT](LightningModule):
     """Keep the detector reusable while delegating loops and resume to Lightning."""
 
     def __init__(

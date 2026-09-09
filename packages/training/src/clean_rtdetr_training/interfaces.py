@@ -3,7 +3,6 @@
 
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
-from typing import Generic, TypeVar
 
 import torch
 from jaxtyping import Float
@@ -12,9 +11,7 @@ from torch import Tensor, nn
 from clean_rtdetr.core.contracts import DenoisingBatch, DetectionOutput
 from clean_rtdetr_training.contracts import DetectionTarget, MatchIndices
 
-PredictionT_co = TypeVar("PredictionT_co", covariant=True)
-PredictionT_contra = TypeVar("PredictionT_contra", contravariant=True)
-TrainingLosses = dict[str, Float[Tensor, ""]]
+type TrainingLosses = dict[str, Float[Tensor, ""]]
 
 
 class DenoisingGenerator(nn.Module, ABC):
@@ -58,7 +55,7 @@ class Matcher(nn.Module, ABC):
         """Describe non-tensor assignment settings needed for compatible resumes."""
 
 
-class TrainingModel(nn.Module, ABC, Generic[PredictionT_co]):
+class TrainingModel[PredictionT](nn.Module, ABC):
     """Define training, inference, and configuration without prescribing a model layout.
 
     Subclasses remain ordinary PyTorch modules: forward calls retain hooks,
@@ -71,11 +68,11 @@ class TrainingModel(nn.Module, ABC, Generic[PredictionT_co]):
         images: Float[Tensor, "batch 3 height width"],
         *,
         targets: Sequence[DetectionTarget] | None = None,
-    ) -> PredictionT_co:
+    ) -> PredictionT:
         """Return the prediction payload consumed by the paired criterion."""
 
     @abstractmethod
-    def predict(self, images: Float[Tensor, "batch 3 height width"]) -> PredictionT_co:
+    def predict(self, images: Float[Tensor, "batch 3 height width"]) -> PredictionT:
         """Return target-free predictions while preserving the caller's train/eval mode."""
 
     @abstractmethod
@@ -87,13 +84,11 @@ class TrainingModel(nn.Module, ABC, Generic[PredictionT_co]):
         """
 
 
-class TrainingCriterion(nn.Module, ABC, Generic[PredictionT_contra]):
+class TrainingCriterion[PredictionT](nn.Module, ABC):
     """Consume a model's prediction payload and return weighted scalar losses."""
 
     @abstractmethod
-    def forward(
-        self, output: PredictionT_contra, targets: Sequence[DetectionTarget]
-    ) -> TrainingLosses:
+    def forward(self, output: PredictionT, targets: Sequence[DetectionTarget]) -> TrainingLosses:
         """Return differentiable scalar terms whose sum is the optimization objective."""
 
     @abstractmethod

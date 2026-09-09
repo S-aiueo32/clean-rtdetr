@@ -1,8 +1,6 @@
 # Copyright 2026 Clean RT-DETR contributors
 """Composable image-to-prediction RT-DETR model."""
 
-from typing import Generic, TypeVar
-
 from jaxtyping import Float
 from torch import Tensor
 
@@ -33,15 +31,15 @@ from clean_rtdetr.models.memory import MemoryProjector
 from clean_rtdetr.models.queries import QueryAssembler
 from clean_rtdetr.models.selector import QuerySelector
 
-BackboneT = TypeVar("BackboneT", bound=Backbone)
-EncoderT = TypeVar("EncoderT", bound=Encoder)
-ProjectorT = TypeVar("ProjectorT", bound=Projector)
-SelectorT = TypeVar("SelectorT", bound=Selector)
-AssemblerT = TypeVar("AssemblerT", bound=Assembler)
-DecoderT = TypeVar("DecoderT", bound=DecoderInterface)
 
-
-class RTDETR(Detector, Generic[BackboneT, EncoderT, ProjectorT, SelectorT, AssemblerT, DecoderT]):
+class RTDETR[
+    BackboneT: Backbone,
+    EncoderT: Encoder,
+    ProjectorT: Projector,
+    SelectorT: Selector,
+    AssemblerT: Assembler,
+    DecoderT: DecoderInterface,
+](Detector):
     """Compose the explicit backbone, encoder, query, and decoder boundaries."""
 
     def __init__(  # noqa: PLR0913, PLR0917 - explicit stage injection is the public API
@@ -164,6 +162,6 @@ class RTDETR(Detector, Generic[BackboneT, EncoderT, ProjectorT, SelectorT, Assem
         }
 
 
-BaselineRTDETR = RTDETR[
+type BaselineRTDETR = RTDETR[
     PResNet, HybridEncoder, MemoryProjector, QuerySelector, QueryAssembler, Decoder
 ]
