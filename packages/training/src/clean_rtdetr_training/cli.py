@@ -44,11 +44,12 @@ app = typer.Typer(add_completion=False, help=__doc__)
 @app.command()
 def train(
     overrides: Annotated[
-        list[str], typer.Argument(help="Hydra overrides such as trainer.max_epochs=1")
-    ],
+        list[str] | None,
+        typer.Argument(help="Hydra overrides such as trainer.max_epochs=1"),
+    ] = None,
 ) -> None:
     """Accept positional Hydra overrides without Hydra's Python 3.14 CLI wrapper."""
-    run(_compose_config(overrides))
+    run(_compose_config(overrides or []))
 
 
 def main() -> None:

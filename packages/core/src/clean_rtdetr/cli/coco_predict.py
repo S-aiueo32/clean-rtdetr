@@ -45,8 +45,14 @@ def _version(name: str) -> str:
         return "unavailable"
 
 
-def _positive(value: str) -> int:
-    parsed = int(value)
+def _positive(value: str | int | None) -> int | None:
+    if value is None:
+        return None
+    try:
+        parsed = int(value)
+    except ValueError as error:
+        message = "must be an integer"
+        raise typer.BadParameter(message) from error
     if parsed <= 0:
         message = "must be positive"
         raise typer.BadParameter(message)

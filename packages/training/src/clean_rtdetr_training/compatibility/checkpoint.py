@@ -94,7 +94,7 @@ def load_official_training_weights(
         expected_sha256=expected_sha256,
     )
     model.denoising.load_state_dict({_DN_TARGET_KEY: denoising_weight}, strict=True)
-    mapping = dict(report.key_mapping)
+    mapping = {source: f"model.{target}" for source, target in report.key_mapping.items()}
     mapping[_DN_SOURCE_KEY] = f"denoising.{_DN_TARGET_KEY}"
     excluded = dict(report.excluded_keys)
     excluded.pop(_DN_SOURCE_KEY, None)
@@ -103,5 +103,5 @@ def load_official_training_weights(
         report.source,
         mapping,
         excluded,
-        report.synthesized_keys,
+        tuple(f"model.{key}" for key in report.synthesized_keys),
     )

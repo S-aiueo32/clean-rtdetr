@@ -294,6 +294,9 @@ def test_dn_embedding_round_trips_in_training_wrapper_state_dict() -> None:
 def test_official_loader_maps_dn_embedding_into_training_wrapper(tmp_path: Path) -> None:
     """Official DN weights load into the wrapper-owned embedding."""
     wrapper, state = _official_wrapper_state()
+    bn_key = "decoder.input_proj.0.norm.num_batches_tracked"
+    state.pop(bn_key)
+    state["decoder.input_proj.1.norm.num_batches_tracked"] = torch.tensor(7, dtype=torch.int64)
     marker = state["decoder.denoising_class_embed.weight"]
     path = tmp_path / "dn.pth"
     torch.save({"model": state}, path)
@@ -306,6 +309,10 @@ def test_official_loader_maps_dn_embedding_into_training_wrapper(tmp_path: Path)
     assert report.key_mapping["decoder.denoising_class_embed.weight"] == (
         "denoising.class_embed.weight"
     )
+    wrapper_keys = set(wrapper.state_dict())
+    assert set(report.key_mapping.values()) <= wrapper_keys
+    assert set(report.synthesized_keys) <= wrapper_keys
+    assert "model.projector.input_proj.0.norm.num_batches_tracked" in report.synthesized_keys
     torch.testing.assert_close(wrapper.denoising.class_embed.weight, marker)
 
 

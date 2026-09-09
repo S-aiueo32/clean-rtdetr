@@ -74,15 +74,7 @@ jobs:
         run: >-
           uv run pytest
           --cov=clean_rtdetr_training --cov-report=term-missing
-          packages/training/tests/test_denoising.py
-          packages/training/tests/test_denoising_integration.py
-          packages/training/tests/test_hydra_training.py
-          packages/training/tests/test_lightning_ema.py
-          packages/training/tests/test_lightning_training.py
-          packages/training/tests/test_training.py
-          packages/training/tests/test_training_boundaries.py
-          packages/training/tests/test_training_interfaces.py
-          packages/training/tests/test_training_jaxtyping_coverage.py
+          packages/training/tests
       - run: >-
           uv run
           clean-rtdetr-train trainer.max_epochs=1 output_dir=outputs/lightning

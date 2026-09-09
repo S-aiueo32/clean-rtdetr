@@ -16,6 +16,7 @@ import torch
 from PIL import Image
 from test_coco import annotation_data, detections, write_annotations
 from torch import nn
+from typer.testing import CliRunner
 
 import clean_rtdetr.cli.coco_evaluate as evaluation_cli
 import clean_rtdetr.cli.coco_predict as predictions_cli
@@ -24,6 +25,7 @@ from clean_rtdetr.core.contracts import DetectionOutput
 from clean_rtdetr.evaluation import coco_predictions
 
 DECODER_LAYERS = 6
+RUNNER = CliRunner()
 
 
 class FakeModel(nn.Module):
@@ -99,6 +101,69 @@ def test_predictions_cli_writes_subset_json_and_report(
     assert result["schema_version"] == 1
     assert result["dtype"] == "float32"
     assert result["decoder_layers"] == DECODER_LAYERS
+
+
+@pytest.mark.parametrize(("limit", "expected_ids"), [(None, {1, 2}), (1, {1})])
+def test_predictions_cli_limit_callback_accepts_omitted_and_positive_values(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    limit: int | None,
+    expected_ids: set[int],
+) -> None:
+    """Process both fake images by default and respect a positive limit."""
+    annotations, images, checkpoint = _prepare(tmp_path)
+    monkeypatch.setattr(predictions_cli, "rtdetr_r50vd", FakeModel)
+    monkeypatch.setattr(predictions_cli, "load_official_model_weights", _loader)
+    output = tmp_path / f"predictions-{limit}.json"
+    report = tmp_path / f"report-{limit}.json"
+    command = [
+        "--images",
+        str(images),
+        "--annotations",
+        str(annotations),
+        "--checkpoint",
+        str(checkpoint),
+        "--source",
+        "model",
+        "--expected-sha256",
+        hashlib.sha256(checkpoint.read_bytes()).hexdigest(),
+        "--output",
+        str(output),
+        "--report",
+        str(report),
+    ]
+    if limit is not None:
+        command.extend(["--limit", str(limit)])
+    result = RUNNER.invoke(predictions_cli.app, command)
+    assert result.exit_code == 0, result.exception
+    report_data = json.loads(report.read_text())
+    assert set(report_data["input_images"]["selected_ids"]) == expected_ids
+
+
+@pytest.mark.parametrize("value", ["0", "-1", "invalid"])
+def test_predictions_cli_rejects_invalid_limits(value: str) -> None:
+    """Reject zero, negative, and noninteger limits at the CLI boundary."""
+    result = RUNNER.invoke(
+        predictions_cli.app,
+        [
+            "--images",
+            "images",
+            "--annotations",
+            "annotations.json",
+            "--checkpoint",
+            "checkpoint.pth",
+            "--source",
+            "model",
+            "--expected-sha256",
+            "unused",
+            "--output",
+            "predictions.json",
+            "--limit",
+            value,
+        ],
+    )
+    assert result.exit_code != 0
+    assert "limit" in result.output.lower()
 
 
 def test_predictions_cli_rejects_dimensions_and_escape(
