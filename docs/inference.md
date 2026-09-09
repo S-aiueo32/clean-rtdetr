@@ -54,8 +54,8 @@ The converter prints JSON containing the converted output path, its SHA-256,
 and the official load report. It defaults to the pinned EMA source and checks
 the pinned official SHA-256; `--source` and `--expected-sha256` remain available
 when validating another matching checkpoint. The packaged loader accepts an
-optional `expected_sha256` keyword, and the CLIs accept an optional
-`--expected-sha256`, for validating the converted file.
+optional `expected_sha256` keyword for validating the converted file.
+The image prediction CLI loads the converted checkpoint without a hash option.
 
 ```python
 import torch
@@ -100,14 +100,29 @@ between 1 and the number of query/class pairs.
 ## Command-line example
 
 `clean-rtdetr-predict` accepts one or more image paths and a local native
-state-dict checkpoint. It prints all 300
-detections per image as JSON and runs all six decoder layers by default. The
+state-dict checkpoint. It prints detections per image as JSON to stdout and runs
+all six decoder layers. By default, it retains all 300 candidates. The
 example does not download images or weights; `--device` defaults to `cpu`.
 
 ```sh
 clean-rtdetr-predict image.jpg \
-  --checkpoint native.pth
+  --checkpoint native.pth --conf-thresh 0.5 --visualize-dir outputs
 ```
+
+`--conf-thresh` keeps candidates with a score greater than or equal to the given
+threshold. It accepts finite values in `[0, 1]` and defaults to `0`. Filtering
+applies after top-k selection and preserves score order. If no candidates pass,
+the image record contains empty `labels`, `scores`, and `boxes_xyxy` arrays.
+
+`--visualize-dir` optionally saves PNGs with boxes, COCO class names, and scores
+for the same candidates printed to stdout. It creates the directory as needed
+and preserves the original image dimensions. Files use a one-based input index
+and image stem: `outputs/0001-image.png`, `outputs/0002-image.png`, and so on.
+Existing visualization files are replaced on reruns; a destination matching any
+input image is rejected before inference. With no candidates, it saves an
+unannotated image. Drawing clips boxes to the canvas; JSON coordinates retain
+the original postprocessing values. These CLI options do not change the Python
+`postprocess` API or the COCO evaluation path.
 
 ## Fixed-shape ONNX export
 
