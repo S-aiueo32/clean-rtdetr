@@ -50,7 +50,20 @@ class MatcherConfig:
 
 
 class HungarianMatcher(Matcher):
-    """Select a minimum-cost one-to-one assignment for each image."""
+    """Select a minimum-cost one-to-one assignment for each image.
+
+    For prediction ``i`` and target ``j``, the code minimizes the cost
+
+    ``C_ij = cost_class * (pos_ij - neg_ij)``
+    ``      + cost_bbox * ||box_i - box_j||_1``
+    ``      + cost_giou * (-GIoU(box_i, box_j))``.
+
+    With ``p_ij`` the sigmoid probability for the target class,
+    ``pos_ij = alpha * (1 - p_ij)^gamma * -log(p_ij + 1e-8)`` and
+    ``neg_ij = (1 - alpha) * p_ij^gamma * -log(1 - p_ij + 1e-8)``.
+    The resulting rectangular matrix is solved one image at a time on CPU;
+    returned indices are moved back to the prediction device.
+    """
 
     def __init__(self, config: MatcherConfig | None = None) -> None:
         """Create a matcher with the supplied configuration."""
@@ -83,39 +96,50 @@ class HungarianMatcher(Matcher):
         """Return matched prediction and target indices, preserving prediction device."""
         validate_detection(predictions, targets)
         logits, boxes = predictions.logits, predictions.boxes
-        results: list[MatchIndices] = []
-        for image_logits, image_boxes, target in zip(logits, boxes, targets, strict=True):
-            target_count = target.labels.shape[0]
-            if target_count == 0:
-                empty = torch.empty(0, dtype=torch.int64, device=logits.device)
-                results.append(MatchIndices(empty, empty.clone()))
-                continue
-            probabilities = image_logits.sigmoid()[:, target.labels]
-            neg_cost = (
-                (1 - self.config.alpha)
-                * probabilities.pow(self.config.gamma)
-                * (-(1 - probabilities + 1e-8).log())
-            )
-            pos_cost = (
-                self.config.alpha
-                * (1 - probabilities).pow(self.config.gamma)
-                * (-(probabilities + 1e-8).log())
-            )
-            cost_class = pos_cost - neg_cost
-            cost_bbox = torch.cdist(image_boxes, target.boxes, p=1)
-            cost_giou = -generalized_box_iou(
-                cxcywh_to_xyxy(image_boxes), cxcywh_to_xyxy(target.boxes)
-            )
-            cost = (
-                self.config.cost_bbox * cost_bbox
-                + self.config.cost_class * cost_class
-                + self.config.cost_giou * cost_giou
-            )
-            prediction_indices, target_indices = self._solve(cost)
-            results.append(
-                MatchIndices(
-                    prediction_indices.to(device=logits.device),
-                    target_indices.to(device=logits.device),
-                )
-            )
-        return tuple(results)
+        return tuple(
+            self._match_image(image_logits, image_boxes, target)
+            for image_logits, image_boxes, target in zip(logits, boxes, targets, strict=True)
+        )
+
+    def _match_image(
+        self,
+        image_logits: Float[Tensor, "queries classes"],
+        image_boxes: Float[Tensor, "queries 4"],
+        target: DetectionTarget,
+    ) -> MatchIndices:
+        """Build one image's class/box/GIoU cost matrix and solve it on CPU.
+
+        Class probabilities are gathered only for each target's class, so the
+        matrix has shape ``[num_queries, num_targets]``.  The three terms are
+        combined with the configured weights before SciPy's linear-sum
+        assignment; an image with no targets returns two empty index tensors
+        on the prediction device.
+        """
+        target_count = target.labels.shape[0]
+        if target_count == 0:
+            empty = torch.empty(0, dtype=torch.int64, device=image_logits.device)
+            return MatchIndices(empty, empty.clone())
+        probabilities = image_logits.sigmoid()[:, target.labels]
+        neg_cost = (
+            (1 - self.config.alpha)
+            * probabilities.pow(self.config.gamma)
+            * (-(1 - probabilities + 1e-8).log())
+        )
+        pos_cost = (
+            self.config.alpha
+            * (1 - probabilities).pow(self.config.gamma)
+            * (-(probabilities + 1e-8).log())
+        )
+        cost_class = pos_cost - neg_cost
+        cost_bbox = torch.cdist(image_boxes, target.boxes, p=1)
+        cost_giou = -generalized_box_iou(cxcywh_to_xyxy(image_boxes), cxcywh_to_xyxy(target.boxes))
+        cost = (
+            self.config.cost_bbox * cost_bbox
+            + self.config.cost_class * cost_class
+            + self.config.cost_giou * cost_giou
+        )
+        prediction_indices, target_indices = self._solve(cost)
+        return MatchIndices(
+            prediction_indices.to(device=image_logits.device),
+            target_indices.to(device=image_logits.device),
+        )

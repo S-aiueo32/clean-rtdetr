@@ -132,7 +132,11 @@ class TransformerEncoderLayer(nn.Module):
         src: Float[Tensor, "batch sequence channels"],
         pos_embed: Float[Tensor, "_batch sequence channels"],
     ) -> Float[Tensor, "batch sequence channels"]:
-        """Add position only to attention queries and keys, retaining unmodified values."""
+        """Add position only to attention queries and keys, retaining unmodified values.
+
+        Both residual paths use post-normalization. Position affects attention
+        scores but is not added to the values carried through the residual.
+        """
         query = src + pos_embed
         attended = self.self_attn(query, query, src, need_weights=False)[0]
         src = self.norm1(src + self.dropout1(attended))
@@ -232,11 +236,41 @@ class HybridEncoder(Encoder):
     def forward(
         self, features: MultiScaleFeatures, *, collect_aifi: bool = False
     ) -> HybridEncoderOutput:
-        """Project, apply AIFI at the highest stride, then fuse across scales."""
+        """Project, apply AIFI at the highest stride, then fuse across scales.
+
+        RT-DETR, Eq. (1) and Fig. 5 (https://arxiv.org/html/2304.08069v3),
+        separate within-scale attention from cross-scale convolutional fusion::
+
+            P3 ──────────────┐
+            P4 ──────────────┼→ top-down FPN → bottom-up PAN → outputs
+            P5 → AIFI → F5 ──┘
+
+        P3/P4/P5 denote the fine-to-coarse levels, all with ``hidden_dim``
+        channels after projection. Output spatial sizes and strides are preserved.
+        ``collect_aifi`` exposes F5 before fusion, without detaching its graph.
+        """
+        self._validate_features(features)
+        projected = [
+            proj(level) for proj, level in zip(self.input_proj, features.levels, strict=True)
+        ]
+        projected[2] = self._apply_aifi(projected[2])
+        after = (
+            MultiScaleFeatures((projected[2],), (self.output_specs[2],)) if collect_aifi else None
+        )
+        outputs = self._fuse_top_down(projected)
+        outputs = self._fuse_bottom_up(outputs)
+        return HybridEncoderOutput(MultiScaleFeatures(tuple(outputs), self.output_specs), after)
+
+    def _validate_features(self, features: MultiScaleFeatures) -> None:
+        """Check feature specs and spatial ratios before projection and fusion."""
         features.validate()
         if features.specs != self.specs:
             msg = "Input FeatureSpec differs from the encoder's construction spec"
             raise ValueError(msg)
+        self._validate_spatial_ratios(features)
+
+    def _validate_spatial_ratios(self, features: MultiScaleFeatures) -> None:
+        """Check heights, then widths, against the strides required by pyramid fusion."""
         heights = [level.shape[-2] for level in features.levels]
         widths = [level.shape[-1] for level in features.levels]
         if any(
@@ -251,17 +285,40 @@ class HybridEncoder(Encoder):
         ):
             msg = "Feature widths must follow the declared stride ratios"
             raise ValueError(msg)
-        projected = [
-            proj(level) for proj, level in zip(self.input_proj, features.levels, strict=True)
-        ]
+
+    def _apply_aifi(
+        self, feature: Float[Tensor, "batch channels height width"]
+    ) -> Float[Tensor, "batch channels height width"]:
+        """Apply position-aware self-attention to the highest-stride feature.
+
+        This is the AIFI/reshape portion of RT-DETR Eq. (1), cited in ``forward``::
+
+            [B, C, H5, W5] -> [B, H5*W5, C] -> encoder -> [B, C, H5, W5]
+
+        Tokens use row-major flattening. The positional embedding deliberately
+        retains the pinned implementation's width-major sinusoidal ordering.
+        """
         for block in self.encoder:
-            x = projected[2].flatten(2).transpose(1, 2)
-            h, w = projected[2].shape[-2:]
+            x = feature.flatten(2).transpose(1, 2)
+            h, w = feature.shape[-2:]
             x = block(x, self._position_embedding(h, w, device=x.device))
-            projected[2] = x.transpose(1, 2).reshape_as(projected[2]).contiguous()
-        after = (
-            MultiScaleFeatures((projected[2],), (self.output_specs[2],)) if collect_aifi else None
-        )
+            feature = x.transpose(1, 2).reshape_as(feature).contiguous()
+        return feature
+
+    def _fuse_top_down(
+        self, projected: list[Float[Tensor, "batch channels _height _width"]]
+    ) -> list[Float[Tensor, "batch channels _height _width"]]:
+        """Upsample coarse features and fuse them with each finer level.
+
+        The top-down half of CCFF (RT-DETR Fig. 5) follows this recurrence::
+
+            lateral = lateral_conv(coarse)
+            fine = fpn_block(concat(upsample_2x(lateral), projected_fine))
+
+        Concatenation is along channels, with the upsampled branch first. Each
+        lateral replaces its coarse entry so PAN later consumes that projection.
+        The returned list is ordered fine to coarse; ``projected`` is not mutated.
+        """
         outputs = [projected[-1]]
         for i in range(1, len(projected)):
             idx = len(projected) - 1 - i
@@ -270,11 +327,27 @@ class HybridEncoder(Encoder):
             outputs[0] = high
             high = functional.interpolate(high, scale_factor=2.0, mode="nearest")
             outputs.insert(0, self.fpn_blocks[block_idx](torch.cat((high, projected[idx]), dim=1)))
+        return outputs
+
+    def _fuse_bottom_up(
+        self, outputs: list[Float[Tensor, "batch channels _height _width"]]
+    ) -> list[Float[Tensor, "batch channels _height _width"]]:
+        """Update successive coarse levels with downsampled fused features.
+
+        The bottom-up half of CCFF completes fusion in fine-to-coarse order::
+
+            O3 = top_down[0]
+            O4 = pan0(concat(down0(O3), top_down[1]))
+            O5 = pan1(concat(down1(O4), top_down[2]))
+
+        Each downsampling convolution halves the spatial dimensions. This method
+        updates and returns the supplied list; O5 depends on the newly fused O4.
+        """
         for idx in range(len(outputs) - 1):
             outputs[idx + 1] = self.pan_blocks[idx](
                 torch.cat((self.downsample_convs[idx](outputs[idx]), outputs[idx + 1]), dim=1)
             )
-        return HybridEncoderOutput(MultiScaleFeatures(tuple(outputs), self.output_specs), after)
+        return outputs
 
     def checkpoint_config(self) -> dict[str, object]:
         """Describe encoder configuration and input feature specifications."""
