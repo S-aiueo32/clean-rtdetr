@@ -19,11 +19,13 @@ from clean_rtdetr.core.contracts import (
     ModelOutput,
 )
 from clean_rtdetr.models.decoder import DecoderPlan
-from clean_rtdetr.models.rtdetr import build_rtdetr_r50vd
-from clean_rtdetr.training import DetectionTarget, SetCriterion
-from clean_rtdetr.training.denoising import DenoisingConfig, DenoisingQueryGenerator
-from clean_rtdetr.training.model import DenoisingTrainingModel
-from tests.test_model import small_model
+from clean_rtdetr.training import DetectionTarget, HungarianMatcher, SetCriterion
+from clean_rtdetr.training.denoising import (
+    DenoisingConfig,
+    DenoisingQueryGenerator,
+    DenoisingTrainingModel,
+)
+from tests.test_model import baseline_model, small_model
 from tests.training_oracle import criterion_oracle
 
 if TYPE_CHECKING:
@@ -87,7 +89,7 @@ def _dn_model(config: DenoisingConfig | None = None) -> DenoisingTrainingModel:
 
 
 def _official_wrapper_state() -> tuple[DenoisingTrainingModel, dict[str, torch.Tensor]]:
-    detector = build_rtdetr_r50vd()
+    detector = baseline_model()
     wrapper = DenoisingTrainingModel(detector, DenoisingQueryGenerator(80, 256))
     state: dict[str, torch.Tensor] = {}
     for key, value in detector.state_dict().items():
@@ -116,7 +118,7 @@ def test_dn_criterion_values_and_gradients_match_pinned_upstream(
     """Every retained DN layer uses upstream assignments, names, and normalization."""
     output = _synthetic_output(dtype, mixed_empty=mixed_empty)
     targets = _targets(dtype=dtype, mixed_empty=mixed_empty)
-    actual = SetCriterion()(output, targets)
+    actual = SetCriterion(matcher=HungarianMatcher())(output, targets)
 
     reference = _synthetic_output(dtype, mixed_empty=mixed_empty)
     expected = criterion_oracle(reference, targets)
@@ -170,6 +172,23 @@ def test_model_splits_dn_predictions_and_preserves_matching_outputs() -> None:
     torch.testing.assert_close(first.decoder.boxes, second.decoder.boxes)
 
 
+@pytest.mark.parametrize("count", [0, -1, True, 7, 9])
+def test_detector_rejects_inconsistent_dn_count_before_backbone(count: int) -> None:
+    """The public detector must not split DN slots into matching predictions."""
+    wrapper = _dn_model()
+    prepared = wrapper.denoising(_targets(), num_queries=wrapper.model.num_queries)
+    assert prepared is not None
+    malformed = replace(prepared, metadata=replace(prepared.metadata, num_queries=count))
+    hook = wrapper.model.backbone.register_forward_pre_hook(
+        lambda *_: pytest.fail("Invalid DN metadata reached the backbone")
+    )
+    try:
+        with pytest.raises(ValueError, match="metadata query count"):
+            wrapper.model(torch.zeros(2, 3, 64, 64), denoising=malformed)
+    finally:
+        hook.remove()
+
+
 def test_mixed_targets_dn_losses_reach_class_embedding_and_obey_plan() -> None:
     """DN remains trainable with uneven target counts and a decoder layer prefix."""
     model = _dn_model().train()
@@ -180,7 +199,7 @@ def test_mixed_targets_dn_losses_reach_class_embedding_and_obey_plan() -> None:
     )
     assert output.denoising is not None
     assert output.denoising.decoder.logits.shape[:3] == (1, 2, 8)
-    losses = SetCriterion()(output, _targets())
+    losses = SetCriterion(matcher=HungarianMatcher())(output, _targets())
     assert {name for name in losses if "_dn_" in name} == {
         "loss_vfl_dn_0",
         "loss_bbox_dn_0",
@@ -246,7 +265,7 @@ def test_criterion_rejects_malformed_dn_metadata(metadata: DenoisingMetadata) ->
     assert output.denoising is not None
     malformed = replace(output, denoising=replace(output.denoising, metadata=metadata))
     with pytest.raises(ValueError, match=r"Denoising|denoising"):
-        SetCriterion()(malformed, _targets(dtype=torch.float64))
+        SetCriterion(matcher=HungarianMatcher())(malformed, _targets(dtype=torch.float64))
 
 
 def test_criterion_rejects_dn_matching_dimension_mismatch() -> None:
@@ -259,7 +278,7 @@ def test_criterion_rejects_dn_matching_dimension_mismatch() -> None:
     )
     malformed = replace(output, denoising=replace(output.denoising, decoder=bad_decoder))
     with pytest.raises(ValueError, match="share matching"):
-        SetCriterion()(malformed, _targets(dtype=torch.float64))
+        SetCriterion(matcher=HungarianMatcher())(malformed, _targets(dtype=torch.float64))
 
 
 def test_dn_embedding_round_trips_in_training_wrapper_state_dict() -> None:

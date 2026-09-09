@@ -1,0 +1,16 @@
+_target_: clean_rtdetr.HybridEncoder
+specs:
+  - _target_: clean_rtdetr.FeatureSpec
+    channels: 512
+    stride: 8
+  - _target_: clean_rtdetr.FeatureSpec
+    channels: 1024
+    stride: 16
+  - _target_: clean_rtdetr.FeatureSpec
+    channels: 2048
+    stride: 32
+config:
+  _target_: clean_rtdetr.HybridEncoderConfig
+  hidden_dim: ${dimensions.hidden_dim}
+  num_heads: 2
+  feedforward_dim: 16

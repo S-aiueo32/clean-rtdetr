@@ -16,9 +16,10 @@ from pathlib import Path
 from typing import Literal, cast
 
 import torch
+from hydra.utils import instantiate
 
-from clean_rtdetr import build_rtdetr_r50vd
 from clean_rtdetr.compatibility import CheckpointLoadReport, load_official_model_weights
+from clean_rtdetr.configuration import compose_model_config
 from clean_rtdetr.export import ExportVerificationError, export_onnx
 
 
@@ -97,7 +98,7 @@ def main() -> None:
     report_path.parent.mkdir(parents=True, exist_ok=True)
 
     torch.set_num_threads(4)
-    model = build_rtdetr_r50vd().eval().cpu()
+    model = instantiate(compose_model_config("r50vd"), _convert_="all").eval().cpu()
     loaded = load_official_model_weights(
         args.checkpoint,
         model=model,

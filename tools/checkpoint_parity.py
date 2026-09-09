@@ -19,9 +19,11 @@ from typing import Any, Literal, cast
 
 import torch
 
-# Direct script execution puts examples/ on sys.path; the parity-only oracle
+# Direct script execution puts tools/ on sys.path; the parity-only oracle
 # lives in the repository's tests/ package rather than the installed library.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from hydra.utils import instantiate
 
 from clean_rtdetr import (
     Decoder,
@@ -32,9 +34,9 @@ from clean_rtdetr import (
     QueryAssembler,
     QuerySelector,
     QuerySelectorConfig,
-    build_rtdetr_r50vd,
 )
 from clean_rtdetr.compatibility import load_official_model_weights, load_official_stage_weights
+from clean_rtdetr.configuration import compose_model_config
 from tests.official_oracle import (
     BACKBONE_COMMON_SHA256,
     HYBRID_ENCODER_SHA256,
@@ -51,7 +53,7 @@ SEED = 41
 ATOL = 1e-5
 RTOL = 1e-4
 IMPLEMENTATION_PATHS = (
-    "examples/checkpoint_parity.py",
+    "tools/checkpoint_parity.py",
     "tests/oracle.py",
     "tests/official_oracle.py",
 )
@@ -244,7 +246,7 @@ def _run_full_model(  # noqa: C901, PLR0915
 ) -> dict[str, object]:
     """Compare the composed image-to-prediction model with independent upstream stages."""
     torch.manual_seed(SEED)
-    model = build_rtdetr_r50vd().eval()
+    model = instantiate(compose_model_config("r50vd"), _convert_="all").eval()
     report = load_official_model_weights(
         checkpoint,
         model=model,

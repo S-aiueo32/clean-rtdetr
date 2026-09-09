@@ -3,14 +3,17 @@
 `clean_rtdetr.training` implements the pinned R50vd criterion for single-process
 FP32/FP64 PyTorch predictions: Hungarian assignment, Varifocal classification,
 normalized cxcywh L1 loss, GIoU loss, and contrastive denoising construction/losses.
-Training augmentation, optimizer recipes, training/resume, distributed normalization,
-and mixed precision remain pending. No convergence or trained accuracy is claimed.
+A separate [Lightning adapter](lightning.md) implements the baseline optimizer
+settings and single-process CPU FP32 training with epoch-boundary resume.
+Hydra config groups inject baseline components and optimizer/scheduler factories.
+Training augmentation, distributed normalization, mixed precision, and research-method
+composition remain pending. No convergence or trained accuracy is claimed.
 
 ## Installation and CPU example
 
 ```sh
 uv sync --locked --extra training
-uv run python examples/training_losses.py
+uv run python tools/training_losses.py
 ```
 
 SciPy supplies `scipy.optimize.linear_sum_assignment`, the assignment solver used
@@ -20,14 +23,44 @@ The example runs a synthetic CPU backward pass without datasets or checkpoints.
 
 ## API and targets
 
+Implementation modules are grouped by responsibility:
+
+```text
+training/
+  contracts.py          # shared targets, assignments, and validation
+  interfaces.py         # shared model, criterion, matcher, and DN interfaces
+  losses/
+    criterion.py
+    matcher.py
+    geometry.py
+  denoising/
+    queries.py
+    model.py
+  data/
+    contracts.py
+    synthetic.py
+    collate.py
+  lightning/
+    data.py
+    module.py
+    optim.py
+    ema.py
+    state.py
+```
+
+The `clean_rtdetr.training` public exports remain the composition entry point.
+`training.data` and `training.denoising` also expose their public types from
+their package initializers, so Hydra targets do not depend on implementation
+filenames. Lightning-specific lifecycle code stays in `training.lightning`.
+
 ```python
-from clean_rtdetr.training import DetectionTarget, SetCriterion
+from clean_rtdetr.training import DetectionTarget, HungarianMatcher, SetCriterion
 
 # model is an RTDETR instance; images and targets share its device and dtype.
 model.train()
 output = model(images)  # Default DecoderPlan retains all decoder layers.
 targets = [DetectionTarget(labels=labels, boxes=boxes)]  # One target per image.
-losses = SetCriterion()(output, targets)
+losses = SetCriterion(matcher=HungarianMatcher())(output, targets)
 total_loss = sum(losses.values())  # Values are already weighted.
 total_loss.backward()
 ```
@@ -64,6 +97,9 @@ their known target assignments separately.
 | GIoU | 2 | 2 |
 
 `MatcherConfig` and `CriterionConfig` expose these weights and focal parameters.
+`SetCriterion` requires the abstract `Matcher` module interface for assignment;
+the caller or Hydra configuration constructs the matcher. Custom matchers implement
+`forward` and `checkpoint_config` without needing Hungarian-specific configuration.
 Base keys are `loss_vfl`, `loss_bbox`, and `loss_giou`. Auxiliary keys append
 `_aux_0`, `_aux_1`, etc.; the encoder uses the final auxiliary index, matching
 upstream ordering. Every term is divided by `max(total targets in batch, 1)`,
@@ -76,24 +112,29 @@ target normalization would be incorrect.
 ## Contrastive denoising
 
 ```python
-from clean_rtdetr import build_rtdetr_r50vd
+from hydra.utils import instantiate
+from clean_rtdetr.configuration import compose_model_config
 from clean_rtdetr.training import (
     DenoisingConfig,
     DenoisingQueryGenerator,
     DenoisingTrainingModel,
+    HungarianMatcher,
     SetCriterion,
 )
 
 training_model = DenoisingTrainingModel(
-    build_rtdetr_r50vd(),
+    instantiate(compose_model_config("r50vd"), _convert_="all"),
     DenoisingQueryGenerator(80, 256, DenoisingConfig()),
 ).train()
 output = training_model(images, targets=targets)
-losses = SetCriterion()(output, targets)
+losses = SetCriterion(matcher=HungarianMatcher())(output, targets)
 sum(losses.values()).backward()
 ```
 
 The wrapper owns the detector and learnable `denoising.class_embed` together.
+It implements `TrainingModel[ModelOutput]`; `SetCriterion` implements
+`TrainingCriterion[DetectionOutput | ModelOutput]`. These optional integration
+interfaces are described in [Lightning training](lightning.md#model-and-criterion-interfaces).
 Use `training_model.parameters()` for optimizer construction and its `state_dict()`
 for weights. The core detector receives no dataset targets. In evaluation mode,
 call the wrapper without targets; it delegates to the inference model and does
@@ -126,7 +167,7 @@ construction returns `None`.
 `load_official_model_weights(..., model=training_model, ...)` validates and loads
 the official DN embedding along with the detector before mutating any parameters.
 The inference model loader continues to exclude that embedding. This loads
-weights only; optimizer state and resumable training are not implemented.
+weights only; use the [Lightning adapter](lightning.md) for resumable training.
 
 ## Validation scope
 

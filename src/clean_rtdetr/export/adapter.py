@@ -11,7 +11,7 @@ from torch import Tensor, nn
 from clean_rtdetr.core.geometry import generate_anchors
 from clean_rtdetr.models.attention import MultiScaleDeformableAttention
 from clean_rtdetr.models.decoder import Decoder, DecoderLayer, DecoderPlan
-from clean_rtdetr.models.rtdetr import RTDETR
+from clean_rtdetr.models.rtdetr import RTDETR, BaselineRTDETR
 from clean_rtdetr.models.selector import QuerySelector
 
 DEFAULT_SHAPE = (1, 3, 640, 640)
@@ -52,7 +52,7 @@ class FixedShapeRTDETR(nn.Module):
     valid: Bool[Tensor, "1 sequence 1"]
 
     def __init__(
-        self, model: RTDETR, input_shape: tuple[int, int, int, int] = DEFAULT_SHAPE
+        self, model: BaselineRTDETR, input_shape: tuple[int, int, int, int] = DEFAULT_SHAPE
     ) -> None:
         """Validate the eager path, freeze metadata, and specialize the copied attention."""
         super().__init__()

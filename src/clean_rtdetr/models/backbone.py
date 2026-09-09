@@ -14,6 +14,7 @@ from torch import Tensor, nn
 from torch.nn import functional
 
 from clean_rtdetr.core.contracts import FeatureSpec, MultiScaleFeatures
+from clean_rtdetr.models.interfaces import Backbone
 
 IMAGE_RANK = 4
 IMAGE_CHANNELS = 3
@@ -129,7 +130,7 @@ class _Stage(nn.Module):
         return x
 
 
-class PResNet(nn.Module):
+class PResNet(Backbone):
     """R50vd (ResNet-50 variant d) returning strides 8, 16 and 32."""
 
     def __init__(self, freeze_at: int = 0, *, freeze_norm: bool = True) -> None:
@@ -147,6 +148,8 @@ class PResNet(nn.Module):
         ):
             msg = "freeze_at must be an integer between -1 and 3"
             raise ValueError(msg)
+        self.freeze_at = freeze_at
+        self.freeze_norm = freeze_norm
         self.conv1 = nn.Sequential(
             OrderedDict(
                 [
@@ -216,3 +219,11 @@ class PResNet(nn.Module):
         features = MultiScaleFeatures(tuple(outputs), self.specs)
         features.validate()
         return features
+
+    def checkpoint_config(self) -> dict[str, object]:
+        """Describe backbone freezing and output feature settings."""
+        return {
+            "freeze_at": self.freeze_at,
+            "freeze_norm": self.freeze_norm,
+            "specs": tuple((spec.channels, spec.stride) for spec in self.specs),
+        }

@@ -13,7 +13,7 @@ from torch import Tensor
 
 from clean_rtdetr.export.adapter import DEFAULT_SHAPE, FixedShapeRTDETR
 from clean_rtdetr.models.decoder import DecoderPlan
-from clean_rtdetr.models.rtdetr import RTDETR
+from clean_rtdetr.models.rtdetr import BaselineRTDETR
 
 ATOL = 1e-5
 RTOL = 1e-4
@@ -52,7 +52,7 @@ def _comparison(
 
 
 def export_onnx(
-    model: RTDETR,
+    model: BaselineRTDETR,
     destination: Path,
     *,
     input_shape: tuple[int, int, int, int] = DEFAULT_SHAPE,

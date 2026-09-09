@@ -17,6 +17,14 @@ SPATIAL_DIMENSIONS = 2
 
 
 @dataclass(frozen=True)
+class DecoderPlan:
+    """Choose the executed prefix and whether to retain intermediate predictions."""
+
+    num_layers: int | None = None
+    collect_intermediate: bool = True
+
+
+@dataclass(frozen=True)
 class FeatureSpec:
     """Describe the channels and input-relative stride of one feature level."""
 
@@ -239,6 +247,14 @@ class DenoisingMetadata:
     positive_indices: tuple[Int64[Tensor, " _positives"], ...]
     num_groups: int
     num_queries: int
+
+
+@dataclass(frozen=True)
+class DenoisingBatch:
+    """Prepared decoder queries and assignments, independent of training targets."""
+
+    queries: DenoisingQueries
+    metadata: DenoisingMetadata
 
 
 @dataclass(frozen=True)

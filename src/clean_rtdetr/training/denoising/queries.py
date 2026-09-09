@@ -9,19 +9,22 @@ validation, and float64 support while retaining upstream FP32 RNG ordering.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING
 
 import torch
 from jaxtyping import Float  # noqa: TC002 - runtime jaxtyping instrumentation resolves annotations
 from torch import Tensor, nn
 
-from clean_rtdetr.core.contracts import DenoisingMetadata, DenoisingQueries
+from clean_rtdetr.core.contracts import DenoisingBatch, DenoisingMetadata, DenoisingQueries
 from clean_rtdetr.core.geometry import inverse_sigmoid
 from clean_rtdetr.training.contracts import DetectionTarget, _validate_target
+from clean_rtdetr.training.interfaces import DenoisingGenerator
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+
+__all__ = ["DenoisingBatch", "DenoisingConfig", "DenoisingQueryGenerator"]
 
 
 @dataclass(frozen=True)
@@ -49,14 +52,6 @@ class DenoisingConfig:
             raise ValueError(msg)
 
 
-@dataclass(frozen=True)
-class DenoisingBatch:
-    """Prepared decoder queries and the indices needed by DN losses."""
-
-    queries: DenoisingQueries
-    metadata: DenoisingMetadata
-
-
 def _box_cxcywh_to_xyxy(
     boxes: Float[Tensor, "*batch 4"],
 ) -> Float[Tensor, "*batch 4"]:
@@ -81,7 +76,7 @@ def _box_xyxy_to_cxcywh(
     return torch.stack(((x0 + x1) / 2, (y0 + y1) / 2, x1 - x0, y1 - y0), dim=-1)
 
 
-class DenoisingQueryGenerator(nn.Module):
+class DenoisingQueryGenerator(DenoisingGenerator):
     """Build padded positive/negative target groups with upstream RNG ordering."""
 
     def __init__(
@@ -105,6 +100,24 @@ class DenoisingQueryGenerator(nn.Module):
         self.hidden_dim = hidden_dim
         self.config = config if config is not None else DenoisingConfig()
         self.class_embed = nn.Embedding(num_classes + 1, hidden_dim, padding_idx=num_classes)
+
+    @property
+    def dtype(self) -> torch.dtype:
+        """Return the dtype of the learned query content."""
+        return self.class_embed.weight.dtype
+
+    @property
+    def device(self) -> torch.device:
+        """Return the device of the learned query content."""
+        return self.class_embed.weight.device
+
+    def checkpoint_config(self) -> dict[str, object]:
+        """Describe query dimensions and noise settings for checkpoint resumes."""
+        return {
+            "num_classes": self.num_classes,
+            "hidden_dim": self.hidden_dim,
+            "config": asdict(self.config),
+        }
 
     def forward(  # noqa: C901, PLR0915
         self,

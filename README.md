@@ -26,6 +26,9 @@ projected memory → selected queries → iterative decoder predictions** in PyT
   upstream loss/gradient parity and decoder/encoder auxiliary supervision.
 - Contrastive denoising query construction, a training wrapper with registered
   class embeddings, and per-layer DN losses with CPU upstream parity.
+- Optional Lightning training adapter with baseline AdamW groups, EMA, and
+  tested CPU FP32 epoch-boundary resume; see [Lightning training](docs/lightning.md).
+- Hierarchical Hydra configs for model-stage and training-component injection.
 
 COCO-format prediction JSON and optional official bbox evaluation are available
 as separate commands; see [COCO evaluation](docs/evaluation.md). pycocotools is
@@ -34,19 +37,21 @@ loaded only by the metric adapter, and is unnecessary for prediction generation.
 See [training losses](docs/training.md) for the target contract and a synthetic
 CPU backward example. SciPy is an optional training dependency for assignment.
 
-Full training/resume, recipe composition, and full-dataset COCO AP validation
+Full dataset training, GPU/DDP/AMP validation, research-method composition, and COCO AP measurement
 remain to be implemented. No AP or latency is claimed; export is limited to the fixed
 batch-1 640×640 CPU FP32 profile described below.
-`examples/query_selection.py` continues to demonstrate the component path using
+`tools/query_selection.py` continues to demonstrate the component path using
 synthetic features and randomly initialized weights.
 
 ## Image-to-prediction API
 
 ```python
 import torch
-from clean_rtdetr import DecoderPlan, build_rtdetr_r50vd
+from hydra.utils import instantiate
+from clean_rtdetr import DecoderPlan
+from clean_rtdetr.configuration import compose_model_config
 
-model = build_rtdetr_r50vd().eval()  # Random weights; no automatic download.
+model = instantiate(compose_model_config("r50vd"), _convert_="all").eval()  # Random weights.
 with torch.inference_mode():
     output = model(torch.rand(1, 3, 640, 640), plan=DecoderPlan(collect_intermediate=False))
 print(output.final.logits.shape, output.final.boxes.shape)  # [1,300,80], [1,300,4]
@@ -62,7 +67,7 @@ with export as `uv sync --locked --extra export --extra inference`), then run th
 complete path with local official weights:
 
 ```sh
-uv run python examples/image_inference.py image.jpg \
+uv run clean-rtdetr-predict image.jpg \
   --checkpoint checkpoints/rtdetr_r50vd_6x_coco_from_paddle.pth \
   --source ema \
   --expected-sha256 dfaafa5a3d29958a360c35f1fad553a6f287bfae9967e8ee007e65cff21ddf45
@@ -80,10 +85,13 @@ Install the export dependencies with `uv sync --locked --extra export`. The
 
 ```python
 from pathlib import Path
-from clean_rtdetr import build_rtdetr_r50vd
+from hydra.utils import instantiate
+from clean_rtdetr.configuration import compose_model_config
 from clean_rtdetr.export import export_onnx
 
-model = build_rtdetr_r50vd().eval()  # Random weights; load a checkpoint for trained predictions.
+model = instantiate(
+    compose_model_config("r50vd"), _convert_="all"
+).eval()  # Load trained weights separately.
 report = export_onnx(model, Path("outputs/rtdetr.onnx"))
 ```
 
@@ -91,7 +99,7 @@ For a checkpoint-backed export, use the CLI. It requires a local official
 checkpoint and its SHA-256; weights are never downloaded:
 
 ```sh
-uv run python examples/export_onnx.py \
+uv run clean-rtdetr-export \
   --checkpoint checkpoints/rtdetr_r50vd_6x_coco_from_paddle.pth \
   --source ema \
   --expected-sha256 dfaafa5a3d29958a360c35f1fad553a6f287bfae9967e8ee007e65cff21ddf45 \

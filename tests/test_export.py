@@ -8,9 +8,10 @@ import pytest
 import torch
 from jaxtyping import TypeCheckError
 
-from clean_rtdetr import RTDETR, QuerySelector
+from clean_rtdetr import QuerySelector
 from clean_rtdetr.export import FixedShapeRTDETR, export_onnx
 from clean_rtdetr.export.onnx import _comparison
+from clean_rtdetr.models.rtdetr import BaselineRTDETR
 from clean_rtdetr.models.selector import BoxHead
 from tests.test_model import small_model
 
@@ -18,7 +19,7 @@ INPUT_SHAPE = (1, 3, 64, 64)
 CHECK_COUNT = 4
 
 
-def model_with_nonzero_box_heads() -> RTDETR:
+def model_with_nonzero_box_heads() -> BaselineRTDETR:
     """Build a compact model whose refinement boxes depend on the image."""
     torch.manual_seed(17)
     model = small_model()

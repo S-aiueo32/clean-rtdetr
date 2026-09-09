@@ -1,0 +1,6 @@
+_target_: clean_rtdetr.training.DenoisingQueryGenerator
+num_classes: ${dimensions.num_classes}
+hidden_dim: ${dimensions.hidden_dim}
+config:
+  _target_: clean_rtdetr.training.DenoisingConfig
+  num_denoising: 4

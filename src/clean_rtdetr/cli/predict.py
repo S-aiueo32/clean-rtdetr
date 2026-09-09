@@ -7,10 +7,12 @@ from pathlib import Path
 from typing import Literal, cast
 
 import torch
+from hydra.utils import instantiate
 from PIL import Image
 
-from clean_rtdetr import DecoderPlan, build_rtdetr_r50vd
+from clean_rtdetr import DecoderPlan
 from clean_rtdetr.compatibility import load_official_model_weights
+from clean_rtdetr.configuration import compose_model_config
 from clean_rtdetr.data import preprocess_images
 from clean_rtdetr.postprocessing import postprocess
 
@@ -25,7 +27,7 @@ def run(
     device: str = "cpu",
 ) -> list[dict[str, object]]:
     """Return all 300 predictions per image as JSON-compatible class-index records."""
-    model = build_rtdetr_r50vd().eval()
+    model = instantiate(compose_model_config("r50vd"), _convert_="all").eval()
     load_official_model_weights(
         checkpoint, model=model, source=source, expected_sha256=expected_sha256
     )

@@ -7,7 +7,7 @@ prediction heads. See third_party/RT-DETR/README.md.
 
 import copy
 import math
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from itertools import pairwise
 from typing import cast
 
@@ -16,9 +16,11 @@ from jaxtyping import Bool, Float, Int64
 from torch import Tensor, nn
 from torch.nn import functional
 
-from clean_rtdetr.core.contracts import DecoderInput, DecoderOutput, EncodedFeatures
+from clean_rtdetr.core.contracts import DecoderInput, DecoderOutput, DecoderPlan, EncodedFeatures
 from clean_rtdetr.core.geometry import inverse_sigmoid
+from clean_rtdetr.models._checkpoint import module_checkpoint_config
 from clean_rtdetr.models.attention import MultiScaleDeformableAttention
+from clean_rtdetr.models.interfaces import Decoder as DecoderInterface
 from clean_rtdetr.models.selector import BoxHead
 
 
@@ -61,14 +63,6 @@ class DecoderConfig:
             raise ValueError(msg)
 
 
-@dataclass(frozen=True)
-class DecoderPlan:
-    """Choose the executed prefix and whether to retain intermediate predictions."""
-
-    num_layers: int | None = None
-    collect_intermediate: bool = True
-
-
 class _MLP(nn.Module):
     """Linear stack with activation after every layer except the last."""
 
@@ -94,6 +88,7 @@ class DecoderLayer(nn.Module):
     def __init__(self, config: DecoderConfig) -> None:
         """Build the three upstream decoder sublayers."""
         super().__init__()
+        self.config = config
         self.self_attn = nn.MultiheadAttention(
             config.hidden_dim,
             config.num_heads,
@@ -146,8 +141,12 @@ class DecoderLayer(nn.Module):
         feedforward = self.linear2(self.dropout3(self.activation(self.linear1(target))))
         return self.norm3((target + self.dropout4(feedforward)).clamp(min=-65504, max=65504))
 
+    def checkpoint_config(self) -> dict[str, object]:
+        """Record the configuration used to construct this layer's operations."""
+        return {"config": asdict(self.config)}
 
-class Decoder(nn.Module):
+
+class Decoder(DecoderInterface):
     """Run iterative RT-DETR refinement with decoder-owned layer prediction heads."""
 
     def __init__(
@@ -176,6 +175,21 @@ class Decoder(nn.Module):
             nn.init.constant_(cast("nn.Linear", score_head).bias, classification_bias)
         for position_layer in self.query_pos_head.layers:
             nn.init.xavier_uniform_(cast("nn.Linear", position_layer).weight)
+
+    @property
+    def hidden_dim(self) -> int:
+        """Return the decoder hidden channel width."""
+        return self.config.hidden_dim
+
+    @property
+    def num_classes(self) -> int:
+        """Return the number of foreground classes predicted by the decoder."""
+        return self.config.num_classes
+
+    @property
+    def num_levels(self) -> int:
+        """Return the number of encoded feature levels consumed by the decoder."""
+        return self.config.num_levels
 
     def forward(
         self,
@@ -250,3 +264,10 @@ class Decoder(nn.Module):
         result = DecoderOutput(torch.stack(layer_logits), torch.stack(layer_boxes))
         result.validate()
         return result
+
+    def checkpoint_config(self) -> dict[str, object]:
+        """Describe decoder dimensions and execution settings."""
+        return {
+            "config": asdict(self.config),
+            "layers": [module_checkpoint_config(layer) for layer in self.layers],
+        }

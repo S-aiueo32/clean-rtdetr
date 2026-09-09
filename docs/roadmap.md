@@ -30,8 +30,12 @@ The single-process FP32/FP64 matching criterion is implemented with Hungarian
 assignment and Varifocal/L1/GIoU losses, including decoder and encoder auxiliary
 supervision. Contrastive DN construction, registered training-wrapper embeddings,
 and per-layer DN losses are implemented. CPU upstream query/loss/gradient parity
-is covered by offline tests; see [training losses](training.md). Full
-training/resume and composition remain pending, so step 7 is not complete.
+is covered by offline tests; see [training losses](training.md). The optional
+[Lightning adapter](lightning.md) adds a CPU FP32 training loop and epoch-boundary
+resume, including optimizer, scheduler, EMA, and application RNG state. Hierarchical
+Hydra configs inject baseline model stages and optimizer/scheduler factories. Full
+dataset training, GPU/DDP/AMP validation, and research-method composition remain pending, so
+step 7 is not complete.
 
 The image-to-prediction API returns raw class logits and normalized cxcywh boxes.
 Separate image I/O accepts Pillow images or CPU uint8 RGB tensors using the same
@@ -39,7 +43,7 @@ Separate image I/O accepts Pillow images or CPU uint8 RGB tensors using the same
 unclipped original-image xyxy boxes. Offline tests cover image I/O contracts and
 pinned upstream postprocessor parity; they do not measure dataset accuracy.
 Small offline tests cover component integration, gradients, and checkpoint
-validation; `examples/checkpoint_parity.py --full-model` checks the official
+validation; `tools/checkpoint_parity.py --full-model` checks the official
 weights on a seeded synthetic 640×640 input. That comparison is separate from
 dataset evaluation, GPU fixture capture, and latency measurement.
 The [recorded parity result](../benchmarks/full-model-parity.json) includes source

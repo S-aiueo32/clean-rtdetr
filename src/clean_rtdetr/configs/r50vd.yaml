@@ -1,0 +1,3 @@
+defaults:
+  - model: r50vd
+  - _self_

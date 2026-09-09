@@ -274,7 +274,7 @@ validate_composition(experiment)  # 必要な features / payload / group の照�
 inference_model = experiment.extract_inference_model(weights="ema")
 ```
 
-`load_recipe` は宣言的な値を読むだけとし、YAML から任意 object graph を暗黙に生成しない。`build_deim_dfine_method` のような明示的 factory は、必要な分布 loss を維持し、classification loss や augmentation を DEIM の設定へ置き換える。複数 method が同じ loss、query group、controller を所有する場合は構成を拒否し、統合 factory で一つに決める。
+Baseline の学習構成には Hydra の階層 config と `instantiate` による明示的な DI を使う。`_target_` で各 component を指定し、optimizer / scheduler は `_partial_` factory として実行時の parameter に接続する。構成処理は application 境界に置き、model 本体は Hydra に依存させない。`build_deim_dfine_method` のような明示的 factory は、必要な分布 loss を維持し、classification loss や augmentation を DEIM の設定へ置き換える。複数 method が同じ loss、query group、controller を所有する場合は構成を拒否し、統合 factory で一つに決める。
 
 各拡張は `ExtensionSpec` に ID / version、提供・要求する contract、parameter / state の所有者、推論に残る module、weight converter、検証済み組合せを宣言する。例えば GO-LSD 用 loss が distribution payload を要求する場合、直接回帰の RT-DETR に付けると構成時に失敗する。能力の一致は組合せの実行可能性を示すだけで、AP の改善や論文再現を保証しない。
 
@@ -444,7 +444,8 @@ clean_rtdetr/
   evaluation/     # COCO evaluator and parity reports
 tests/            # unit, contract, parity, export, training smoke
 benchmarks/       # reproducible benchmark harness and manifests
-examples/         # readable training, inference, export examples
+cli/              # installed training, inference, export command entrypoints
+tools/            # checkout-only developer diagnostics
 experiments/      # research modules, resolved recipes, ablation definitions
 docs/             # paper-to-code map, extension guide, contracts, backend notes, ADRs
 ```

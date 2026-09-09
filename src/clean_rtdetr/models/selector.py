@@ -6,7 +6,7 @@ query reference detach deferred to assembly. See third_party/RT-DETR/README.md.
 """
 
 import math
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 
 import torch
 from jaxtyping import Bool, Float
@@ -14,6 +14,8 @@ from torch import Tensor, nn
 
 from clean_rtdetr.core.contracts import EncodedFeatures, QuerySet, SelectionOutput
 from clean_rtdetr.core.geometry import MAX_PROBABILITY_EPS, generate_anchors
+from clean_rtdetr.models._checkpoint import module_checkpoint_config
+from clean_rtdetr.models.interfaces import Selector
 
 
 @dataclass(frozen=True)
@@ -42,6 +44,7 @@ class BoxHead(nn.Module):
     def __init__(self, hidden_dim: int) -> None:
         """Build the upstream MLP and zero-initialize its final regression layer."""
         super().__init__()
+        self.hidden_dim = hidden_dim
         layers = [
             nn.Linear(hidden_dim, hidden_dim),
             nn.Linear(hidden_dim, hidden_dim),
@@ -57,8 +60,12 @@ class BoxHead(nn.Module):
             values = torch.relu(layer(values))
         return self.layers[-1](values)
 
+    def checkpoint_config(self) -> dict[str, object]:
+        """Record the dimensions used by the fixed three-layer box head."""
+        return {"hidden_dim": self.hidden_dim}
 
-class QuerySelector(nn.Module):
+
+class QuerySelector(Selector):
     """Select top-k encoder positions; keep upstream masking and gradient semantics.
 
     Custom score/box heads are registered as child modules and keep their own
@@ -89,6 +96,21 @@ class QuerySelector(nn.Module):
         )
         if self.tgt_embed is not None:
             nn.init.xavier_uniform_(self.tgt_embed.weight)
+
+    @property
+    def hidden_dim(self) -> int:
+        """Return the feature channel width consumed by the selector."""
+        return self.config.hidden_dim
+
+    @property
+    def num_classes(self) -> int:
+        """Return the number of foreground classes predicted by the selector."""
+        return self.config.num_classes
+
+    @property
+    def num_queries(self) -> int:
+        """Return the number of selected queries."""
+        return self.config.num_queries
 
     def forward(self, features: EncodedFeatures) -> SelectionOutput:
         """Select positions and preserve the separate query/auxiliary gradient routes."""
@@ -140,3 +162,11 @@ class QuerySelector(nn.Module):
             else gather(encoded).detach()
         )
         return SelectionOutput(QuerySet(content, refs, indices), gather(logits), refs.sigmoid())
+
+    def checkpoint_config(self) -> dict[str, object]:
+        """Describe selector dimensions and query initialization settings."""
+        return {
+            "config": asdict(self.config),
+            "score_head": module_checkpoint_config(self.enc_score_head),
+            "box_head": module_checkpoint_config(self.enc_bbox_head),
+        }

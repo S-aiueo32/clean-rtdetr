@@ -17,9 +17,9 @@ from clean_rtdetr.models.decoder import Decoder, DecoderLayer
 from clean_rtdetr.models.encoder import HybridEncoder
 from clean_rtdetr.models.memory import MemoryProjector
 from clean_rtdetr.models.queries import QueryAssembler
-from clean_rtdetr.models.rtdetr import RTDETR
+from clean_rtdetr.models.rtdetr import BaselineRTDETR
 from clean_rtdetr.models.selector import BoxHead, QuerySelector
-from clean_rtdetr.training.model import DenoisingTrainingModel
+from clean_rtdetr.training.denoising.model import DenoisingTrainingModel
 
 
 @dataclass(frozen=True)
@@ -33,7 +33,7 @@ class CheckpointLoadReport:
     synthesized_keys: tuple[str, ...]
 
 
-def _validate_full_model(model: RTDETR) -> None:
+def _validate_full_model(model: BaselineRTDETR) -> None:
     """Restrict whole-checkpoint conversion to the pinned R50vd composition."""
     if not all(
         type(getattr(model, name, None)) is expected
@@ -237,7 +237,7 @@ def load_official_stage_weights(  # noqa: PLR0913
 def load_official_model_weights(  # noqa: C901
     path: str | Path,
     *,
-    model: RTDETR | DenoisingTrainingModel,
+    model: BaselineRTDETR | DenoisingTrainingModel,
     source: Literal["model", "ema"],
     expected_sha256: str,
 ) -> CheckpointLoadReport:

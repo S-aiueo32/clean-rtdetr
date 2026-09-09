@@ -16,8 +16,8 @@ import torch
 from PIL import Image
 from torch import nn
 
-import examples.coco_evaluation as evaluation_cli
-import examples.coco_predictions as predictions_cli
+import clean_rtdetr.cli.coco_evaluate as evaluation_cli
+import clean_rtdetr.cli.coco_predict as predictions_cli
 from clean_rtdetr.compatibility import CheckpointLoadReport
 from clean_rtdetr.core.contracts import DetectionOutput
 from clean_rtdetr.evaluation import coco_predictions
@@ -79,7 +79,7 @@ def test_predictions_cli_writes_subset_json_and_report(
     annotations, images, checkpoint = _prepare(tmp_path)
     output = tmp_path / "nested" / "predictions.json"
     report = tmp_path / "nested" / "report.json"
-    monkeypatch.setattr(predictions_cli, "build_rtdetr_r50vd", FakeModel)
+    monkeypatch.setattr(predictions_cli, "instantiate", lambda _config, **_kwargs: FakeModel())
     monkeypatch.setattr(predictions_cli, "load_official_model_weights", _loader)
     args = _args(
         annotations=annotations,
@@ -106,7 +106,7 @@ def test_predictions_cli_rejects_dimensions_and_escape(
 ) -> None:
     """Reject files whose dimensions disagree or whose names escape the root."""
     annotations, images, checkpoint = _prepare(tmp_path)
-    monkeypatch.setattr(predictions_cli, "build_rtdetr_r50vd", FakeModel)
+    monkeypatch.setattr(predictions_cli, "instantiate", lambda _config, **_kwargs: FakeModel())
     monkeypatch.setattr(predictions_cli, "load_official_model_weights", _loader)
     Image.new("RGB", (99, 100), color="white").save(images / "one.jpg")
     args = _args(

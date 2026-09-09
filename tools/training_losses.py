@@ -4,7 +4,7 @@
 import torch
 
 from clean_rtdetr.core.contracts import DetectionOutput
-from clean_rtdetr.training import DetectionTarget, SetCriterion
+from clean_rtdetr.training import DetectionTarget, HungarianMatcher, SetCriterion
 
 
 def main() -> None:
@@ -20,7 +20,7 @@ def main() -> None:
         ),
         DetectionTarget(torch.empty(0, dtype=torch.int64), torch.empty(0, 4)),
     ]
-    losses = SetCriterion()(predictions, targets)
+    losses = SetCriterion(matcher=HungarianMatcher())(predictions, targets)
     total = torch.stack(list(losses.values())).sum()
     total.backward()
     print({name: float(loss.detach()) for name, loss in losses.items()})

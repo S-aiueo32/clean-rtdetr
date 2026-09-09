@@ -12,7 +12,7 @@ Install image support with `uv sync --locked --extra inference`, then use local
 images, annotations, and the verified official checkpoint:
 
 ```sh
-uv run python examples/coco_predictions.py \
+uv run clean-rtdetr-coco-predict \
   --images datasets/coco/val2017 \
   --annotations datasets/coco/annotations/instances_val2017.json \
   --checkpoint checkpoints/rtdetr_r50vd_6x_coco_from_paddle.pth \
@@ -47,7 +47,7 @@ environment from inference:
 
 ```sh
 uv sync --locked --extra evaluation
-uv run python examples/coco_evaluation.py \
+uv run clean-rtdetr-coco-evaluate \
   --annotations datasets/coco/annotations/instances_val2017.json \
   --predictions outputs/coco-predictions.json \
   --prediction-report outputs/coco-predictions.report.json \

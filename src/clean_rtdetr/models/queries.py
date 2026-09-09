@@ -2,7 +2,6 @@
 """Assemble matching and prepared denoising queries for the decoder."""
 
 import torch
-from torch import nn
 
 from clean_rtdetr.core.contracts import (
     BOX_COORDINATES,
@@ -11,9 +10,10 @@ from clean_rtdetr.core.contracts import (
     DenoisingQueries,
     QuerySet,
 )
+from clean_rtdetr.models.interfaces import Assembler
 
 
-class QueryAssembler(nn.Module):
+class QueryAssembler(Assembler):
     """Concatenate optional DN queries and own the initial reference detach boundary."""
 
     def forward(
@@ -63,3 +63,7 @@ class QueryAssembler(nn.Module):
         )
         assembled.validate()
         return assembled
+
+    def checkpoint_config(self) -> dict[str, object]:
+        """Describe the stateless query assembly boundary."""
+        return {}

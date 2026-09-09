@@ -10,6 +10,7 @@ ONNX export with CPU FP32 runtime parity. Separate COCO prediction JSON and
 optional bbox metric evaluation are implemented. Single-process Hungarian
 matching and Varifocal/L1/GIoU training losses are implemented with CPU parity.
 Contrastive denoising queries, a training wrapper, and DN losses have CPU parity.
+An optional Lightning adapter supports CPU FP32 training and epoch-boundary resume.
 Full training and measured full-dataset COCO AP remain outside the validated scope.
 
 ## Repository guidance
@@ -60,7 +61,7 @@ uv run pytest --cov=clean_rtdetr --cov-report=term-missing
 uv run ruff check .
 uv run ruff format --check .
 uv run ty check
-uv run python examples/query_selection.py
+uv run python tools/query_selection.py
 ```
 
 Ruff and ty configuration lives in `pyproject.toml`. The vendored upstream
