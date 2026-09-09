@@ -1,12 +1,12 @@
 # Copyright 2026 Clean RT-DETR contributors
-"""Contrastive denoising query generation and training composition."""
+"""Training models and their query-generation components."""
 
-from clean_rtdetr_training.denoising.model import DenoisingTrainingModel
-from clean_rtdetr_training.denoising.queries import (
+from clean_rtdetr_training.models.denoising import (
     DenoisingBatch,
     DenoisingConfig,
     DenoisingQueryGenerator,
 )
+from clean_rtdetr_training.models.rtdetr import DenoisingTrainingModel
 
 __all__ = [
     "DenoisingBatch",

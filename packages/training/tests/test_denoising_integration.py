@@ -21,7 +21,7 @@ from clean_rtdetr.core.contracts import (
 )
 from clean_rtdetr.models.decoder import DecoderPlan
 from clean_rtdetr_training import DetectionTarget, HungarianMatcher, SetCriterion
-from clean_rtdetr_training.denoising import (
+from clean_rtdetr_training.models import (
     DenoisingConfig,
     DenoisingQueryGenerator,
     DenoisingTrainingModel,

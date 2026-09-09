@@ -29,9 +29,9 @@ packages/training/src/clean_rtdetr_training/
     criterion.py
     matcher.py
     geometry.py
-  denoising/
-    queries.py
-    model.py
+  models/
+    denoising.py
+    rtdetr.py
   data/
     contracts.py
     synthetic.py
@@ -44,7 +44,9 @@ packages/training/src/clean_rtdetr_training/
     state.py
 ```
 
-`clean_rtdetr_training` の公開 export が組み合わせの入口です。`clean_rtdetr_training.data` と `clean_rtdetr_training.denoising` も initializer から公開型を提供するため、Hydra target は実装ファイル名に依存しません。Lightning 固有のライフサイクルコードは `clean_rtdetr_training.lightning` にあります。
+`clean_rtdetr_training` の公開 export が組み合わせの入口です。`clean_rtdetr_training.data` と `clean_rtdetr_training.models` も initializer から公開型を提供するため、Hydra target は実装ファイル名に依存しません。Lightning 固有のライフサイクルコードは `clean_rtdetr_training.lightning` にあります。
+
+学習用モデル部品は `models/` に置き、`denoising.py` が DN query を生成し、`rtdetr.py` が detector と generator を組み合わせます。旧 `clean_rtdetr_training.denoising` の import 先は `clean_rtdetr_training.models` に変更しました。パッケージ直下の公開名と Hydra target、tensor の state dict key は維持します。ただし、Lightning の resume は実装モジュール名も照合するため、移動前に保存した checkpoint は再開時に拒否されます。
 
 ```python
 from clean_rtdetr_training import DetectionTarget, HungarianMatcher, SetCriterion

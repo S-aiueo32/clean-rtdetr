@@ -12,9 +12,10 @@ from clean_rtdetr_training.contracts import DetectionTarget
 from clean_rtdetr_training.interfaces import DenoisingGenerator, TrainingModel
 
 
-class DenoisingTrainingModel[DetectorT: Detector, DenoisingT: DenoisingGenerator](
-    TrainingModel[ModelOutput]
-):
+class DenoisingTrainingModel[
+    DetectorT: Detector,
+    DenoisingT: DenoisingGenerator,
+](TrainingModel[ModelOutput]):
     """Register a detector and DN generator together for optimizers and state dicts."""
 
     def __init__(self, model: DetectorT, denoising: DenoisingT) -> None:

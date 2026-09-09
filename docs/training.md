@@ -35,9 +35,9 @@ packages/training/src/clean_rtdetr_training/
     criterion.py
     matcher.py
     geometry.py
-  denoising/
-    queries.py
-    model.py
+  models/
+    denoising.py
+    rtdetr.py
   data/
     contracts.py
     synthetic.py
@@ -51,10 +51,17 @@ packages/training/src/clean_rtdetr_training/
 ```
 
 The `clean_rtdetr_training` public exports are the composition entry point.
-`clean_rtdetr_training.data` and `clean_rtdetr_training.denoising` also expose
+`clean_rtdetr_training.data` and `clean_rtdetr_training.models` also expose
 their public types from their package initializers, so Hydra targets do not
 depend on implementation filenames. Lightning-specific lifecycle code stays in
 `clean_rtdetr_training.lightning`.
+
+Training model components live in `models/`: `denoising.py` builds DN queries,
+and `rtdetr.py` composes the detector and generator. Imports formerly under
+`clean_rtdetr_training.denoising` now use `clean_rtdetr_training.models`;
+package-root exports and Hydra targets remain unchanged. Tensor state-dict keys
+are unchanged, but Lightning resume rejects checkpoints saved before this move
+because the recorded implementation module paths differ.
 
 ```python
 from clean_rtdetr_training import DetectionTarget, HungarianMatcher, SetCriterion

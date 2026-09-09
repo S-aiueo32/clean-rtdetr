@@ -11,7 +11,7 @@ import torch
 from denoising_oracle import denoising_oracle
 
 from clean_rtdetr_training.contracts import DetectionTarget
-from clean_rtdetr_training.denoising import DenoisingConfig, DenoisingQueryGenerator
+from clean_rtdetr_training.models import DenoisingConfig, DenoisingQueryGenerator
 
 TWO_GROUPS = 2
 EIGHT_DN_QUERIES = 8
