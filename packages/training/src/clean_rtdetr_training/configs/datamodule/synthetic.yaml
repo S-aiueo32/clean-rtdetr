@@ -1,0 +1,15 @@
+_target_: clean_rtdetr_training.lightning.DetectionDataModule
+dataset_factory:
+  _target_: clean_rtdetr_training.data.SyntheticDetectionDataset
+  _partial_: true
+  image_size: 64
+  num_classes: ${dimensions.num_classes}
+dataloader_factory:
+  _target_: torch.utils.data.DataLoader
+  _partial_: true
+  batch_size: 2
+  shuffle: true
+  num_workers: 0
+  collate_fn:
+    _target_: clean_rtdetr_training.data.collate_detection_batch
+    _partial_: true

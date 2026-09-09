@@ -2,8 +2,8 @@
 """Compare clean stages with a pinned official RT-DETR checkpoint.
 
 Run from the repository root after obtaining the official checkpoint.  The
-oracle is intentionally imported from ``tests`` so it cannot become installed
-package code or silently replace the clean implementation.
+oracle is intentionally imported from ``packages/core/tests`` so it cannot
+become installed package code or silently replace the clean implementation.
 """
 
 from __future__ import annotations
@@ -19,11 +19,22 @@ from typing import Any, Literal, cast
 
 import torch
 
-# Direct script execution puts tools/ on sys.path; the parity-only oracle
-# lives in the repository's tests/ package rather than the installed library.
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+# Direct script execution puts tools/ on sys.path; the parity-only oracle lives
+# in the core package's tests rather than the installed library.
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPOSITORY_ROOT / "packages/core/tests"))
 
-from hydra.utils import instantiate
+from official_oracle import (
+    BACKBONE_COMMON_SHA256,
+    HYBRID_ENCODER_SHA256,
+    PRESNET_SHA256,
+    UPSTREAM_COMMIT,
+    UTILS_SHA256,
+    backbone_oracle,
+    full_transformer_oracle,
+    hybrid_encoder_oracle,
+)
+from oracle import SHA256 as DECODER_ORACLE_SHA256
 
 from clean_rtdetr import (
     Decoder,
@@ -34,28 +45,17 @@ from clean_rtdetr import (
     QueryAssembler,
     QuerySelector,
     QuerySelectorConfig,
+    rtdetr_r50vd,
 )
 from clean_rtdetr.compatibility import load_official_model_weights, load_official_stage_weights
-from clean_rtdetr.configuration import compose_model_config
-from tests.official_oracle import (
-    BACKBONE_COMMON_SHA256,
-    HYBRID_ENCODER_SHA256,
-    PRESNET_SHA256,
-    UPSTREAM_COMMIT,
-    UTILS_SHA256,
-    backbone_oracle,
-    full_transformer_oracle,
-    hybrid_encoder_oracle,
-)
-from tests.oracle import SHA256 as DECODER_ORACLE_SHA256
 
 SEED = 41
 ATOL = 1e-5
 RTOL = 1e-4
 IMPLEMENTATION_PATHS = (
     "tools/checkpoint_parity.py",
-    "tests/oracle.py",
-    "tests/official_oracle.py",
+    "packages/core/tests/oracle.py",
+    "packages/core/tests/official_oracle.py",
 )
 
 
@@ -81,7 +81,7 @@ def _worktree_dirty() -> bool:
 def _implementation_hashes() -> dict[str, str]:
     """Hash implementation and oracle sources included in a parity run."""
     paths = [
-        *Path("src/clean_rtdetr").rglob("*.py"),
+        *Path("packages/core/src/clean_rtdetr").rglob("*.py"),
         *(Path(path) for path in IMPLEMENTATION_PATHS),
     ]
     return {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in sorted(paths)}
@@ -246,7 +246,7 @@ def _run_full_model(  # noqa: C901, PLR0915
 ) -> dict[str, object]:
     """Compare the composed image-to-prediction model with independent upstream stages."""
     torch.manual_seed(SEED)
-    model = instantiate(compose_model_config("r50vd"), _convert_="all").eval()
+    model = rtdetr_r50vd().eval()
     report = load_official_model_weights(
         checkpoint,
         model=model,

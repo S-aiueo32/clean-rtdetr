@@ -1,0 +1,65 @@
+[build-system]
+requires = ["hatchling>=1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "clean-rtdetr-training"
+version = "0.1.0.dev0"
+description = "Training components and Lightning adapter for Clean RT-DETR"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+keywords = ["lightning", "object-detection", "pytorch", "rtdetr"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Typing :: Typed",
+]
+requires-python = ">=3.13"
+dependencies = [
+    "clean-rtdetr==0.1.0.dev0",
+    "hydra-core>=1.3,<1.4",
+    "jaxtyping>=0.3,<1",
+    "lightning>=2.6,<3",
+    "scipy>=1.15,<2",
+    "torch>=2.6,<3",
+    "typer>=0.16,<1",
+]
+
+[project.urls]
+Homepage = "https://github.com/S-aiueo32/clean-rtdetr"
+Documentation = "https://github.com/S-aiueo32/clean-rtdetr/blob/main/docs/training.md"
+Repository = "https://github.com/S-aiueo32/clean-rtdetr"
+Issues = "https://github.com/S-aiueo32/clean-rtdetr/issues"
+License = "https://github.com/S-aiueo32/clean-rtdetr/blob/main/LICENSE"
+
+[project.scripts]
+clean-rtdetr-train = "clean_rtdetr_training.cli:main"
+
+[dependency-groups]
+dev = [
+    "beartype>=0.20,<1",
+    "pytest>=8,<10",
+    "pytest-cov>=6,<8",
+]
+
+[tool.uv.sources]
+clean-rtdetr = { workspace = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/clean_rtdetr_training"]
+
+[tool.hatch.build.targets.sdist]
+exclude = ["/tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = [
+    "-ra",
+    "--jaxtyping-packages=clean_rtdetr,clean_rtdetr_training,beartype.beartype",
+]
