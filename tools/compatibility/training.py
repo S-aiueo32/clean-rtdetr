@@ -11,9 +11,9 @@ import torch
 from jaxtyping import Shaped
 from torch import Tensor
 
-from clean_rtdetr.compatibility import CheckpointLoadReport, load_official_model_weights
 from clean_rtdetr.models.rtdetr import BaselineRTDETR
 from clean_rtdetr_training.denoising import DenoisingQueryGenerator, DenoisingTrainingModel
+from tools.compatibility import CheckpointLoadReport, load_official_model_weights
 
 _DN_SOURCE_KEY = "decoder.denoising_class_embed.weight"
 _DN_TARGET_KEY = "class_embed.weight"

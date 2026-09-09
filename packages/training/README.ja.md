@@ -48,4 +48,12 @@ total_loss.backward()
 
 Python API は `clean_rtdetr_training` から公開されています。対応する `clean-rtdetr` リリースに依存し、export パッケージはインストールしません。`clean_rtdetr.training` の互換性 shim も提供しません。
 
+公式 training weight のロードは checkout 専用の
+`tools.compatibility.training.load_official_training_weights` で行います。
+公式 envelope を training wrapper にロードした後、
+`training_model.state_dict()` を `torch.save` で保存します。パッケージで
+使う場合は、その native state dict を `clean_rtdetr.checkpoint.load_model_weights` でロードします。
+SHA-256 は任意で検証できます。公式重みは
+初期化用であり、Lightning の resume checkpoint ではありません。
+
 Clean RT-DETR は Apache-2.0 ライセンスで、コミット `068dfde65f2667ad6555883c69d73de886518cad` の `lyuwenyu/RT-DETR` を基にしています。ワークスペースのルートには upstream のソース、ライセンス、詳細な来歴が保持されています。

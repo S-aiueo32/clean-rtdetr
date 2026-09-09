@@ -1,5 +1,5 @@
 # Copyright 2026 Clean RT-DETR contributors
-"""Create local COCO-format predictions with verified RT-DETR inference."""
+"""Create local COCO-format predictions with native RT-DETR weights."""
 
 from __future__ import annotations
 
@@ -11,14 +11,14 @@ import subprocess
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
-from typing import Annotated, Any, Literal, cast
+from typing import Annotated, Any
 
 import torch
 import typer
 from PIL import Image
 
 from clean_rtdetr import DecoderPlan, rtdetr_r50vd
-from clean_rtdetr.compatibility import load_official_model_weights
+from clean_rtdetr.checkpoint import load_model_weights
 from clean_rtdetr.evaluation import CocoPrediction, coco_predictions, load_coco_images
 from clean_rtdetr.inference import postprocess, preprocess_images
 
@@ -62,8 +62,7 @@ def _positive(value: str | int | None) -> int | None:
 def _provenance(  # noqa: PLR0913, PLR0917
     annotations: Path,
     checkpoint: Path,
-    expected_sha256: str,
-    source: str,
+    expected_sha256: str | None,
     image_digest: list[dict[str, object]],
     selected_ids: list[int],
     total_count: int,
@@ -78,7 +77,7 @@ def _provenance(  # noqa: PLR0913, PLR0917
             "path": str(checkpoint),
             "sha256": _hash(checkpoint),
             "expected_sha256": expected_sha256,
-            "source": source,
+            "format": "state_dict",
         },
         "annotations": {"path": str(annotations), "sha256": _hash(annotations)},
         "input_images": {
@@ -114,8 +113,7 @@ class _PredictionCommandArgs:
     images: Path
     annotations: Path
     checkpoint: Path
-    source: str
-    expected_sha256: str
+    expected_sha256: str | None
     output: Path
     report: Path | None
     limit: int | None
@@ -159,12 +157,7 @@ def run(args: Any) -> dict[str, object]:  # noqa: ANN401
     predictions: list[CocoPrediction] = []
     torch.set_num_threads(4)
     model = rtdetr_r50vd().eval()
-    load_official_model_weights(
-        checkpoint,
-        model=model,
-        source=cast("Literal['model', 'ema']", args.source),
-        expected_sha256=args.expected_sha256,
-    )
+    load_model_weights(checkpoint, model=model, expected_sha256=args.expected_sha256)
     model.to(args.device)
     for record in selected:
         image_path = (root / record.file_name).resolve()
@@ -197,7 +190,6 @@ def run(args: Any) -> dict[str, object]:  # noqa: ANN401
             annotations,
             checkpoint,
             args.expected_sha256,
-            args.source,
             image_digest,
             selected_ids,
             len(records),
@@ -215,10 +207,11 @@ app = typer.Typer(add_completion=False, help=__doc__)
 def predict(  # noqa: PLR0913, PLR0917
     images: Annotated[Path, typer.Option(help="COCO image directory.")],
     annotations: Annotated[Path, typer.Option(help="COCO annotation JSON.")],
-    checkpoint: Annotated[Path, typer.Option(help="Official checkpoint path.")],
-    source: Annotated[Literal["model", "ema"], typer.Option(help="Checkpoint source.")],
-    expected_sha256: Annotated[str, typer.Option(help="Expected checkpoint SHA-256.")],
+    checkpoint: Annotated[Path, typer.Option(help="Native state_dict checkpoint path.")],
     output: Annotated[Path, typer.Option(help="Prediction JSON output path.")],
+    expected_sha256: Annotated[
+        str | None, typer.Option(help="Optional expected checkpoint SHA-256 to verify.")
+    ] = None,
     report: Annotated[Path | None, typer.Option(help="Optional provenance report path.")] = None,
     limit: Annotated[int | None, typer.Option(callback=_positive)] = None,
     device: Annotated[str, typer.Option(help="Torch device.")] = "cpu",
@@ -228,7 +221,6 @@ def predict(  # noqa: PLR0913, PLR0917
         images=images,
         annotations=annotations,
         checkpoint=checkpoint,
-        source=source,
         expected_sha256=expected_sha256,
         output=output,
         report=report,

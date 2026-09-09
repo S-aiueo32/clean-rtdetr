@@ -31,6 +31,9 @@ Python 3.13 と 3.14 をサポートし、ローカル開発の既定値は 3.14
 uv sync --all-packages
 ```
 
+core の基本配布物には内部実装の `clean-rtdetr-convert` CLI が含まれ、checkpoint
+変換だけなら Pillow、export、training の依存関係は必要ありません。インストール済みの公開 surface には compatibility API を提供せず、全体・stage・training の互換性ヘルパーは checkout 専用の `tools.compatibility` にあります。
+
 各チェックアウトで一度、リポジトリのフックをインストールします。
 
 ```sh

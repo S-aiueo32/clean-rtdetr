@@ -103,7 +103,16 @@ wrapper は detector と学習可能な `denoising.class_embed` を一緒に所�
 
 DN 損失キーは保持された各 layer（final を含む）の `loss_vfl_dn_i`、`loss_bbox_dn_i`、`loss_giou_dn_i` です。既知の positive target slot を使い、`max(total targets, 1) * G` で正規化し、Hungarian matching は行いません。negative と padding slot には negative classification supervision を与えます。全 layer の supervision には既定 decoder plan を使います。構築が `None` のとき DN key は返しません。
 
-`clean_rtdetr_training.compatibility` の `load_official_training_weights(..., model=training_model, ...)` は、パラメータ変更前に公式 DN embedding と detector を検証・ロードします。core inference loader はその embedding を引き続き除外します。これは重みのロードだけなので、再開可能な学習には [Lightning アダプター](lightning.md) を使います。
+公式互換ローダーは checkout 専用です。元の公式 envelope に明示的な
+`source="model"` または `source="ema"` と期待 SHA-256 を指定して、
+`tools.compatibility.training.load_official_training_weights(...,
+model=training_model, ...)` を使います。パッケージで使う場合は初期化済み
+wrapper の native state dict を `torch.save(training_model.state_dict(), path)`
+で保存し、`clean_rtdetr.checkpoint.load_model_weights(path,
+model=training_model, expected_sha256=...)` でロードします。converter は
+推論専用で、training wrapper の checkpoint は作りません。これは重みの
+ロードだけなので、再開可能な学習には [Lightning アダプター](lightning.md)
+を使います。
 
 <a id="validation-scope"></a>
 

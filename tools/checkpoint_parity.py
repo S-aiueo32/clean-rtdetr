@@ -22,6 +22,7 @@ import torch
 # Direct script execution puts tools/ on sys.path; the parity-only oracle lives
 # in the core package's tests rather than the installed library.
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPOSITORY_ROOT))
 sys.path.insert(0, str(REPOSITORY_ROOT / "packages/core/tests"))
 
 from official_oracle import (
@@ -47,7 +48,7 @@ from clean_rtdetr import (
     QuerySelectorConfig,
     rtdetr_r50vd,
 )
-from clean_rtdetr.compatibility import load_official_model_weights, load_official_stage_weights
+from tools.compatibility import load_official_model_weights, load_official_stage_weights
 
 SEED = 41
 ATOL = 1e-5
@@ -82,6 +83,7 @@ def _implementation_hashes() -> dict[str, str]:
     """Hash implementation and oracle sources included in a parity run."""
     paths = [
         *Path("packages/core/src/clean_rtdetr").rglob("*.py"),
+        *Path("tools/compatibility").rglob("*.py"),
         *(Path(path) for path in IMPLEMENTATION_PATHS),
     ]
     return {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in sorted(paths)}

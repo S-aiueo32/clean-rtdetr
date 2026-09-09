@@ -8,7 +8,7 @@
 python -m pip install clean-rtdetr-export
 ```
 
-検証済み export プロファイルは、batch 1、RGB float32 入力 `[1, 3, 640, 640]`、CPU 実行、ONNX opset 18、logits `[1, 300, 80]` と正規化 cxcywh boxes `[1, 300, 4]` の raw 出力です。検証済みプロファイルでは exporter とランタイムのグラフ最適化を無効にします。export CLI にはローカルの公式チェックポイントと期待される SHA-256 が必要で、重みをダウンロードすることはありません。動的形状、TensorRT、AP、レイテンシは検証済み範囲外です。
+検証済み export プロファイルは、batch 1、RGB float32 入力 `[1, 3, 640, 640]`、CPU 実行、ONNX opset 18、logits `[1, 300, 80]` と正規化 cxcywh boxes `[1, 300, 4]` の raw 出力です。検証済みプロファイルでは exporter とランタイムのグラフ最適化を無効にします。export CLI にはローカルの変換済み native state_dict と期待される SHA-256 が必要で、重みをダウンロードすることはありません。公式 envelope は `clean-rtdetr-convert` で変換します（[推論ガイド](../../docs/ja/inference.md)）。動的形状、TensorRT、AP、レイテンシは検証済み範囲外です。
 
 ソースから開発する場合は次を実行します。
 
@@ -24,9 +24,7 @@ uv run pytest packages/export/tests
 
 ```sh
 uv run clean-rtdetr-export \
-  --checkpoint checkpoints/rtdetr_r50vd_6x_coco_from_paddle.pth \
-  --source ema \
-  --expected-sha256 dfaafa5a3d29958a360c35f1fad553a6f287bfae9967e8ee007e65cff21ddf45 \
+  --checkpoint checkpoints/rtdetr_r50vd.pth \
   --output outputs/rtdetr.onnx
 ```
 

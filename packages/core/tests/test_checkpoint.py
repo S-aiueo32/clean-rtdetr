@@ -19,7 +19,7 @@ from clean_rtdetr import (
     QuerySelector,
     QuerySelectorConfig,
 )
-from clean_rtdetr.compatibility import (
+from tools.compatibility import (
     CheckpointLoadReport,
     load_official_model_weights,
     load_official_stage_weights,

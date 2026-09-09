@@ -57,6 +57,14 @@ The Python API is exposed from `clean_rtdetr_training`; it depends on the
 matching `clean-rtdetr` release and does not install the export package. It
 does not provide a `clean_rtdetr.training` compatibility shim.
 
+Official training-weight loading is a checkout-only operation through
+`tools.compatibility.training.load_official_training_weights`. After loading an
+official envelope into a training wrapper, save
+`training_model.state_dict()` with `torch.save`; packaged workflows load that
+native state dict with `clean_rtdetr.checkpoint.load_model_weights`; its
+SHA-256 can be checked optionally. Official weights are initialization, not Lightning resume
+checkpoints.
+
 Clean RT-DETR is Apache-2.0 licensed and is based on `lyuwenyu/RT-DETR` at
 commit `068dfde65f2667ad6555883c69d73de886518cad`; the workspace root retains
 the upstream source, license, and detailed provenance.

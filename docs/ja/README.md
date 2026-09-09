@@ -34,7 +34,7 @@ evaluation extra は任意であり、`--all-packages` には含まれません�
 - [学習損失](training.md): ターゲット形式、Hungarian マッチング、重み付き損失、ノイズ除去クエリ、勾配と一致検証の保証範囲。
 - [Lightning による学習](lightning.md): 合成データの学習、Hydra 設定、オプティマイザと EMA の状態、エポック境界での再開。
 
-画像推論とチェックポイントを使ったエクスポートには、ローカルの公式重みが必要です。
+画像推論とチェックポイントを使ったエクスポートには、ローカルの変換済み native state dict が必要です。インストールした `clean-rtdetr` パッケージには、固定された公式 R50vd envelope 用の `clean-rtdetr-convert` コマンドが含まれます。全体・stage・training の互換性作業には checkout 専用の `tools.compatibility` ヘルパーを使います。公式 envelope の変換手順は [推論](inference.md) を参照してください。
 COCO 予測には画像とアノテーションも必要です。各コマンドはこれらをダウンロードしません。
 チェックポイントの来歴は[ベースラインのメタデータ](../../benchmarks/baseline.json)に記録しています。
 

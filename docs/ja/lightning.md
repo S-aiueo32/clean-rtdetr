@@ -130,7 +130,7 @@ Lightning は model、optimizer、scheduler、epoch、global step、loop progres
 
 再開には同じ dataset、batch size、sampler 設定、transform、software/runtime 環境が必要です。これらは呼び出し元の責任であり、任意の dataset object や private augmentation generator は serialize されません。worker RNG、stateful streaming dataset、world size の変更は検証対象外です。全 state を持つ完了済み epoch checkpoint を優先してください。重みだけのロードは optimizer history を引き継ぐ continuation ではなく初期化です。
 
-baseline wrapper では live detector は `module.training_model.model` にあります。fit 後、`ema.module` は evaluation mode の別 EMA wrapper を保持します。どちらも通常の PyTorch module なので inference に Lightning Trainer は不要です。`clean_rtdetr_training.compatibility.load_official_training_weights` は Lightning adapter 構築前に `training_model` を初期化できますが、公式重みは Lightning resume checkpoint ではありません。
+baseline wrapper では live detector は `module.training_model.model` にあります。fit 後、`ema.module` は evaluation mode の別 EMA wrapper を保持します。どちらも通常の PyTorch module なので inference に Lightning Trainer は不要です。checkout 専用の `tools.compatibility.training.load_official_training_weights` は Lightning adapter 構築前に `training_model` を初期化できます。パッケージで使う場合は `training_model.state_dict()` を `torch.save` で保存し、core の native loader `clean_rtdetr.checkpoint.load_model_weights` で読み込みます。公式 envelope の converter は推論専用で、公式重みは Lightning resume checkpoint ではありません。
 
 <a id="validation"></a>
 

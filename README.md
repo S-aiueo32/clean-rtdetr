@@ -29,8 +29,10 @@ decoder logits: (2, 20, 80)
 decoder boxes: (2, 20, 4)
 ```
 
-For detections on a real image, follow the [inference guide](docs/inference.md)
-with a local official checkpoint. Random weights only demonstrate the API.
+For detections on a real image, install `clean-rtdetr[inference]` and follow the
+[inference guide](docs/inference.md) to download and convert the pinned official
+checkpoint, then load the resulting native state dict. Random weights only
+demonstrate the API.
 
 ## Documentation
 

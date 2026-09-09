@@ -13,9 +13,11 @@ python -m pip install clean-rtdetr-export
 The validated export profile is batch 1, RGB float32 input `[1, 3, 640, 640]`,
 CPU execution, ONNX opset 18, and raw outputs of logits `[1, 300, 80]` and
 normalized cxcywh boxes `[1, 300, 4]`. Exporter and runtime graph optimizations
-are disabled in the validated profile. The export CLI requires a local official
-checkpoint and its expected SHA-256; it does not download weights. Dynamic
-shapes, TensorRT, AP, and latency are outside the validated scope.
+are disabled in the validated profile. The export CLI requires a local converted
+native state-dict checkpoint and optionally validates its SHA-256; it does not
+download weights. Download and convert an official envelope with the
+`clean-rtdetr-convert` command documented in the [inference guide](../../docs/inference.md).
+Dynamic shapes, TensorRT, AP, and latency are outside the validated scope.
 
 For development from source:
 
@@ -31,9 +33,7 @@ Export a checkpoint and write the verification report with:
 
 ```sh
 uv run clean-rtdetr-export \
-  --checkpoint checkpoints/rtdetr_r50vd_6x_coco_from_paddle.pth \
-  --source ema \
-  --expected-sha256 dfaafa5a3d29958a360c35f1fad553a6f287bfae9967e8ee007e65cff21ddf45 \
+  --checkpoint checkpoints/rtdetr_r50vd.pth \
   --output outputs/rtdetr.onnx
 ```
 

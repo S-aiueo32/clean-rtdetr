@@ -24,6 +24,7 @@ no-build-package = ["pycocotools"]
 members = ["packages/*"]
 
 [tool.pytest.ini_options]
+pythonpath = ["."]
 testpaths = ["packages/core/tests", "packages/export/tests", "packages/training/tests"]
 addopts = [
     "-ra",
@@ -55,6 +56,7 @@ known-first-party = ["clean_rtdetr", "clean_rtdetr_export", "clean_rtdetr_traini
 "packages/*/src/*/cli.py" = ["T201"]
 "packages/*/src/*/cli/**" = ["T201"]
 "tools/**" = ["T201"]
+"tools/compatibility/**" = ["F722"]
 "tools/checkpoint_parity.py" = ["E402", "T201"]
 
 [tool.ty.src]

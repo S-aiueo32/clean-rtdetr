@@ -166,11 +166,16 @@ Negative and padding slots receive negative classification supervision. Use the
 default decoder plan to supervise every layer. No DN keys are returned when
 construction returns `None`.
 
-`load_official_training_weights(..., model=training_model, ...)` from
-`clean_rtdetr_training.compatibility` validates and loads the official DN
-embedding along with the detector before mutating any parameters. The core
-inference loader continues to exclude that embedding. This loads weights only;
-use the [Lightning adapter](lightning.md) for resumable training.
+Official compatibility loading is checkout-only. Use
+`tools.compatibility.training.load_official_training_weights(...,
+model=training_model, ...)` with the original official envelope, explicit
+`source="model"` or `source="ema"`, and its expected SHA-256. For packaged use,
+save the initialized wrapper's native state dict with
+`torch.save(training_model.state_dict(), path)` and load it with
+`clean_rtdetr.checkpoint.load_model_weights(path, model=training_model,
+expected_sha256=...)`. The converter is inference-only and does not create a
+training wrapper checkpoint. This loads weights only; use the [Lightning
+adapter](lightning.md) for resumable training.
 
 ## Validation scope
 

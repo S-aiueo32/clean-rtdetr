@@ -21,6 +21,11 @@ Full training and measured full-dataset COCO AP remain outside the validated sco
 - Put each package's regression and parity tests under its own
   `packages/<member>/tests` directory.
 - Keep upstream-derived code and provenance under `third_party/RT-DETR`.
+- Bundle official inference-weight conversion as a private implementation of the
+  core `clean-rtdetr-convert` CLI; do not expose a public compatibility API.
+  Keep stage-parity and training compatibility helpers in checkout-only
+  `tools/compatibility`. Packaged code must not depend on checkout tools or metadata.
+  Prediction and export CLIs load native state dictionaries.
 - Preserve tensor contracts, validation behavior, and upstream parity semantics
   when changing model stages.
 - Do not claim complete detector, AP, latency, checkpoint, or export support
