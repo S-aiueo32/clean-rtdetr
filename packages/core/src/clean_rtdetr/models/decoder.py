@@ -16,8 +16,8 @@ from jaxtyping import Bool, Float, Int64
 from torch import Tensor, nn
 from torch.nn import functional
 
-from clean_rtdetr.core.contracts import DecoderInput, DecoderOutput, DecoderPlan, EncodedFeatures
-from clean_rtdetr.core.geometry import inverse_sigmoid
+from clean_rtdetr.contracts import DecoderInput, DecoderOutput, DecoderPlan, EncodedFeatures
+from clean_rtdetr.geometry import inverse_sigmoid
 from clean_rtdetr.models._checkpoint import module_checkpoint_config
 from clean_rtdetr.models.attention import MultiScaleDeformableAttention
 from clean_rtdetr.models.interfaces import Decoder as DecoderInterface

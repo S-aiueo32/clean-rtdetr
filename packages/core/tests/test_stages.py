@@ -17,8 +17,8 @@ from clean_rtdetr import (
     QuerySelector,
     QuerySelectorConfig,
 )
-from clean_rtdetr.core.contracts import EncodedFeatures
-from clean_rtdetr.core.geometry import generate_anchors, inverse_sigmoid
+from clean_rtdetr.contracts import EncodedFeatures
+from clean_rtdetr.geometry import generate_anchors, inverse_sigmoid
 from clean_rtdetr.models.selector import BoxHead
 
 

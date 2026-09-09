@@ -21,6 +21,22 @@ score head は `[B,S,K]` の logits を、box head は `[B,S,4]` の座標 delta
 互換性のない出力 shape はエラーになります。この例は研究用のアーキテクチャ変更であり、
 デフォルトで parity を保つ置き換えではありません。
 
+## 共有する契約と geometry
+
+共有するテンソルのデータ構造と検証は `clean_rtdetr.contracts`、
+anchor 生成と座標変換は `clean_rtdetr.geometry` に置きます。
+モデルの各ステージの実装と interface は `clean_rtdetr.models` に置きます。
+
+```python
+from clean_rtdetr.contracts import DecoderPlan, EncodedFeatures
+from clean_rtdetr.geometry import generate_anchors, inverse_sigmoid
+```
+
+`clean_rtdetr.core.contracts` と `clean_rtdetr.core.geometry` からの import は、
+上記のパスへ変更してください。`clean_rtdetr.core` サブパッケージは削除しました。
+`from clean_rtdetr import DecoderPlan` など、既存のパッケージ直下からの import は維持します。
+テンソルの state dict key と計算処理は変わりません。
+
 ## 型パラメータと型エイリアス
 
 ジェネリックなクラス・関数と型エイリアスには

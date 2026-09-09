@@ -130,9 +130,9 @@ Deployment backends
   Transformed module -> PyTorch runtime
 ```
 
-図の矢印は計算・変換の流れを示す。コードの依存は `backends → transforms / export → models / core` の一方向とする。変換層は reference module とその重みを受け取り、contract、profile、検証 fixture を使って deployment 用 module を作る。初版では独自の汎用 IR を新設せず、PyTorch module と Tensor-only export schema を使う。backend 固有 object や plugin handle は core に逆流させない。
+図の矢印は計算・変換の流れを示す。コードの依存は `backends → transforms / export → models / contracts / geometry` の一方向とする。変換層は reference module とその重みを受け取り、contract、profile、検証 fixture を使って deployment 用 module を作る。初版では独自の汎用 IR を新設せず、PyTorch module と Tensor-only export schema を使う。backend 固有 object や plugin handle は core package に逆流させない。
 
-図中の query / decoder 経路は RT-DETR baseline の例である。研究拡張は三層に並ぶ第四の変換層ではなく、Reference 層を組み立てる仕組みとする。`variants/` と `methods/` は共通 contract に依存し、`core/` と baseline は個別の論文名を知らない。
+図中の query / decoder 経路は RT-DETR baseline の例である。研究拡張は三層に並ぶ第四の変換層ではなく、Reference 層を組み立てる仕組みとする。`variants/` と `methods/` は共通 contract に依存し、`contracts.py`・`geometry.py` と baseline は個別の論文名を知らない。
 
 ### 4.1 Reference implementation
 
@@ -441,6 +441,9 @@ packages/
   core/
     pyproject.toml
     src/clean_rtdetr/                     # model, inference, and evaluation
+      contracts.py                       # shared tensor contracts and validation
+      geometry.py                        # shared anchors and coordinate transforms
+      models/                            # concrete model stages and their interfaces
     tests/
   export/
     pyproject.toml
@@ -466,7 +469,7 @@ distribution が所有し、core の import・推論環境へ流入させない�
 所有する。public namespace は `clean_rtdetr`、`clean_rtdetr_export`、
 `clean_rtdetr_training` とし、旧 subpackage への shim は置かない。
 
-`core/` は contract と geometry など小さな共通処理に限る。各 component の具体的な計算は `models/` に残し、汎用化のための registry や独自 graph framework を追加しない。公式コードを移植する箇所は元の license と attribution を保持する。
+共有する tensor contract と検証は `clean_rtdetr/contracts.py`、anchor 生成と座標変換は `clean_rtdetr/geometry.py` に置く。`packages/core` は distribution の配置を表し、Python namespace 内には同名の `core/` を重ねない。各 component の具体的な計算は `models/` に残し、汎用化のための registry や独自 graph framework を追加しない。公式コードを移植する箇所は元の license と attribution を保持する。
 
 `variants/` は推論構成、`methods/` は学習方式、`experiments/` はそれらの組合せと研究固有コードを置く。研究者は外部 package を import して同じ factory 引数へ渡すこともできる。teacher 用 SDK などの optional dependency は利用する method だけが要求し、baseline の import / 推論には要求しない。
 

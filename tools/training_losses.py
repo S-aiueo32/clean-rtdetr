@@ -3,7 +3,7 @@
 
 import torch
 
-from clean_rtdetr.core.contracts import DetectionOutput
+from clean_rtdetr.contracts import DetectionOutput
 from clean_rtdetr_training import DetectionTarget, HungarianMatcher, SetCriterion
 
 

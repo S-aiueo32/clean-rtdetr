@@ -14,7 +14,7 @@ import torch
 from jaxtyping import Float, Int64, Shaped
 from torch import Tensor
 
-from clean_rtdetr.core.contracts import DetectionOutput
+from clean_rtdetr.contracts import DetectionOutput
 
 LOGITS_RANK = 3
 BOX_RANK = 3

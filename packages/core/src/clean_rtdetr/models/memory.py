@@ -16,7 +16,7 @@ from torch import Tensor, nn
 if TYPE_CHECKING:
     from jaxtyping import Float, Int64
 
-from clean_rtdetr.core.contracts import EncodedFeatures, FeatureSpec, MultiScaleFeatures
+from clean_rtdetr.contracts import EncodedFeatures, FeatureSpec, MultiScaleFeatures
 from clean_rtdetr.models.interfaces import Projector
 
 

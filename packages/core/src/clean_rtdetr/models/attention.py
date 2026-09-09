@@ -12,7 +12,7 @@ from jaxtyping import Float, Int64
 from torch import Tensor, nn
 from torch.nn import functional
 
-from clean_rtdetr.core.contracts import BOX_COORDINATES, SPATIAL_DIMENSIONS
+from clean_rtdetr.contracts import BOX_COORDINATES, SPATIAL_DIMENSIONS
 
 
 def deformable_attention_core(

@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 import pytest
 import torch
 
-from clean_rtdetr.core.contracts import DecoderOutput, DetectionOutput, ModelOutput
+from clean_rtdetr.contracts import DecoderOutput, DetectionOutput, ModelOutput
 from clean_rtdetr_training import (
     CriterionConfig,
     DetectionTarget,
@@ -140,7 +140,7 @@ import sys
 import torch
 sys.modules['scipy'] = None
 sys.modules['scipy.optimize'] = None
-from clean_rtdetr.core.contracts import DetectionOutput
+from clean_rtdetr.contracts import DetectionOutput
 from clean_rtdetr_training import DetectionTarget, HungarianMatcher, SetCriterion
 output = DetectionOutput(torch.zeros(1, 2, 3, requires_grad=True),
                          torch.zeros(1, 2, 4, requires_grad=True))

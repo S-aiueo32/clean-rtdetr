@@ -8,7 +8,7 @@ import torch
 from jaxtyping import Bool, Float, Float32, Int64
 from torch import Tensor, nn
 
-from clean_rtdetr.core.geometry import generate_anchors
+from clean_rtdetr.geometry import generate_anchors
 from clean_rtdetr.models.attention import MultiScaleDeformableAttention
 from clean_rtdetr.models.decoder import Decoder, DecoderLayer, DecoderPlan
 from clean_rtdetr.models.rtdetr import RTDETR, BaselineRTDETR

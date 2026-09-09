@@ -19,7 +19,7 @@ import torch
 from torch import Tensor, nn
 from torch.nn import functional, init
 
-from clean_rtdetr.core.geometry import inverse_sigmoid
+from clean_rtdetr.geometry import inverse_sigmoid
 from clean_rtdetr.models.attention import deformable_attention_core
 
 UPSTREAM = Path(__file__).resolve().parents[3] / "third_party/RT-DETR/rtdetr_decoder.py"

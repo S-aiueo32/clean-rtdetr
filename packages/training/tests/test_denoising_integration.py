@@ -12,7 +12,7 @@ import torch
 from training_model_fixtures import baseline_model, small_model
 from training_oracle import criterion_oracle
 
-from clean_rtdetr.core.contracts import (
+from clean_rtdetr.contracts import (
     DecoderOutput,
     DenoisingMetadata,
     DenoisingOutput,

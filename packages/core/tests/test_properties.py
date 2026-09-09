@@ -6,8 +6,8 @@ import torch
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from clean_rtdetr.core.contracts import EncodedFeatures
-from clean_rtdetr.core.geometry import generate_anchors
+from clean_rtdetr.contracts import EncodedFeatures
+from clean_rtdetr.geometry import generate_anchors
 
 positive_dimension = st.integers(min_value=1, max_value=32)
 spatial_shape = st.tuples(positive_dimension, positive_dimension)

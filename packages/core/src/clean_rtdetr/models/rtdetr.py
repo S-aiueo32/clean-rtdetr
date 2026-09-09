@@ -4,7 +4,7 @@
 from jaxtyping import Float
 from torch import Tensor
 
-from clean_rtdetr.core.contracts import (
+from clean_rtdetr.contracts import (
     QUERY_RANK,
     DecoderOutput,
     DecoderPlan,

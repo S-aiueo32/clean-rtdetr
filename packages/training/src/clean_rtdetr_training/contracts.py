@@ -8,7 +8,7 @@ import torch
 from jaxtyping import Float, Int64, Shaped
 from torch import Tensor
 
-from clean_rtdetr.core.contracts import BOX_COORDINATES, QUERY_RANK, DetectionOutput
+from clean_rtdetr.contracts import BOX_COORDINATES, QUERY_RANK, DetectionOutput
 
 _ALLOWED_FLOAT_DTYPES = (torch.float32, torch.float64)
 _TARGET_BOX_RANK = 2

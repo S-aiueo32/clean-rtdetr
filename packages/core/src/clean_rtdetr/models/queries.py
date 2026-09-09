@@ -3,7 +3,7 @@
 
 import torch
 
-from clean_rtdetr.core.contracts import (
+from clean_rtdetr.contracts import (
     BOX_COORDINATES,
     QUERY_RANK,
     DecoderInput,

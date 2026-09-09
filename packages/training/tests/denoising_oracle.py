@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any, cast
 import torch
 from torch import Tensor, nn
 
-from clean_rtdetr.core.geometry import inverse_sigmoid
+from clean_rtdetr.geometry import inverse_sigmoid
 
 if TYPE_CHECKING:
     from clean_rtdetr_training.contracts import DetectionTarget

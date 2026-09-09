@@ -7,7 +7,7 @@ import pytest
 import torch
 from official_oracle import backbone_oracle
 
-from clean_rtdetr.core.contracts import FeatureSpec
+from clean_rtdetr.contracts import FeatureSpec
 from clean_rtdetr.models.backbone import FrozenBatchNorm2d, PResNet
 
 

@@ -16,7 +16,7 @@ from jaxtyping import Float
 from torch import Tensor, nn
 from torch.nn import functional
 
-from clean_rtdetr.core.contracts import FeatureSpec, HybridEncoderOutput, MultiScaleFeatures
+from clean_rtdetr.contracts import FeatureSpec, HybridEncoderOutput, MultiScaleFeatures
 from clean_rtdetr.models.interfaces import Encoder
 
 
