@@ -28,9 +28,10 @@ scope separately so a passing small-stage test cannot imply complete reproductio
 
 The single-process FP32/FP64 matching criterion is implemented with Hungarian
 assignment and Varifocal/L1/GIoU losses, including decoder and encoder auxiliary
-supervision. CPU upstream loss/gradient parity is covered by offline tests; see
-[training losses](training.md). DN, full training/resume, and composition remain
-pending, so step 7 is not complete.
+supervision. Contrastive DN construction, registered training-wrapper embeddings,
+and per-layer DN losses are implemented. CPU upstream query/loss/gradient parity
+is covered by offline tests; see [training losses](training.md). Full
+training/resume and composition remain pending, so step 7 is not complete.
 
 The image-to-prediction API returns raw class logits and normalized cxcywh boxes.
 Separate image I/O accepts Pillow images or CPU uint8 RGB tensors using the same

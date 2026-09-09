@@ -2,8 +2,8 @@
 
 `clean_rtdetr.training` implements the pinned R50vd criterion for single-process
 FP32/FP64 PyTorch predictions: Hungarian assignment, Varifocal classification,
-normalized cxcywh L1 loss, and GIoU loss. Denoising construction/losses, training
-augmentation, optimizer recipes, training/resume, distributed normalization,
+normalized cxcywh L1 loss, GIoU loss, and contrastive denoising construction/losses.
+Training augmentation, optimizer recipes, training/resume, distributed normalization,
 and mixed precision remain pending. No convergence or trained accuracy is claimed.
 
 ## Installation and CPU example
@@ -53,8 +53,9 @@ for final and auxiliary supervision. For `ModelOutput`, retained intermediate
 decoder predictions are followed by the encoder auxiliary prediction. Every
 stage is matched independently. Use the default
 `DecoderPlan(collect_intermediate=True)` for all decoder losses; discarded
-intermediate predictions cannot be supervised. Inputs must contain only matching
-queries, with no prepended denoising queries.
+intermediate predictions cannot be supervised. The main decoder field contains
+only matching queries; the optional `denoising` field carries DN predictions and
+their known target assignments separately.
 
 | Term | Matcher cost weight | Returned loss weight |
 | --- | --- | --- |
@@ -72,6 +73,61 @@ targets and probability weights are detached, preserving upstream gradients.
 Active distributed execution with multiple ranks is rejected because local
 target normalization would be incorrect.
 
+## Contrastive denoising
+
+```python
+from clean_rtdetr import build_rtdetr_r50vd
+from clean_rtdetr.training import (
+    DenoisingConfig,
+    DenoisingQueryGenerator,
+    DenoisingTrainingModel,
+    SetCriterion,
+)
+
+training_model = DenoisingTrainingModel(
+    build_rtdetr_r50vd(),
+    DenoisingQueryGenerator(80, 256, DenoisingConfig()),
+).train()
+output = training_model(images, targets=targets)
+losses = SetCriterion()(output, targets)
+sum(losses.values()).backward()
+```
+
+The wrapper owns the detector and learnable `denoising.class_embed` together.
+Use `training_model.parameters()` for optimizer construction and its `state_dict()`
+for weights. The core detector receives no dataset targets. In evaluation mode,
+call the wrapper without targets; it delegates to the inference model and does
+not draw DN noise. `output.final` always contains only matching queries.
+
+Defaults follow upstream: `num_denoising=100`, `label_noise_ratio=0.5`, and
+`box_noise_scale=1.0`. For the largest target count `M` in a batch, the builder
+uses `G=max(1, num_denoising // M)` groups and `D=2*M*G` queries, including
+positive/negative slots and padding. The requested count is not a hard cap.
+Matching queries cannot attend to DN slots; DN groups cannot attend to each
+other. Label replacement occurs with probability `label_noise_ratio / 2`.
+Box perturbation, clipping, RNG ordering, and the initial reference detach follow
+the pinned implementation. In particular, upstream skips inverse sigmoid when
+`box_noise_scale=0`; this edge-case behavior is preserved for parity.
+
+Calling a generator as `generator(targets, num_queries=Q)` returns a `DenoisingBatch` of
+prepared queries and metadata. `num_denoising=0` or an all-empty target batch
+returns `None`, without drawing noise; the wrapper then uses the ordinary path.
+A nonempty batch is required, even when DN is disabled. Targets and images must
+share the embedding's FP32/FP64 dtype and device. The existing target validation
+also applies before disabled/empty handling.
+
+DN loss keys are `loss_vfl_dn_i`, `loss_bbox_dn_i`, and `loss_giou_dn_i` for each
+retained layer, including the final layer. They use known positive target slots
+and normalize by `max(total targets, 1) * G`; they do not run Hungarian matching.
+Negative and padding slots receive negative classification supervision. Use the
+default decoder plan to supervise every layer. No DN keys are returned when
+construction returns `None`.
+
+`load_official_model_weights(..., model=training_model, ...)` validates and loads
+the official DN embedding along with the detector before mutating any parameters.
+The inference model loader continues to exclude that embedding. This loads
+weights only; optimizer state and resumable training are not implemented.
+
 ## Validation scope
 
 CPU tests compare assignment indices, weighted losses, and prediction gradients
@@ -79,3 +135,7 @@ against SHA-256-pinned upstream matcher/criterion methods and box geometry.
 They cover empty and mixed batches, rectangular assignment, auxiliary supervision,
 and malformed input. A small model backward check covers the connection to the
 existing model. These checks do not establish full training reproduction.
+DN tests additionally compare seeded construction, attention masks, metadata,
+embedding gradients, and weighted per-layer loss/prediction gradients against
+pinned upstream code. Wrapper tests cover registration, empty batches, query
+separation, inference behavior, and a synthetic backward pass.

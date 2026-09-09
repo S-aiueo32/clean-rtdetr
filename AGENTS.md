@@ -9,6 +9,7 @@ Pillow/uint8 image preprocessing, top-k detection postprocessing, and fixed-shap
 ONNX export with CPU FP32 runtime parity. Separate COCO prediction JSON and
 optional bbox metric evaluation are implemented. Single-process Hungarian
 matching and Varifocal/L1/GIoU training losses are implemented with CPU parity.
+Contrastive denoising queries, a training wrapper, and DN losses have CPU parity.
 Full training and measured full-dataset COCO AP remain outside the validated scope.
 
 ## Repository guidance
