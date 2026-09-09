@@ -1,0 +1,5 @@
+_target_: clean_rtdetr_training.data.SyntheticDetectionDataset
+_partial_: true
+size: 2
+image_size: 128
+num_classes: ${module.training_model.student.model.num_classes}

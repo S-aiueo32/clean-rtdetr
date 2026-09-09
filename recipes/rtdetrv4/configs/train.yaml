@@ -1,0 +1,77 @@
+defaults:
+  - data: penn_fudan
+  - teacher: dinov3
+  - _self_
+
+seed: 41
+output_dir: outputs/rtdetrv4
+resume: null
+
+module:
+  _target_: clean_rtdetr_training.lightning.RTDETRLightningModule
+  required_callback_keys: [GradientAdaptiveModulation]
+  training_model:
+    _target_: rtdetrv4_recipe.model.DistillationTrainingModel
+    student:
+      _target_: clean_rtdetr_training.DenoisingTrainingModel.from_factory
+      model:
+        _target_: clean_rtdetr.create_model
+        name: rtdetrv2_r18vd
+        num_classes: 1
+      denoising_factory:
+        _target_: clean_rtdetr_training.DenoisingQueryGenerator
+        _partial_: true
+        config:
+          _target_: clean_rtdetr_training.DenoisingConfig
+          num_denoising: 4
+    teacher: ${teacher}
+  criterion:
+    _target_: rtdetrv4_recipe.criterion.DistillationCriterion
+    weight: 15.0
+    detection:
+      _target_: clean_rtdetr_training.SetCriterion
+      matcher:
+        _target_: clean_rtdetr_training.HungarianMatcher
+  optimizer_factory:
+    _target_: torch.optim.AdamW
+    _partial_: true
+    lr: 0.0001
+    weight_decay: 0.0001
+
+datamodule:
+  _target_: clean_rtdetr_training.lightning.DetectionDataModule
+  dataset_factory: ${data}
+  dataloader_factory:
+    _target_: torch.utils.data.DataLoader
+    _partial_: true
+    batch_size: 2
+    shuffle: true
+    num_workers: 0
+    collate_fn:
+      _target_: clean_rtdetr_training.data.collate_detection_batch
+      _partial_: true
+
+trainer:
+  _target_: lightning.pytorch.Trainer
+  accelerator: cpu
+  devices: 1
+  precision: 32-true
+  deterministic: true
+  max_epochs: 1
+  gradient_clip_val: 0.1
+  logger: false
+  enable_progress_bar: false
+  enable_model_summary: false
+  callbacks:
+    gam:
+      _target_: rtdetrv4_recipe.gam.GradientAdaptiveModulation
+      rho: 2.0
+      delta: 0.1
+      default_weight: 15.0
+    rng:
+      _target_: clean_rtdetr_training.lightning.EpochBoundaryState
+    checkpoint:
+      _target_: lightning.pytorch.callbacks.ModelCheckpoint
+      dirpath: ${output_dir}/checkpoints
+      save_last: true
+      save_top_k: 0

@@ -1,0 +1,3 @@
+# Random frozen features for execution checks only; this is not a VFM.
+_target_: rtdetrv4_recipe.teacher.SmokeTeacher
+channels: 16
