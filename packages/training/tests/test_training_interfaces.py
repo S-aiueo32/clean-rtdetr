@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader, Dataset
 lightning = pytest.importorskip("lightning")
 from lightning.pytorch.callbacks import ModelCheckpoint  # noqa: E402
 
-from clean_rtdetr.core.contracts import (  # noqa: E402
+from clean_rtdetr.contracts import (  # noqa: E402
     DecoderInput,
     DecoderOutput,
     DenoisingBatch,

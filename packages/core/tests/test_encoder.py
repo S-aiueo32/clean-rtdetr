@@ -8,7 +8,7 @@ import torch
 from official_oracle import hybrid_encoder_oracle
 from torch import Tensor
 
-from clean_rtdetr.core.contracts import FeatureSpec, MultiScaleFeatures
+from clean_rtdetr.contracts import FeatureSpec, MultiScaleFeatures
 from clean_rtdetr.models.encoder import HybridEncoder, HybridEncoderConfig
 
 

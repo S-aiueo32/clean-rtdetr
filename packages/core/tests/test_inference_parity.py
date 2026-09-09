@@ -5,7 +5,7 @@ import torch
 from inference_oracle import postprocessor_oracle, preprocess_reference
 from PIL import Image
 
-from clean_rtdetr.core.contracts import DetectionOutput
+from clean_rtdetr.contracts import DetectionOutput
 from clean_rtdetr.inference import postprocess, preprocess_images
 
 

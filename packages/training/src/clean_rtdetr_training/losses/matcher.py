@@ -13,7 +13,7 @@ import torch
 from jaxtyping import Float, Int64
 from torch import Tensor
 
-from clean_rtdetr.core.contracts import DetectionOutput
+from clean_rtdetr.contracts import DetectionOutput
 from clean_rtdetr_training.contracts import DetectionTarget, MatchIndices, validate_detection
 from clean_rtdetr_training.interfaces import Matcher
 from clean_rtdetr_training.losses.geometry import cxcywh_to_xyxy, generalized_box_iou

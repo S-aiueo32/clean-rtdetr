@@ -21,7 +21,7 @@ from typer.testing import CliRunner
 import clean_rtdetr.cli.coco_evaluate as evaluation_cli
 import clean_rtdetr.cli.coco_predict as predictions_cli
 from clean_rtdetr.checkpoint import CheckpointLoadReport
-from clean_rtdetr.core.contracts import DetectionOutput
+from clean_rtdetr.contracts import DetectionOutput
 from clean_rtdetr.evaluation import coco_predictions
 
 DECODER_LAYERS = 6

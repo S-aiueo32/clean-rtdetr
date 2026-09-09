@@ -7,7 +7,7 @@ import pytest
 import torch
 from jaxtyping import TypeCheckError
 
-from clean_rtdetr.core.contracts import DetectionOutput
+from clean_rtdetr.contracts import DetectionOutput
 from clean_rtdetr.inference import Detections, postprocess
 
 

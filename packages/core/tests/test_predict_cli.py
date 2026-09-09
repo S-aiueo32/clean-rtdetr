@@ -14,7 +14,7 @@ from torch import nn
 from typer.testing import CliRunner
 
 from clean_rtdetr.cli import predict as prediction_cli
-from clean_rtdetr.core.contracts import DetectionOutput
+from clean_rtdetr.contracts import DetectionOutput
 
 NUM_DETECTIONS = 300
 RUNNER = CliRunner()

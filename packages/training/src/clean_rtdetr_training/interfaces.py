@@ -8,7 +8,7 @@ import torch
 from jaxtyping import Float
 from torch import Tensor, nn
 
-from clean_rtdetr.core.contracts import DenoisingBatch, DetectionOutput
+from clean_rtdetr.contracts import DenoisingBatch, DetectionOutput
 from clean_rtdetr_training.contracts import DetectionTarget, MatchIndices
 
 type TrainingLosses = dict[str, Float[Tensor, ""]]

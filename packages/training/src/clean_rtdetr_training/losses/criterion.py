@@ -15,7 +15,7 @@ from jaxtyping import Float, Int64, Shaped
 from torch import Tensor
 from torch.nn import functional
 
-from clean_rtdetr.core.contracts import (
+from clean_rtdetr.contracts import (
     DecoderOutput,
     DenoisingMetadata,
     DenoisingOutput,

@@ -6,7 +6,7 @@ from collections.abc import Sequence
 from jaxtyping import Float
 from torch import Tensor
 
-from clean_rtdetr.core.contracts import DecoderPlan, ModelOutput
+from clean_rtdetr.contracts import DecoderPlan, ModelOutput
 from clean_rtdetr.models.interfaces import Detector
 from clean_rtdetr_training.contracts import DetectionTarget
 from clean_rtdetr_training.interfaces import DenoisingGenerator, TrainingModel

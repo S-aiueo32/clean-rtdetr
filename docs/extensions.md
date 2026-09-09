@@ -21,6 +21,22 @@ The score head produces `[B,S,K]` logits and the box head produces `[B,S,4]`
 coordinate deltas. Incompatible output shapes raise an error. This example is
 a research architecture change, not a parity-preserving replacement by default.
 
+## Shared contracts and geometry
+
+Shared tensor payloads and their validation live in `clean_rtdetr.contracts`.
+Anchor generation and coordinate transforms live in `clean_rtdetr.geometry`.
+Model stage implementations and interfaces live in `clean_rtdetr.models`.
+
+```python
+from clean_rtdetr.contracts import DecoderPlan, EncodedFeatures
+from clean_rtdetr.geometry import generate_anchors, inverse_sigmoid
+```
+
+Imports from `clean_rtdetr.core.contracts` and `clean_rtdetr.core.geometry`
+must use these paths; the `clean_rtdetr.core` subpackage has been removed.
+Existing package-root imports such as `from clean_rtdetr import DecoderPlan`
+remain available. Tensor state-dict keys and computation are unchanged.
+
 ## Type parameters and aliases
 
 Use [PEP 695](https://peps.python.org/pep-0695/) syntax for generic classes,

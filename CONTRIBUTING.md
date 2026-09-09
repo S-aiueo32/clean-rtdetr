@@ -104,7 +104,7 @@ caches must not be committed.
 For a new model stage:
 
 1. Define or update the explicit tensor contract in
-   `packages/core/src/clean_rtdetr/core`.
+   `packages/core/src/clean_rtdetr/contracts.py`.
 2. Implement core stages under `packages/core/src/clean_rtdetr/models`, export behavior under
    `packages/export/src/clean_rtdetr_export`, and training behavior under
    `packages/training/src/clean_rtdetr_training`.

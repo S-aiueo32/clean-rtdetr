@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from jaxtyping import Float
 from torch import Tensor, nn
 
-from clean_rtdetr.core.contracts import (
+from clean_rtdetr.contracts import (
     DecoderInput,
     DecoderOutput,
     DecoderPlan,

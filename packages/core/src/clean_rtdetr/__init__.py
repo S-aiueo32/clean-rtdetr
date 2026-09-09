@@ -1,7 +1,7 @@
 # Copyright 2026 Clean RT-DETR contributors
 """Explicit RT-DETR components with a separate image inference API."""
 
-from clean_rtdetr.core.contracts import (
+from clean_rtdetr.contracts import (
     DecoderInput,
     DecoderOutput,
     DenoisingMetadata,

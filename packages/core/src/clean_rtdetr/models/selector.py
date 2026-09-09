@@ -12,8 +12,8 @@ import torch
 from jaxtyping import Bool, Float
 from torch import Tensor, nn
 
-from clean_rtdetr.core.contracts import EncodedFeatures, QuerySet, SelectionOutput
-from clean_rtdetr.core.geometry import MAX_PROBABILITY_EPS, generate_anchors
+from clean_rtdetr.contracts import EncodedFeatures, QuerySet, SelectionOutput
+from clean_rtdetr.geometry import MAX_PROBABILITY_EPS, generate_anchors
 from clean_rtdetr.models._checkpoint import module_checkpoint_config
 from clean_rtdetr.models.interfaces import Selector
 

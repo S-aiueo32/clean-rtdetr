@@ -97,7 +97,7 @@ Hypothesis テストは、入力サイズを制限した低コストなテンソ
 
 新しいモデルステージでは、次の手順に従います。
 
-1. 明示的なテンソルコントラクトを `packages/core/src/clean_rtdetr/core` に定義または更新します。
+1. 明示的なテンソルコントラクトを `packages/core/src/clean_rtdetr/contracts.py` に定義または更新します。
 2. core のステージを `packages/core/src/clean_rtdetr/models` に、export の動作を `packages/export/src/clean_rtdetr_export` に、training の動作を `packages/training/src/clean_rtdetr_training` に実装します。
 3. 所有するメンバーの `tests` ディレクトリに、コントラクト、勾配、形状を確認する目的を絞ったテストを追加します。
 4. RT-DETR から派生したステージには、変更していない upstream コードとのパリティテストを追加します。

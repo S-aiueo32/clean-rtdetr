@@ -16,7 +16,7 @@ from clean_rtdetr import (
     QueryAssembler,
     QuerySet,
 )
-from clean_rtdetr.core.contracts import EncodedFeatures
+from clean_rtdetr.contracts import EncodedFeatures
 from clean_rtdetr.models.attention import deformable_attention_core
 from clean_rtdetr.models.selector import BoxHead
 
