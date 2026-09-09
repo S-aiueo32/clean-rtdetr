@@ -56,8 +56,8 @@ converter は変換先パス、変換後ファイルの SHA-256、公式 load re
 含む JSON を出力します。既定ではベースラインに固定した EMA source と公式 SHA-256 を
 検証します。別の対応 checkpoint を検証する場合は `--source` と
 `--expected-sha256` で上書きできます。パッケージの loader では
-`expected_sha256` キーワード、CLI では `--expected-sha256` を変換後ファイルの
-検証用に任意で指定できます。
+`expected_sha256` キーワードを変換後ファイルの検証用に任意で指定できます。
+画像推論 CLI は変換後の checkpoint を読み込み、ハッシュ指定のオプションは持たない。
 
 ```python
 import torch
@@ -102,13 +102,25 @@ COCO カテゴリ ID ではありません。`top_k` は 1 以上、クエリ・
 ## コマンドライン例
 
 `clean-rtdetr-predict` は 1 つ以上の画像パスとローカルの native state dict を受け取ります。
-画像ごとに全 300 検出を JSON で出力し、デフォルトで 6 つのデコーダ層をすべて実行します。この例は画像や重みをダウンロードせず、
+画像ごとの検出候補を JSON で標準出力に表示し、6 つのデコーダ層をすべて実行します。既定では全 300 候補を保持します。この例は画像や重みをダウンロードせず、
 `--device` の既定値は `cpu` です。
 
 ```sh
 clean-rtdetr-predict image.jpg \
-  --checkpoint native.pth
+  --checkpoint native.pth --conf-thresh 0.5 --visualize-dir outputs
 ```
+
+`--conf-thresh` は指定したスコア以上の候補を残す。指定できる値は `[0, 1]` の有限値で、
+既定値は `0`。top-k 選択後に絞り込み、スコア順を保持する。該当する候補がなければ、
+その画像の `labels`、`scores`、`boxes_xyxy` は空配列となる。
+
+`--visualize-dir` を指定すると、標準出力と同じ候補のボックス・COCO クラス名・スコアを
+描画した PNG 画像を保存する。保存先ディレクトリは自動で作成し、元画像のサイズを保持する。
+ファイル名は入力順の 1 始まりの番号と画像名を組み合わせた
+`outputs/0001-image.png`、`outputs/0002-image.png` などとなる。
+再実行時には既存の可視化ファイルを上書きするが、保存先がいずれかの入力画像と一致する場合は推論前にエラーとなる。
+候補がなければ描画せずに画像を保存する。描画時の座標は画像内に収めるが、JSON の座標は
+後処理の値をそのまま保持する。これらの CLI オプションは Python の `postprocess` API や COCO 評価経路には影響しない。
 
 <a id="fixed-shape-onnx-export"></a>
 
