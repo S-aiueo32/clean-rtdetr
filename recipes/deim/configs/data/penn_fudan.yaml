@@ -1,0 +1,6 @@
+_target_: clean_rtdetr_training.data.PennFudanDetectionDataset
+_partial_: true
+root: datasets/PennFudanPed
+split: train
+seed: ${seed}
+val_size: 50
