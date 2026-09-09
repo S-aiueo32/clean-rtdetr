@@ -36,6 +36,7 @@ jobs:
           --cov=clean_rtdetr --cov-report=term-missing
           packages/core/tests/test_backbone.py
           packages/core/tests/test_checkpoint.py
+          packages/core/tests/test_native_checkpoint.py
           packages/core/tests/test_decoder.py
           packages/core/tests/test_encoder.py
           packages/core/tests/test_inference_integration.py
@@ -154,3 +155,10 @@ jobs:
           uv build --package clean-rtdetr --no-sources --out-dir dist/core
           uv build --package clean-rtdetr-export --no-sources --out-dir dist/export
           uv build --package clean-rtdetr-training --no-sources --out-dir dist/training
+      - name: Check installed core conversion command outside the checkout
+        run: |
+          uv export --locked --package clean-rtdetr --no-dev --no-emit-workspace --no-hashes --output-file /tmp/clean-rtdetr-core-requirements.txt
+          uv venv /tmp/clean-rtdetr-core-smoke
+          uv pip install --python /tmp/clean-rtdetr-core-smoke/bin/python -r /tmp/clean-rtdetr-core-requirements.txt dist/core/*.whl
+          cd "$(mktemp -d)"
+          /tmp/clean-rtdetr-core-smoke/bin/clean-rtdetr-convert --help

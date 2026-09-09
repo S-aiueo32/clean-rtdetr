@@ -2,15 +2,25 @@
 
 English | [日本語](ja/inference.md)
 
+The core package includes checkpoint conversion. Install it with:
+
+```sh
+python -m pip install clean-rtdetr
+```
+
 Pillow is an optional dependency. Install image support with:
 
 ```sh
-uv sync --package clean-rtdetr --extra inference
+python -m pip install "clean-rtdetr[inference]"
 ```
 
+In a checkout development environment, use `uv sync --package clean-rtdetr
+--extra inference` and prefix the commands below with `uv run`.
+
 For ONNX export and its CPU ONNX Runtime verifier, install the separate
-`clean-rtdetr-export` workspace package with
-`uv sync --package clean-rtdetr-export`.
+`clean-rtdetr-export` package with `python -m pip install clean-rtdetr-export`.
+In a checkout development environment, use `uv sync --package
+clean-rtdetr-export`.
 
 ## Model tensors
 
@@ -26,23 +36,39 @@ also carries differentiable encoder predictions and optional AIFI features.
 
 ## Python API
 
-After installing image support, provide `image.jpg` and the local official
-checkpoint listed in [baseline metadata](../benchmarks/baseline.json):
+After installing image support, provide `image.jpg` and a converted native
+state-dict checkpoint. From any directory, download the pinned official
+checkpoint and convert it with the installed command:
+
+```sh
+curl --fail --location --create-dirs \
+  --output official.pth \
+  https://github.com/lyuwenyu/storage/releases/download/v0.1/rtdetr_r50vd_6x_coco_from_paddle.pth
+clean-rtdetr-convert --checkpoint official.pth --output native.pth
+```
+
+With the checkout development environment, use `uv run clean-rtdetr-convert`
+in place of the installed command.
+
+The converter prints JSON containing the converted output path, its SHA-256,
+and the official load report. It defaults to the pinned EMA source and checks
+the pinned official SHA-256; `--source` and `--expected-sha256` remain available
+when validating another matching checkpoint. The packaged loader accepts an
+optional `expected_sha256` keyword, and the CLIs accept an optional
+`--expected-sha256`, for validating the converted file.
 
 ```python
 import torch
 from PIL import Image
 
 from clean_rtdetr import DecoderPlan, rtdetr_r50vd
-from clean_rtdetr.compatibility import load_official_model_weights
+from clean_rtdetr.checkpoint import load_model_weights
 from clean_rtdetr.inference import postprocess, preprocess_images
 
 model = rtdetr_r50vd().eval()
-load_official_model_weights(
-    "checkpoints/rtdetr_r50vd_6x_coco_from_paddle.pth",
+load_model_weights(
+    "native.pth",
     model=model,
-    source="ema",
-    expected_sha256="dfaafa5a3d29958a360c35f1fad553a6f287bfae9967e8ee007e65cff21ddf45",
 )
 with Image.open("image.jpg") as image:
     batch = preprocess_images([image])
@@ -73,16 +99,14 @@ between 1 and the number of query/class pairs.
 
 ## Command-line example
 
-`clean-rtdetr-predict` accepts one or more image paths, a local official
-checkpoint, its selected source, and expected SHA-256. It prints all 300
+`clean-rtdetr-predict` accepts one or more image paths and a local native
+state-dict checkpoint. It prints all 300
 detections per image as JSON and runs all six decoder layers by default. The
 example does not download images or weights; `--device` defaults to `cpu`.
 
 ```sh
-uv run clean-rtdetr-predict image.jpg \
-  --checkpoint checkpoints/rtdetr_r50vd_6x_coco_from_paddle.pth \
-  --source ema \
-  --expected-sha256 dfaafa5a3d29958a360c35f1fad553a6f287bfae9967e8ee007e65cff21ddf45
+clean-rtdetr-predict image.jpg \
+  --checkpoint native.pth
 ```
 
 ## Fixed-shape ONNX export
@@ -120,20 +144,23 @@ session = ort.InferenceSession(
 logits, boxes = session.run(["logits", "boxes"], {"images": images.numpy()})
 ```
 
-Run the CLI with
-`uv run clean-rtdetr-export`;
-`--checkpoint`, `--source`,
-`--expected-sha256`, and `--output` are required. `--report` optionally selects
-the JSON report path (default: output with a `.json` suffix). It loads only a
-local, SHA-256-verified official checkpoint and does not download weights.
+Run the installed CLI with `clean-rtdetr-export`;
+`--checkpoint` and `--output` are required. `--expected-sha256` optionally
+validates the native checkpoint; `--report` selects the JSON report path
+(default: output with a `.json` suffix). It loads only a local native
+checkpoint and does not download weights.
 Variable/dynamic shapes, TensorRT, AP, and latency are out of scope.
 
 ## Official weights and parity
 
-`load_official_model_weights` requires the checkpoint path, its `model` or `ema`
-source, and expected SHA-256. It validates every tensor before changing the
-model. `load_official_stage_weights` remains available for decoder-side
-components.
+The converter is an internal core CLI implementation and has no public
+compatibility API. Official compatibility loaders are checkout-only: use
+`tools.compatibility.load_official_model_weights` and
+`tools.compatibility.load_official_stage_weights` with the original official
+envelope and an explicit `model` or `ema` source. The packaged
+`clean_rtdetr.checkpoint.load_model_weights(path, model=model,
+expected_sha256=...)` accepts the native plain `state_dict` written by the
+converter.
 
 The checkpoint URL, hash, and source are recorded in
 `benchmarks/baseline.json`. Compare all implemented inference stages with:

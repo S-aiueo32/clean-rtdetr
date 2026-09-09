@@ -40,7 +40,11 @@ metadata or dependency selections change.
 - [Lightning training](lightning.md): synthetic training, Hydra configuration,
   optimizer/EMA state, and epoch-boundary resume.
 
-Image inference and checkpoint-backed export require local official weights.
+Image inference and checkpoint-backed export require a local converted native
+state dict. The installed `clean-rtdetr` package includes the
+`clean-rtdetr-convert` command for the pinned official R50vd envelope; the
+checkout-only `tools.compatibility` helpers remain available for full, stage,
+and training compatibility work.
 COCO prediction also requires local images and annotations. These commands do
 not download those artifacts; checkpoint provenance is recorded in
 [baseline metadata](../benchmarks/baseline.json).

@@ -43,6 +43,12 @@ independent of Pillow. Install the complete development workspace:
 uv sync --all-packages
 ```
 
+The base core distribution includes the internal `clean-rtdetr-convert` CLI and
+does not require Pillow, export, or training dependencies for checkpoint
+conversion. The public installed surface contains no compatibility API; full,
+stage, and training compatibility helpers under `tools.compatibility` are
+checkout-only.
+
 `uv sync` uses the repository's `uv.lock` file and may update it when project
 dependencies change. When changing package dependencies, edit the owning member
 `pyproject.toml`, run `uv lock`, and include the resulting `uv.lock` change. Keep shared

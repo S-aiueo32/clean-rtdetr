@@ -10,16 +10,14 @@
 
 ## 予測を生成する
 
-画像サポート付きの core パッケージをインストールし、ローカルの画像、アノテーション、検証済み公式チェックポイントを使います。
+画像サポート付きの core パッケージをインストールし、ローカルの画像、アノテーション、変換済み native state dict checkpoint を使います。公式 envelope のダウンロードと変換は [推論ガイド](inference.md) の `clean-rtdetr-convert` 手順で行ってから、次を実行します。
 
 ```sh
-uv sync --package clean-rtdetr --extra inference
-uv run clean-rtdetr-coco-predict \
+python -m pip install "clean-rtdetr[inference]"
+clean-rtdetr-coco-predict \
   --images datasets/coco/val2017 \
   --annotations datasets/coco/annotations/instances_val2017.json \
-  --checkpoint checkpoints/rtdetr_r50vd_6x_coco_from_paddle.pth \
-  --source ema \
-  --expected-sha256 dfaafa5a3d29958a360c35f1fad553a6f287bfae9967e8ee007e65cff21ddf45 \
+  --checkpoint checkpoints/rtdetr_r50vd.pth \
   --output outputs/coco-predictions.json
 ```
 
@@ -40,8 +38,8 @@ uv run clean-rtdetr-coco-predict \
 この手順だけ evaluation extra が必要です。推論とは別の環境でも実行できます。
 
 ```sh
-uv sync --package clean-rtdetr --extra evaluation
-uv run clean-rtdetr-coco-evaluate \
+python -m pip install "clean-rtdetr[evaluation]"
+clean-rtdetr-coco-evaluate \
   --annotations datasets/coco/annotations/instances_val2017.json \
   --predictions outputs/coco-predictions.json \
   --prediction-report outputs/coco-predictions.report.json \

@@ -27,8 +27,9 @@ decoder logits: (2, 20, 80)
 decoder boxes: (2, 20, 4)
 ```
 
-実画像の検出には、ローカルに用意した公式チェックポイントを使用して
-[推論ガイド](docs/ja/inference.md)に従ってください。ランダムな重みは API の動作確認用です。
+実画像の検出には `clean-rtdetr[inference]` をインストールし、公式チェックポイントを
+ダウンロードして変換し、結果の native state dict を読み込む
+[推論ガイド](docs/ja/inference.md) に従ってください。ランダムな重みは API の動作確認用です。
 
 ## ドキュメント
 

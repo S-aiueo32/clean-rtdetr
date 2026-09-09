@@ -237,9 +237,13 @@ For the baseline wrapper, the live detector is available as
 `module.training_model.model`. After fitting,
 `ema.module` holds the separate EMA wrapper in evaluation mode. These remain
 ordinary PyTorch modules, so inference does not require a Lightning Trainer.
-`clean_rtdetr_training.compatibility.load_official_training_weights` can
-initialize `training_model` before constructing the Lightning adapter; official
-weights are not Lightning resume checkpoints.
+The checkout-only
+`tools.compatibility.training.load_official_training_weights` can initialize
+`training_model` before constructing the Lightning adapter. For a packaged
+workflow, save `training_model.state_dict()` with `torch.save` and use the core
+native `clean_rtdetr.checkpoint.load_model_weights` loader. The installed
+`clean-rtdetr-convert` command converts the official envelope for inference only;
+official weights are not Lightning resume checkpoints.
 
 ## Validation
 

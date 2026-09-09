@@ -1,8 +1,8 @@
 # Copyright 2026 Clean RT-DETR contributors
 """Export a verified, fixed-shape R50vd model to ONNX.
 
-The command deliberately requires a locally available checkpoint and its
-expected digest.  It never downloads model artifacts.
+The command requires a locally available checkpoint. An expected digest can
+optionally be supplied for verification. It never downloads model artifacts.
 """
 
 from __future__ import annotations
@@ -12,14 +12,14 @@ import json
 import platform
 import subprocess
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated
 
 import torch
 import typer
 
 import clean_rtdetr
 from clean_rtdetr import rtdetr_r50vd
-from clean_rtdetr.compatibility import CheckpointLoadReport, load_official_model_weights
+from clean_rtdetr.checkpoint import CheckpointLoadReport, load_model_weights
 from clean_rtdetr_export import ExportVerificationError, export_onnx
 
 
@@ -35,7 +35,7 @@ def _git_output(*args: str, fallback: str) -> str:
         return fallback
 
 
-def _provenance(checkpoint: Path, expected_sha256: str, source: str) -> dict[str, object]:
+def _provenance(checkpoint: Path, expected_sha256: str | None) -> dict[str, object]:
     """Collect reproducibility metadata for the export report."""
     source_roots = (Path(clean_rtdetr.__file__).resolve().parent, Path(__file__).resolve().parent)
     implementation = {
@@ -49,7 +49,7 @@ def _provenance(checkpoint: Path, expected_sha256: str, source: str) -> dict[str
             "path": str(checkpoint),
             "sha256": _sha256(checkpoint),
             "expected_sha256": expected_sha256,
-            "source": source,
+            "format": "state_dict",
         },
         "git_revision": _git_output("rev-parse", "HEAD", fallback="unknown"),
         "worktree_dirty": bool(_git_output("status", "--porcelain", fallback="unknown")),
@@ -68,13 +68,11 @@ def _provenance(checkpoint: Path, expected_sha256: str, source: str) -> dict[str
 
 
 def _load_report(report: CheckpointLoadReport) -> dict[str, object]:
-    """Convert the compatibility loader's dataclass report to JSON data."""
+    """Convert the checkpoint loader's dataclass report to JSON data."""
     return {
         "sha256": report.sha256,
-        "source": report.source,
-        "mapped_key_count": len(report.key_mapping),
-        "excluded_keys": report.excluded_keys,
-        "synthesized_keys": list(report.synthesized_keys),
+        "format": "state_dict",
+        "tensor_count": len(report.keys),
     }
 
 
@@ -87,10 +85,11 @@ app = typer.Typer(add_completion=False, help=__doc__)
 
 @app.command()
 def export(
-    checkpoint: Annotated[Path, typer.Option(help="Official checkpoint path.")],
-    source: Annotated[Literal["model", "ema"], typer.Option(help="Checkpoint source.")],
-    expected_sha256: Annotated[str, typer.Option(help="Expected checkpoint SHA-256.")],
+    checkpoint: Annotated[Path, typer.Option(help="Native state_dict checkpoint path.")],
     output: Annotated[Path, typer.Option(help="ONNX output path.")],
+    expected_sha256: Annotated[
+        str | None, typer.Option(help="Optional expected checkpoint SHA-256 to verify.")
+    ] = None,
     report: Annotated[Path | None, typer.Option(help="Optional report path.")] = None,
 ) -> None:
     """Load weights, export ONNX, verify runtime parity, and write a report."""
@@ -106,13 +105,8 @@ def export(
 
     torch.set_num_threads(4)
     model = rtdetr_r50vd().eval().cpu()
-    loaded = load_official_model_weights(
-        checkpoint,
-        model=model,
-        source=source,
-        expected_sha256=expected_sha256,
-    )
-    metadata = _provenance(checkpoint, expected_sha256, source)
+    loaded = load_model_weights(checkpoint, model=model, expected_sha256=expected_sha256)
+    metadata = _provenance(checkpoint, expected_sha256)
     report_base: dict[str, object] = {
         "checkpoint_load": _load_report(loaded),
         "output": str(output),

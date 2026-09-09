@@ -20,7 +20,7 @@ from typer.testing import CliRunner
 
 import clean_rtdetr.cli.coco_evaluate as evaluation_cli
 import clean_rtdetr.cli.coco_predict as predictions_cli
-from clean_rtdetr.compatibility import CheckpointLoadReport
+from clean_rtdetr.checkpoint import CheckpointLoadReport
 from clean_rtdetr.core.contracts import DetectionOutput
 from clean_rtdetr.evaluation import coco_predictions
 
@@ -48,7 +48,6 @@ def _args(**values: object) -> argparse.Namespace:
         "images": Path("images"),
         "annotations": Path("annotations.json"),
         "checkpoint": Path("checkpoint.pth"),
-        "source": "model",
         "expected_sha256": "unused",
         "output": Path("predictions.json"),
         "report": None,
@@ -71,7 +70,7 @@ def _prepare(tmp_path: Path) -> tuple[Path, Path, Path]:
 
 
 def _loader(*_args: object, **_kwargs: object) -> CheckpointLoadReport:
-    return CheckpointLoadReport("digest", "model", {}, {}, ())
+    return CheckpointLoadReport("digest", ("a", "b"))
 
 
 def test_predictions_cli_writes_subset_json_and_report(
@@ -82,7 +81,7 @@ def test_predictions_cli_writes_subset_json_and_report(
     output = tmp_path / "nested" / "predictions.json"
     report = tmp_path / "nested" / "report.json"
     monkeypatch.setattr(predictions_cli, "rtdetr_r50vd", FakeModel)
-    monkeypatch.setattr(predictions_cli, "load_official_model_weights", _loader)
+    monkeypatch.setattr(predictions_cli, "load_model_weights", _loader)
     args = _args(
         annotations=annotations,
         images=images,
@@ -113,7 +112,7 @@ def test_predictions_cli_limit_callback_accepts_omitted_and_positive_values(
     """Process both fake images by default and respect a positive limit."""
     annotations, images, checkpoint = _prepare(tmp_path)
     monkeypatch.setattr(predictions_cli, "rtdetr_r50vd", FakeModel)
-    monkeypatch.setattr(predictions_cli, "load_official_model_weights", _loader)
+    monkeypatch.setattr(predictions_cli, "load_model_weights", _loader)
     output = tmp_path / f"predictions-{limit}.json"
     report = tmp_path / f"report-{limit}.json"
     command = [
@@ -123,10 +122,6 @@ def test_predictions_cli_limit_callback_accepts_omitted_and_positive_values(
         str(annotations),
         "--checkpoint",
         str(checkpoint),
-        "--source",
-        "model",
-        "--expected-sha256",
-        hashlib.sha256(checkpoint.read_bytes()).hexdigest(),
         "--output",
         str(output),
         "--report",
@@ -138,6 +133,7 @@ def test_predictions_cli_limit_callback_accepts_omitted_and_positive_values(
     assert result.exit_code == 0, result.exception
     report_data = json.loads(report.read_text())
     assert set(report_data["input_images"]["selected_ids"]) == expected_ids
+    assert report_data["checkpoint"]["expected_sha256"] is None
 
 
 @pytest.mark.parametrize("value", ["0", "-1", "invalid"])
@@ -152,8 +148,6 @@ def test_predictions_cli_rejects_invalid_limits(value: str) -> None:
             "annotations.json",
             "--checkpoint",
             "checkpoint.pth",
-            "--source",
-            "model",
             "--expected-sha256",
             "unused",
             "--output",
@@ -172,7 +166,7 @@ def test_predictions_cli_rejects_dimensions_and_escape(
     """Reject files whose dimensions disagree or whose names escape the root."""
     annotations, images, checkpoint = _prepare(tmp_path)
     monkeypatch.setattr(predictions_cli, "rtdetr_r50vd", FakeModel)
-    monkeypatch.setattr(predictions_cli, "load_official_model_weights", _loader)
+    monkeypatch.setattr(predictions_cli, "load_model_weights", _loader)
     Image.new("RGB", (99, 100), color="white").save(images / "one.jpg")
     args = _args(
         annotations=annotations,

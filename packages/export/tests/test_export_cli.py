@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 import pytest
 from export_model_fixtures import small_model
 
-from clean_rtdetr.compatibility import CheckpointLoadReport
+from clean_rtdetr.checkpoint import CheckpointLoadReport
 from clean_rtdetr_export import ExportVerificationError, cli
 
 if TYPE_CHECKING:
@@ -30,29 +30,34 @@ def _no_threads(_count: int) -> None:
     return None
 
 
-def _arguments(checkpoint: Path, output: Path, report: Path | None = None) -> list[str]:
+def _arguments(
+    checkpoint: Path, output: Path, report: Path | None = None, *, verify_digest: bool = True
+) -> list[str]:
     arguments = [
         "export_onnx.py",
         "--checkpoint",
         str(checkpoint),
-        "--source",
-        "model",
-        "--expected-sha256",
-        hashlib.sha256(checkpoint.read_bytes()).hexdigest(),
         "--output",
         str(output),
     ]
+    if verify_digest:
+        arguments.extend(("--expected-sha256", hashlib.sha256(checkpoint.read_bytes()).hexdigest()))
     if report is not None:
         arguments.extend(("--report", str(report)))
     return arguments
 
 
 def _loader_report() -> CheckpointLoadReport:
-    return CheckpointLoadReport("checkpoint-digest", "model", {"a": "b"}, {"x": "excluded"}, ("s",))
+    return CheckpointLoadReport("checkpoint-digest", ("a", "b"))
 
 
+@pytest.mark.parametrize("verify_digest", [False, True])
 def test_cli_success_writes_nested_report_and_prints_path(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    *,
+    verify_digest: bool,
 ) -> None:
     """Successful export has one stable export object and compact load provenance."""
     checkpoint = tmp_path / "checkpoint.pth"
@@ -60,7 +65,7 @@ def test_cli_success_writes_nested_report_and_prints_path(
     output = tmp_path / "artifacts" / "model.onnx"
     report = tmp_path / "reports" / "model.json"
     monkeypatch.setattr(cli, "rtdetr_r50vd", _small_model)
-    monkeypatch.setattr(cli, "load_official_model_weights", _load_report)
+    monkeypatch.setattr(cli, "load_model_weights", _load_report)
 
     def fake_export(_model: object, destination: Path) -> dict[str, object]:
         destination.parent.mkdir(parents=True, exist_ok=True)
@@ -70,17 +75,25 @@ def test_cli_success_writes_nested_report_and_prints_path(
     monkeypatch.setattr(cli, "export_onnx", fake_export)
     monkeypatch.setattr(cli.torch, "set_num_threads", _no_threads)
     monkeypatch.setattr(cli.torch, "get_num_threads", lambda: 4)
-    monkeypatch.setattr(sys, "argv", _arguments(checkpoint, output, report))
+    monkeypatch.setattr(
+        sys, "argv", _arguments(checkpoint, output, report, verify_digest=verify_digest)
+    )
 
     cli.main()
 
     assert capsys.readouterr().out.strip() == str(report)
     payload = json.loads(report.read_text())
     assert payload["export"] == {"passed": True, "schema_version": 1}
-    assert payload["checkpoint_load"]["mapped_key_count"] == 1
-    assert "key_mapping" not in payload["checkpoint_load"]
+    assert payload["checkpoint_load"] == {
+        "format": "state_dict",
+        "sha256": "checkpoint-digest",
+        "tensor_count": 2,
+    }
     assert payload["implementation_sha256"]
     assert payload["cli_sha256"]
+    assert payload["checkpoint"]["expected_sha256"] == (
+        hashlib.sha256(checkpoint.read_bytes()).hexdigest() if verify_digest else None
+    )
 
 
 def test_cli_failure_persists_export_report_and_exits(
@@ -93,7 +106,7 @@ def test_cli_failure_persists_export_report_and_exits(
     report = tmp_path / "reports" / "failure.json"
     failure: dict[str, object] = {"passed": False, "checks": [{"name": "logits"}]}
     monkeypatch.setattr(cli, "rtdetr_r50vd", _small_model)
-    monkeypatch.setattr(cli, "load_official_model_weights", _load_report)
+    monkeypatch.setattr(cli, "load_model_weights", _load_report)
 
     def fail_export(*_args: object, **_kwargs: object) -> dict[str, object]:
         raise ExportVerificationError(failure)
@@ -129,7 +142,7 @@ def test_cli_report_path_guards_before_loading(
         loaded = True
         return _loader_report()
 
-    monkeypatch.setattr(cli, "load_official_model_weights", load)
+    monkeypatch.setattr(cli, "load_model_weights", load)
     monkeypatch.setattr(sys, "argv", _arguments(checkpoint, output, report))
     with pytest.raises((FileExistsError, ValueError)):
         cli.main()

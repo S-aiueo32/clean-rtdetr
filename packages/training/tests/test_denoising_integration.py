@@ -21,12 +21,12 @@ from clean_rtdetr.core.contracts import (
 )
 from clean_rtdetr.models.decoder import DecoderPlan
 from clean_rtdetr_training import DetectionTarget, HungarianMatcher, SetCriterion
-from clean_rtdetr_training.compatibility import load_official_training_weights
 from clean_rtdetr_training.denoising import (
     DenoisingConfig,
     DenoisingQueryGenerator,
     DenoisingTrainingModel,
 )
+from tools.compatibility.training import load_official_training_weights
 
 if TYPE_CHECKING:
     from pathlib import Path

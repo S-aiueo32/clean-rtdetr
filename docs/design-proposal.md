@@ -228,7 +228,11 @@ dataclass は可読性用の Python wrapper とし、export boundary では sche
 ```python
 cfg = RTDETRConfig.r50vd(num_classes=80)
 model = build_reference_model(cfg)
-load_official_checkpoint(model, checkpoint, source=baseline_spec)
+from tools.compatibility import load_official_model_weights
+
+load_official_model_weights(
+    checkpoint, model=model, source="ema", expected_sha256=baseline_spec.sha256
+)
 
 model.eval()
 with torch.inference_mode():
@@ -294,7 +298,7 @@ baseline の contract / fixture を共通の回帰検証として残し、各 ex
 
 学習 wrapper は、DN の構築・連結・予測の分離と criterion への metadata 引き渡しをまとめる。DN 無効または batch 内の全 target が空の場合も明示的に扱う。
 
-resume 用 checkpoint は wrapper 全体の重み、optimizer、scheduler、EMA、AMP scaler、epoch / step、乱数・sampler 状態を保存する。初版では epoch 境界での再開を保証対象とし、任意 minibatch 位置からの完全一致は別要件とする。公式重みを学習に使う場合は、DN embedding を含む training wrapper への変換を行う。
+resume 用 checkpoint は wrapper 全体の重み、optimizer、scheduler、EMA、AMP scaler、epoch / step、乱数・sampler 状態を保存する。初版では epoch 境界での再開を保証対象とし、任意 minibatch 位置からの完全一致は別要件とする。公式重みを学習に使う場合は、checkout 専用の training compatibility loader で DN embedding を含む training wrapper に読み込み、wrapper の native state dict を保存する。
 
 ```python
 training_model = build_training_model(model, cfg.training)  # DN embedding を所有

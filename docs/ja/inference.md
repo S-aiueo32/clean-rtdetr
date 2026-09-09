@@ -2,14 +2,25 @@
 
 [English version](../inference.md)
 
+core パッケージには checkpoint converter が含まれます。次でインストールします。
+
+```sh
+python -m pip install clean-rtdetr
+```
+
 Pillow はオプション依存関係です。画像サポートをインストールするには、次を実行します。
 
 ```sh
-uv sync --package clean-rtdetr --extra inference
+python -m pip install "clean-rtdetr[inference]"
 ```
 
+checkout の開発環境では `uv sync --package clean-rtdetr --extra inference` を使い、
+以下のコマンドに `uv run` を付けます。
+
 ONNX エクスポートと CPU ONNX Runtime 検証器を使う場合は、別の
-`clean-rtdetr-export` ワークスペースパッケージをインストールします。
+`clean-rtdetr-export` パッケージを `python -m pip install clean-rtdetr-export`
+でインストールします。checkout の開発環境では `uv sync --package
+clean-rtdetr-export` を使います。
 
 <a id="model-tensors"></a>
 
@@ -27,23 +38,39 @@ ONNX エクスポートと CPU ONNX Runtime 検証器を使う場合は、別の
 
 ## Python API
 
-画像サポートをインストールした後、`image.jpg` と [ベースラインメタデータ](../../benchmarks/baseline.json)
-に記載された公式チェックポイントを用意します。
+画像サポートをインストールした後、`image.jpg` と変換済み native state dict
+checkpoint を用意します。任意のディレクトリで公式 checkpoint をダウンロードし、
+インストール済みのコマンドで変換します。
+
+```sh
+curl --fail --location --create-dirs \
+  --output official.pth \
+  https://github.com/lyuwenyu/storage/releases/download/v0.1/rtdetr_r50vd_6x_coco_from_paddle.pth
+clean-rtdetr-convert --checkpoint official.pth --output native.pth
+```
+
+checkout の開発環境では、インストール済みコマンドの代わりに
+`uv run clean-rtdetr-convert` を使います。
+
+converter は変換先パス、変換後ファイルの SHA-256、公式 load report を
+含む JSON を出力します。既定ではベースラインに固定した EMA source と公式 SHA-256 を
+検証します。別の対応 checkpoint を検証する場合は `--source` と
+`--expected-sha256` で上書きできます。パッケージの loader では
+`expected_sha256` キーワード、CLI では `--expected-sha256` を変換後ファイルの
+検証用に任意で指定できます。
 
 ```python
 import torch
 from PIL import Image
 
 from clean_rtdetr import DecoderPlan, rtdetr_r50vd
-from clean_rtdetr.compatibility import load_official_model_weights
+from clean_rtdetr.checkpoint import load_model_weights
 from clean_rtdetr.inference import postprocess, preprocess_images
 
 model = rtdetr_r50vd().eval()
-load_official_model_weights(
-    "checkpoints/rtdetr_r50vd_6x_coco_from_paddle.pth",
+load_model_weights(
+    "native.pth",
     model=model,
-    source="ema",
-    expected_sha256="dfaafa5a3d29958a360c35f1fad553a6f287bfae9967e8ee007e65cff21ddf45",
 )
 with Image.open("image.jpg") as image:
     batch = preprocess_images([image])
@@ -74,15 +101,13 @@ COCO カテゴリ ID ではありません。`top_k` は 1 以上、クエリ・
 
 ## コマンドライン例
 
-`clean-rtdetr-predict` は 1 つ以上の画像パス、ローカル公式チェックポイント、その選択ソース、期待する SHA-256 を受け取ります。
+`clean-rtdetr-predict` は 1 つ以上の画像パスとローカルの native state dict を受け取ります。
 画像ごとに全 300 検出を JSON で出力し、デフォルトで 6 つのデコーダ層をすべて実行します。この例は画像や重みをダウンロードせず、
 `--device` の既定値は `cpu` です。
 
 ```sh
-uv run clean-rtdetr-predict image.jpg \
-  --checkpoint checkpoints/rtdetr_r50vd_6x_coco_from_paddle.pth \
-  --source ema \
-  --expected-sha256 dfaafa5a3d29958a360c35f1fad553a6f287bfae9967e8ee007e65cff21ddf45
+clean-rtdetr-predict image.jpg \
+  --checkpoint native.pth
 ```
 
 <a id="fixed-shape-onnx-export"></a>
@@ -117,17 +142,21 @@ session = ort.InferenceSession(
 logits, boxes = session.run(["logits", "boxes"], {"images": images.numpy()})
 ```
 
-CLI は `uv run clean-rtdetr-export` で実行します。`--checkpoint`、`--source`、`--expected-sha256`、
-`--output` は必須です。`--report` で JSON レポートのパスを指定できます（既定は output に `.json` を付けたパス）。
-ローカルにある SHA-256 検証済み公式チェックポイントだけを読み込み、重みはダウンロードしません。可変・動的形状、TensorRT、AP、
+インストール済み CLI は `clean-rtdetr-export` で実行します。`--checkpoint` と `--output` は必須です。
+`--expected-sha256` は native checkpoint の検証用に任意で指定できます。`--report` で JSON レポートのパスを指定できます（既定は output に `.json` を付けたパス）。
+ローカルにある native checkpoint だけを読み込み、指定された場合は SHA-256 を検証します。重みはダウンロードしません。可変・動的形状、TensorRT、AP、
 レイテンシは対象外です。
 
 <a id="official-weights-and-parity"></a>
 
 ## 公式重みとパリティ
 
-`load_official_model_weights` はチェックポイントパス、`model` または `ema` ソース、期待する SHA-256 を必要とします。
-モデルを変更する前に全テンソルを検証します。`load_official_stage_weights` はデコーダ側コンポーネントで引き続き利用できます。
+converter は core の内部 CLI 実装であり、公開 compatibility API はありません。公式互換ローダー `tools.compatibility.load_official_model_weights` と
+`tools.compatibility.load_official_stage_weights` は checkout 専用です。元の
+official envelope に `model` または `ema` の source と期待 SHA-256 を指定して使います。
+パッケージの `clean_rtdetr.checkpoint.load_model_weights(path,
+model=model, expected_sha256=...)` は converter が作成した plain native
+state dict を受け取ります。
 
 チェックポイント URL、ハッシュ、ソースは `benchmarks/baseline.json` に記録されています。実装済み推論ステージをすべて比較するには、次を実行します。
 

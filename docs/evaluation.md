@@ -11,16 +11,16 @@ COCO objects and native-extension types never appear in the public API.
 ## Generate predictions
 
 Install the core package with image support, then use local images, annotations,
-and the verified official checkpoint:
+and the converted native state-dict checkpoint. Download and convert the
+official envelope with `clean-rtdetr-convert` as described in the
+[inference guide](inference.md), then run:
 
 ```sh
-uv sync --package clean-rtdetr --extra inference
-uv run clean-rtdetr-coco-predict \
+python -m pip install "clean-rtdetr[inference]"
+clean-rtdetr-coco-predict \
   --images datasets/coco/val2017 \
   --annotations datasets/coco/annotations/instances_val2017.json \
-  --checkpoint checkpoints/rtdetr_r50vd_6x_coco_from_paddle.pth \
-  --source ema \
-  --expected-sha256 dfaafa5a3d29958a360c35f1fad553a6f287bfae9967e8ee007e65cff21ddf45 \
+  --checkpoint checkpoints/rtdetr_r50vd.pth \
   --output outputs/coco-predictions.json
 ```
 
@@ -49,8 +49,8 @@ Only this step requires the evaluation extra. It can run in a separate
 environment from inference:
 
 ```sh
-uv sync --package clean-rtdetr --extra evaluation
-uv run clean-rtdetr-coco-evaluate \
+python -m pip install "clean-rtdetr[evaluation]"
+clean-rtdetr-coco-evaluate \
   --annotations datasets/coco/annotations/instances_val2017.json \
   --predictions outputs/coco-predictions.json \
   --prediction-report outputs/coco-predictions.report.json \
