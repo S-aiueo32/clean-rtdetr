@@ -4,7 +4,7 @@
 import torch
 
 from clean_rtdetr.core.contracts import DetectionOutput
-from clean_rtdetr.training import DetectionTarget, HungarianMatcher, SetCriterion
+from clean_rtdetr_training import DetectionTarget, HungarianMatcher, SetCriterion
 
 
 def main() -> None:

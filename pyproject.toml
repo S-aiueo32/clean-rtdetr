@@ -1,60 +1,34 @@
-[build-system]
-requires = ["hatchling>=1.26"]
-build-backend = "hatchling.build"
-
 [project]
-name = "clean-rtdetr"
-version = "0.1.0.dev0"
-description = "Readable RT-DETR components for composable detection research"
-readme = "README.md"
-license = { file = "LICENSE" }
-classifiers = ["License :: OSI Approved :: Apache Software License"]
+name = "clean-rtdetr-workspace"
+version = "0.0.0"
+description = "Development workspace for the Clean RT-DETR packages"
 requires-python = ">=3.13"
-dependencies = ["hydra-core>=1.3,<1.4", "jaxtyping>=0.3,<1", "torch>=2.6,<3"]
-
-[project.scripts]
-clean-rtdetr-train = "clean_rtdetr.cli.train:main"
-clean-rtdetr-predict = "clean_rtdetr.cli.predict:main"
-clean-rtdetr-export = "clean_rtdetr.cli.export:main"
-clean-rtdetr-coco-predict = "clean_rtdetr.cli.coco_predict:main"
-clean-rtdetr-coco-evaluate = "clean_rtdetr.cli.coco_evaluate:main"
-
-[project.optional-dependencies]
-inference = ["pillow>=11,<13"]
-export = ["onnx>=1.18,<2", "onnxscript>=0.5,<1", "onnxruntime>=1.22,<2"]
-evaluation = ["pycocotools>=2.0.10,<3"]
-training = ["scipy>=1.15,<2"]
-lightning = ["lightning>=2.6,<3", "scipy>=1.15,<2"]
+dependencies = []
 
 [dependency-groups]
 dev = [
     "beartype>=0.20,<1",
-    "hypothesis>=6,<7",
-    "hydra-core>=1.3,<1.4",
-    "lightning>=2.6,<3",
-    "pillow>=11,<13",
     "pre-commit>=4,<5",
     "pytest>=8,<10",
     "pytest-cov>=6,<8",
     "ruff>=0.11,<1",
-    "scipy>=1.15,<2",
     "ty>=0.0.1,<1",
 ]
 
 [tool.uv]
+package = false
 # Evaluation stays optional; never fall back to a local native-extension build.
 no-build-package = ["pycocotools"]
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/clean_rtdetr"]
-
-[tool.hatch.build.targets.wheel.force-include]
-"third_party/RT-DETR/LICENSE" = "clean_rtdetr/licenses/RT-DETR-APACHE-2.0.txt"
-"third_party/RT-DETR/README.md" = "clean_rtdetr/licenses/RT-DETR-PROVENANCE.md"
+[tool.uv.workspace]
+members = ["packages/*"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
-addopts = ["-ra", "--jaxtyping-packages=clean_rtdetr,beartype.beartype"]
+testpaths = ["packages/core/tests", "packages/export/tests", "packages/training/tests"]
+addopts = [
+    "-ra",
+    "--jaxtyping-packages=clean_rtdetr,clean_rtdetr_export,clean_rtdetr_training,beartype.beartype",
+]
 
 [tool.ruff]
 target-version = "py311"
@@ -66,14 +40,25 @@ select = ["ALL"]
 # Keep the formatter and a single docstring layout authoritative.
 ignore = ["COM812", "D203", "D213"]
 
+[tool.ruff.lint.mccabe]
+max-complexity = 7
+
+[tool.ruff.lint.isort]
+known-first-party = ["clean_rtdetr", "clean_rtdetr_export", "clean_rtdetr_training"]
+
 [tool.ruff.lint.per-file-ignores]
 # jaxtyping shape strings are not Python forward references (upstream FAQ).
-"src/clean_rtdetr/**/*.py" = ["F722"]
+"packages/*/src/**/*.py" = ["F722"]
 # Pytest assertions and calls into the pinned upstream private stage methods.
-"tests/**" = ["S101", "SLF001"]
+"packages/*/tests/**" = ["INP001", "S101", "SLF001"]
 # CLI commands and checkout-only diagnostics intentionally display results.
-"src/clean_rtdetr/cli/**" = ["T201"]
+"packages/*/src/*/cli.py" = ["T201"]
+"packages/*/src/*/cli/**" = ["T201"]
 "tools/**" = ["T201"]
+"tools/checkpoint_parity.py" = ["E402", "T201"]
 
 [tool.ty.src]
-include = ["src", "tests", "tools"]
+include = ["packages/*/src", "packages/*/tests", "tools"]
+
+[tool.ty.environment]
+extra-paths = ["packages/core/tests"]

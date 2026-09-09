@@ -1,0 +1,62 @@
+[build-system]
+requires = ["hatchling>=1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "clean-rtdetr"
+version = "0.1.0.dev0"
+description = "Readable RT-DETR core models and inference components"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+keywords = ["object-detection", "pytorch", "rtdetr"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Typing :: Typed",
+]
+requires-python = ">=3.13"
+dependencies = [
+    "jaxtyping>=0.3,<1",
+    "torch>=2.6,<3",
+    "typer>=0.16,<1",
+]
+
+[project.urls]
+Homepage = "https://github.com/S-aiueo32/clean-rtdetr"
+Repository = "https://github.com/S-aiueo32/clean-rtdetr"
+Issues = "https://github.com/S-aiueo32/clean-rtdetr/issues"
+License = "https://github.com/S-aiueo32/clean-rtdetr/blob/main/LICENSE"
+
+[project.scripts]
+clean-rtdetr-predict = "clean_rtdetr.cli.predict:main"
+clean-rtdetr-coco-predict = "clean_rtdetr.cli.coco_predict:main"
+clean-rtdetr-coco-evaluate = "clean_rtdetr.cli.coco_evaluate:main"
+
+[project.optional-dependencies]
+inference = ["pillow>=11,<13"]
+evaluation = ["pycocotools>=2.0.10,<3"]
+
+[dependency-groups]
+dev = [
+    "beartype>=0.20,<1",
+    "hypothesis>=6,<7",
+    "pillow>=11,<13",
+    "pytest>=8,<10",
+    "pytest-cov>=6,<8",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/clean_rtdetr"]
+
+[tool.hatch.build.targets.sdist]
+exclude = ["/tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["-ra", "--jaxtyping-packages=clean_rtdetr,beartype.beartype"]
