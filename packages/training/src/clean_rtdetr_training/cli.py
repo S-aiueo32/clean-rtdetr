@@ -18,11 +18,6 @@ if TYPE_CHECKING:
     from omegaconf import DictConfig
 
 
-def _compose_config(overrides: list[str]) -> DictConfig:
-    """Compose the packaged Lightning configuration through the public API."""
-    return compose_training_config("lightning_training", overrides)
-
-
 def run(config: DictConfig) -> None:
     """Instantiate and train the detector from the dependency-injection graph."""
     torch.set_num_threads(1)
@@ -55,13 +50,26 @@ app = typer.Typer(add_completion=False, help=__doc__)
 
 @app.command()
 def train(
+    config_dir: Annotated[
+        Path,
+        typer.Option(
+            "--config-dir",
+            exists=True,
+            file_okay=False,
+            readable=True,
+            help="Directory containing the Hydra configuration tree.",
+        ),
+    ],
+    config_name: Annotated[
+        str, typer.Option("--config-name", help="Hydra configuration name without .yaml.")
+    ],
     overrides: Annotated[
         list[str] | None,
         typer.Argument(help="Hydra overrides such as trainer.max_epochs=1"),
     ] = None,
 ) -> None:
     """Accept positional Hydra overrides without Hydra's Python 3.14 CLI wrapper."""
-    run(_compose_config(overrides or []))
+    run(compose_training_config(config_name, overrides or [], config_dir=config_dir))
 
 
 def main() -> None:

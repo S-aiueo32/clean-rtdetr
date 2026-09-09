@@ -2,6 +2,7 @@
 """Resolve synthetic inputs from a constructed model before loading data."""
 
 from functools import partial
+from pathlib import Path
 
 import pytest
 import torch
@@ -18,7 +19,8 @@ from clean_rtdetr_training.lightning import DetectionDataModule
 def _model(num_queries: int = 300) -> DenoisingTrainingModel:
     config = compose_training_config(
         "lightning_training",
-        [f"module.training_model.model.selector.config.num_queries={num_queries}"],
+        config_dir=Path(__file__).resolve().parents[3] / "configs",
+        overrides=[f"module.training_model.model.selector.config.num_queries={num_queries}"],
     )
     with torch.device("meta"):
         return instantiate(config.module.training_model, _convert_="all")
@@ -63,7 +65,8 @@ def test_data_class_count_comes_from_constructed_model() -> None:
     num_classes = 2
     config = compose_training_config(
         "lightning_training",
-        [f"module.training_model.model.selector.config.num_classes={num_classes}"],
+        config_dir=Path(__file__).resolve().parents[3] / "configs",
+        overrides=[f"module.training_model.model.selector.config.num_classes={num_classes}"],
     )
     with torch.device("meta"):
         model = instantiate(config.module.training_model, _convert_="all")

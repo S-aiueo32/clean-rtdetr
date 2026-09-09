@@ -79,10 +79,12 @@ jobs:
           packages/training/tests
       - run: >-
           uv run
-          clean-rtdetr-train trainer.max_epochs=1 output_dir=outputs/lightning
+          clean-rtdetr-train --config-dir configs --config-name lightning_training
+          trainer.max_epochs=1 output_dir=outputs/lightning
       - run: >-
           uv run
-          clean-rtdetr-train trainer.max_epochs=2 output_dir=outputs/lightning
+          clean-rtdetr-train --config-dir configs --config-name lightning_training
+          trainer.max_epochs=2 output_dir=outputs/lightning
           resume=outputs/lightning/last.ckpt
 
   export:

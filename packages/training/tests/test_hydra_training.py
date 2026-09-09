@@ -2,11 +2,13 @@
 """Regression checks for the public Hydra training composition."""
 
 from pathlib import Path
+from shutil import copytree
 from typing import Any
 
 import lightning
 import pytest
 import torch
+from hydra.errors import MissingConfigException
 from hydra.utils import instantiate
 from lightning.pytorch.callbacks import ModelCheckpoint
 from omegaconf import DictConfig, OmegaConf
@@ -24,7 +26,11 @@ from clean_rtdetr_training.lightning import RTDETRLightningModule
 
 
 def _compose(overrides: list[str] | None = None) -> DictConfig:
-    return compose_training_config("lightning_training", overrides or [])
+    return compose_training_config(
+        "lightning_training",
+        overrides or [],
+        config_dir=Path(__file__).resolve().parents[3] / "configs",
+    )
 
 
 def _targets(value: Any):  # noqa: ANN202, ANN401 - recursive test helper
@@ -36,6 +42,32 @@ def _targets(value: Any):  # noqa: ANN202, ANN401 - recursive test helper
     elif isinstance(value, (list, tuple)):
         for child in value:
             yield from _targets(child)
+
+
+def test_external_config_tree_composes_away_from_checkout(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Copied recipes retain nested groups and permit caller-owned additions."""
+    learning_rate = 0.25
+    config_dir = tmp_path / "recipes"
+    copytree(Path(__file__).resolve().parents[3] / "configs", config_dir)
+    (config_dir / "module/optimizer_factory/custom.yaml").write_text(
+        f"_target_: torch.optim.SGD\n_partial_: true\nlr: {learning_rate}\n"
+    )
+    monkeypatch.chdir(tmp_path)
+    for directory in ("recipes", config_dir):
+        config = compose_training_config(
+            "lightning_training", ["module/optimizer_factory=custom"], config_dir=directory
+        )
+        assert config.module.optimizer_factory.lr == learning_rate
+        assert config.datamodule._target_.endswith("DetectionDataModule.from_training_model")
+
+
+def test_missing_external_config_does_not_fall_back_to_repository(tmp_path: Path) -> None:
+    """Missing directories or recipes surface Hydra's configuration errors."""
+    for directory in (tmp_path, tmp_path / "missing"):
+        with pytest.raises(MissingConfigException):
+            compose_training_config("lightning_training", config_dir=directory)
 
 
 def test_lightning_config_composes_full_model_without_command_targets() -> None:
