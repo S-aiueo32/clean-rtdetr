@@ -10,6 +10,10 @@ Task-Aligned assignment への切り替え、公式データ拡張・学習ス�
 公式 checkpoint 互換性、COCO AP、収束、推論速度、ONNX export は未検証です。
 参照実装と相違点は [NOTICE.md](NOTICE.md) に記録しています。
 
+この recipe のソースは Apache-2.0 です。再配布時は LICENSE と NOTICE.md を保持してください。
+外部の重み・データ・依存パッケージにはそれぞれの条件が適用されます。
+詳細は[ライセンスの適用範囲](../../docs/ja/licensing.md)を参照してください。
+
 ## 実行
 
 Python 3.13 以降と uv を使います。
