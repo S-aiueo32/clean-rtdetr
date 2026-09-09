@@ -6,5 +6,5 @@ from torch import Tensor
 
 from clean_rtdetr_training.contracts import DetectionTarget
 
-DetectionSample = tuple[Float[Tensor, "3 height width"], DetectionTarget]
-DetectionBatch = tuple[Float[Tensor, "batch 3 height width"], list[DetectionTarget]]
+type DetectionSample = tuple[Float[Tensor, "3 height width"], DetectionTarget]
+type DetectionBatch = tuple[Float[Tensor, "batch 3 height width"], list[DetectionTarget]]

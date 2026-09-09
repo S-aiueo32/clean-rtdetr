@@ -21,6 +21,20 @@ score head は `[B,S,K]` の logits を、box head は `[B,S,4]` の座標 delta
 互換性のない出力 shape はエラーになります。この例は研究用のアーキテクチャ変更であり、
 デフォルトで parity を保つ置き換えではありません。
 
+## 型パラメータと型エイリアス
+
+ジェネリックなクラス・関数と型エイリアスには
+[PEP 695](https://peps.python.org/pep-0695/) の構文を使います。
+ワークスペースは Python 3.13 以降を必要とし、Ruff も Python 3.13 を対象にこの規約を検査します。
+型パラメータは `class TrainingModel[PredictionT]` のように各宣言のスコープ内で定義し、
+`DetectorT: Detector` のようなコンポーネントの上限型を保持します。変性は型チェッカーに推論させます。
+
+jaxtyping のテンソル契約も含め、型エイリアスは `type` 文で宣言します。
+`BaselineRTDETR` は型注釈用のエイリアスです。モデルの生成には `RTDETR(...)` または
+`rtdetr_r50vd()` を使います。型エイリアスは遅延評価され、実行時のクラスやコンストラクタにはなりません。
+`ImageInput` は静的検査では Pillow とテンソルの union、実行時には `object` のエイリアスを保ちます。
+これにより Pillow を任意依存のままにし、明示的な入力検証による既存のエラーも維持します。
+
 <a id="tensor-annotation-conventions"></a>
 
 ## Tensor のアノテーション規約
