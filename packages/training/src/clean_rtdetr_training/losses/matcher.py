@@ -14,7 +14,12 @@ from jaxtyping import Float, Int64
 from torch import Tensor
 
 from clean_rtdetr.contracts import DetectionOutput
-from clean_rtdetr_training.contracts import DetectionTarget, MatchIndices, validate_detection
+from clean_rtdetr_training.contracts import (
+    DetectionTarget,
+    MatchIndices,
+    PredictionBoxRange,
+    validate_detection,
+)
 from clean_rtdetr_training.interfaces import Matcher
 from clean_rtdetr_training.losses.geometry import cxcywh_to_xyxy, generalized_box_iou
 
@@ -65,14 +70,26 @@ class HungarianMatcher(Matcher):
     returned indices are moved back to the prediction device.
     """
 
-    def __init__(self, config: MatcherConfig | None = None) -> None:
+    def __init__(
+        self,
+        config: MatcherConfig | None = None,
+        *,
+        prediction_box_range: PredictionBoxRange = "unit",
+    ) -> None:
         """Create a matcher with the supplied configuration."""
         super().__init__()
         self.config = config or MatcherConfig()
+        if prediction_box_range not in ("unit", "unbounded"):
+            msg = "prediction_box_range must be 'unit' or 'unbounded'"
+            raise ValueError(msg)
+        self.prediction_box_range = prediction_box_range
 
     def checkpoint_config(self) -> dict[str, object]:
         """Describe assignment costs and focal-loss settings for checkpoint resumes."""
-        return asdict(self.config)
+        config = asdict(self.config)
+        if self.prediction_box_range != "unit":
+            config["prediction_box_range"] = self.prediction_box_range
+        return config
 
     @staticmethod
     def _solve(
@@ -94,7 +111,7 @@ class HungarianMatcher(Matcher):
         self, predictions: DetectionOutput, targets: Sequence[DetectionTarget]
     ) -> tuple[MatchIndices, ...]:
         """Return matched prediction and target indices, preserving prediction device."""
-        validate_detection(predictions, targets)
+        validate_detection(predictions, targets, prediction_box_range=self.prediction_box_range)
         logits, boxes = predictions.logits, predictions.boxes
         return tuple(
             self._match_image(image_logits, image_boxes, target)

@@ -78,6 +78,20 @@ def test_query_assembly_prepends_denoising_and_detaches_all_references() -> None
     assert matching.ref_logits.grad is None
 
 
+@pytest.mark.parametrize("field", ["content", "ref_logits"])
+@pytest.mark.parametrize("shape", [(2,), (2, 3), (2, 3, 4, 1)])
+def test_query_assembly_rejects_malformed_denoising_rank(
+    field: str, shape: tuple[int, ...]
+) -> None:
+    """Report the tensor contract before indexing even without constructor type checks."""
+    denoising = DenoisingQueries(
+        torch.zeros(2, 3, 8), torch.zeros(2, 3, 4), torch.zeros(8, 8, dtype=torch.bool)
+    )
+    getattr(denoising, field).resize_(shape)
+    with pytest.raises(ValueError, match="rank-three"):
+        QueryAssembler()(query_set(), denoising)
+
+
 def test_deformable_attention_core_samples_level_pixel_centers() -> None:
     """Fix normalized coordinates, level splitting, and align_corners=False sampling."""
     value = torch.tensor([[[[1.0]], [[2.0]], [[3.0]], [[4.0]], [[10.0]]]])

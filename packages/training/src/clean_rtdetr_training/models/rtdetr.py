@@ -2,15 +2,53 @@
 """Training composition that owns DN parameters and keeps the core target-free."""
 
 from collections.abc import Sequence
+from dataclasses import replace
 from typing import Protocol, runtime_checkable
 
 from jaxtyping import Float
 from torch import Tensor
 
-from clean_rtdetr.contracts import DecoderPlan, ModelOutput
+from clean_rtdetr.contracts import DecoderOutput, DecoderPlan
 from clean_rtdetr.models.interfaces import Detector
-from clean_rtdetr_training.contracts import DetectionTarget
+from clean_rtdetr_training.contracts import (
+    DenoisingBatch,
+    DenoisingOutput,
+    DetectionTarget,
+    TrainingOutput,
+)
 from clean_rtdetr_training.interfaces import DenoisingGenerator, TrainingModel
+
+
+def split_denoising_predictions(
+    decoded: DecoderOutput, denoising: DenoisingBatch | None
+) -> tuple[DecoderOutput, DenoisingOutput | None]:
+    """Separate the leading DN slots from standard decoder logits and boxes.
+
+    Decoder tensors use ``[layers, batch, D+Q, ...]``. All collected layers and
+    their autograd connections are retained, and DN metadata is returned unchanged.
+    A DN prefix must match the prepared query count and leave matching queries.
+
+    Without DN, the original output is returned by identity, including custom
+    ``DecoderOutput`` subclasses. With DN, only an ordinary ``DecoderOutput`` is
+    accepted; recipes with extra decoder tensors own their split.
+    """
+    if denoising is None:
+        return decoded, None
+    if type(decoded) is not DecoderOutput:
+        msg = "Denoising splitting requires standard DecoderOutput; custom outputs own their split"
+        raise TypeError(msg)
+    denoising.validate()
+    count = denoising.metadata.num_queries
+    decoded.validate()
+    if count >= decoded.logits.shape[2]:
+        msg = "Denoising query count must leave matching queries"
+        raise ValueError(msg)
+    matching = DecoderOutput(decoded.logits[:, :, count:], decoded.boxes[:, :, count:])
+    dn_output = DenoisingOutput(
+        DecoderOutput(decoded.logits[:, :, :count], decoded.boxes[:, :, :count]),
+        denoising.metadata,
+    )
+    return matching, dn_output
 
 
 @runtime_checkable
@@ -25,7 +63,7 @@ class DenoisingFactory[DenoisingT: DenoisingGenerator](Protocol):
 class DenoisingTrainingModel[
     DetectorT: Detector,
     DenoisingT: DenoisingGenerator,
-](TrainingModel[ModelOutput]):
+](TrainingModel[TrainingOutput]):
     """Register a detector and DN generator together for optimizers and state dicts."""
 
     def __init__(self, model: DetectorT, denoising: DenoisingT) -> None:
@@ -53,13 +91,13 @@ class DenoisingTrainingModel[
         targets: Sequence[DetectionTarget] | None = None,
         plan: DecoderPlan | None = None,
         collect_aifi: bool = False,
-    ) -> ModelOutput:
+    ) -> TrainingOutput:
         """Build DN during training and expose matching-only final predictions."""
         if not self.training:
             if targets is not None:
                 msg = "Targets require training mode"
                 raise ValueError(msg)
-            return self.model(images, plan=plan, collect_aifi=collect_aifi)
+            return TrainingOutput(self.model(images, plan=plan, collect_aifi=collect_aifi))
         if targets is None or len(targets) != images.shape[0]:
             msg = "Denoising training requires one target per batch image"
             raise ValueError(msg)
@@ -69,15 +107,15 @@ class DenoisingTrainingModel[
         model = self.model
         prepared = self.denoising(targets, num_queries=model.num_queries)
         if prepared is None:
-            return model(images, plan=plan, collect_aifi=collect_aifi)
-        if prepared.metadata.num_queries != prepared.queries.content.shape[1]:
-            msg = "Denoising metadata query count must match prepared queries"
-            raise ValueError(msg)
-        return model(images, plan=plan, collect_aifi=collect_aifi, denoising=prepared)
+            return TrainingOutput(model(images, plan=plan, collect_aifi=collect_aifi))
+        prepared.validate()
+        output = model(images, plan=plan, collect_aifi=collect_aifi, denoising=prepared.queries)
+        matching, denoising = split_denoising_predictions(output.decoder, prepared)
+        return TrainingOutput(replace(output, decoder=matching), denoising)
 
-    def predict(self, images: Float[Tensor, "batch channels height width"]) -> ModelOutput:
+    def predict(self, images: Float[Tensor, "batch channels height width"]) -> TrainingOutput:
         """Return target-free predictions from the composed detector."""
-        return self.model(images)
+        return TrainingOutput(self.model(images))
 
     def checkpoint_config(self) -> dict[str, object]:
         """Describe configuration that is not represented by model parameters."""

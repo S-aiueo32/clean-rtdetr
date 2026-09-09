@@ -4,6 +4,12 @@
 
 `clean-rtdetr-training` は、`clean-rtdetr` の単一プロセス matching と loss、contrastive denoising query、オプションの Lightning アダプターを提供します。Python 3.13 以降が必要です。
 
+`SetCriterion` は標準 VFL/L1/GIoU を所有し、旧 `ClassificationLoss` 注入 hook は削除されました。
+`HungarianMatcher` は分布回帰向けに `prediction_box_range="unbounded"` を明示的に選択できます。
+Lightning adapter は `required_callback_keys` の宣言を checkpoint と再開先へ引き継ぎます。
+契約の詳細と、ユーザー側で所有するアルゴリズム・データ・状態は
+[recipe の責務分担](../../docs/ja/recipe-boundaries.md)を参照してください。
+
 ```sh
 python -m pip install clean-rtdetr-training
 ```
@@ -31,6 +37,10 @@ uv run clean-rtdetr-train \
 
 小規模な実画像ベンチマークとして、`benchmark` extra で Penn-Fudan ローダーを利用できます。既定の分割は学習120枚・評価50枚です。[取得手順と学習例](benchmarks/penn_fudan.md)を参照してください。
 
+`PennFudanDetectionDataset` は `root`、`split`、`seed`、`val_size` を受け取り、
+固定の person=0 クラスを使います。dataset factory は model object なしで構築します。
+ほかの data factory を使う場合も、クラス数と画像サイズは設定から明示します。
+
 loss の構築では、公開 API は正規化された cxcywh の target と、0 始まりで連続したクラスラベルを受け取ります。
 
 ```python
@@ -46,10 +56,14 @@ model_output = DetectionOutput(
 labels = torch.tensor([1], dtype=torch.int64)
 boxes = torch.tensor([[0.5, 0.5, 0.25, 0.25]])
 criterion = SetCriterion(matcher=HungarianMatcher())
-losses = criterion(model_output, [DetectionTarget(labels=labels, boxes=boxes)])
+losses = criterion.stage_losses(model_output, [DetectionTarget(labels=labels, boxes=boxes)])
 total_loss = sum(losses.values())
 total_loss.backward()
 ```
+
+学習出力全体には `criterion(training_output, targets)` を使います。module の入力は
+`TrainingOutput` です。DN なしで core の `ModelOutput` を学習する場合は
+`TrainingOutput(model_output)` で包みます。
 
 Python API は `clean_rtdetr_training` から公開されています。対応する `clean-rtdetr` リリースに依存し、export パッケージはインストールしません。`clean_rtdetr.training` の互換性 shim も提供しません。
 

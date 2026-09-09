@@ -103,7 +103,7 @@ def criterion_oracle(  # noqa: PLR0913
     matcher_alpha: float = 0.25,
     matcher_gamma: float = 2.0,
 ) -> dict[str, Tensor]:
-    """Evaluate pinned upstream VFL/L1/GIoU for a DetectionOutput or ModelOutput."""
+    """Evaluate pinned upstream VFL/L1/GIoU for detection, model, or training output."""
     matcher_type, criterion_type = _objects()
     output = cast("Any", output)
     targets = cast("Any", targets)
@@ -126,17 +126,21 @@ def criterion_oracle(  # noqa: PLR0913
 
     final = output.final if hasattr(output, "final") else output
     converted: dict[str, Any] = {"pred_logits": final.logits, "pred_boxes": final.boxes}
-    if hasattr(output, "decoder"):
+    predictions = output.predictions if hasattr(output, "predictions") else output
+    if hasattr(predictions, "decoder"):
         converted["aux_outputs"] = [
             {"pred_logits": logits, "pred_boxes": boxes}
             for logits, boxes in zip(
-                output.decoder.logits[:-1], output.decoder.boxes[:-1], strict=True
+                predictions.decoder.logits[:-1], predictions.decoder.boxes[:-1], strict=True
             )
         ]
         converted["aux_outputs"].append(
-            {"pred_logits": output.encoder_aux.logits, "pred_boxes": output.encoder_aux.boxes}
+            {
+                "pred_logits": predictions.encoder_aux.logits,
+                "pred_boxes": predictions.encoder_aux.boxes,
+            }
         )
-        if output.denoising is not None:
+        if hasattr(output, "denoising") and output.denoising is not None:
             converted["dn_aux_outputs"] = [
                 {"pred_logits": logits, "pred_boxes": boxes}
                 for logits, boxes in zip(

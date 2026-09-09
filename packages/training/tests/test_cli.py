@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 import torch
+from omegaconf import OmegaConf
 from typer.testing import CliRunner
 
 import clean_rtdetr_training.cli as training_cli
@@ -63,3 +64,63 @@ def test_train_cli_builds_nested_trainer_callbacks(tmp_path: Path) -> None:
     checkpoint = torch.load(tmp_path / "last.ckpt", weights_only=False)
     assert "EpochBoundaryState" in checkpoint["callbacks"]
     assert "RTDETREMA" in checkpoint["callbacks"]
+
+
+def test_train_cli_keeps_data_independent_of_training_wrapper(tmp_path: Path) -> None:
+    """A custom wrapper needs no class metadata or nested detector to use the CLI."""
+    config = OmegaConf.create(
+        {
+            "seed": 41,
+            "output_dir": str(tmp_path),
+            "resume": None,
+            "module": {
+                "_target_": "clean_rtdetr_training.lightning.RTDETRLightningModule",
+                "training_model": {"_target_": "test_training_interfaces.ToyTrainingModel"},
+                "criterion": {"_target_": "test_training_interfaces.ToyCriterion"},
+                "optimizer_factory": {
+                    "_target_": "torch.optim.SGD",
+                    "_partial_": True,
+                    "lr": 0.1,
+                },
+            },
+            "datamodule": {
+                "_target_": "clean_rtdetr_training.lightning.DetectionDataModule",
+                "dataset_factory": {
+                    "_target_": "clean_rtdetr_training.data.SyntheticDetectionDataset",
+                    "_partial_": True,
+                    "size": 1,
+                    "image_size": 16,
+                    "num_classes": 1,
+                },
+                "dataloader_factory": {
+                    "_target_": "torch.utils.data.DataLoader",
+                    "_partial_": True,
+                    "batch_size": 1,
+                    "collate_fn": {
+                        "_target_": "clean_rtdetr_training.data.collate_detection_batch",
+                        "_partial_": True,
+                    },
+                },
+            },
+            "trainer": {
+                "_target_": "lightning.pytorch.Trainer",
+                "accelerator": "cpu",
+                "devices": 1,
+                "max_epochs": 1,
+                "logger": False,
+                "enable_progress_bar": False,
+                "enable_model_summary": False,
+                "callbacks": {
+                    "checkpoint": {
+                        "_target_": "lightning.pytorch.callbacks.ModelCheckpoint",
+                        "dirpath": str(tmp_path),
+                        "save_last": True,
+                    },
+                },
+            },
+        }
+    )
+    training_cli.run(config)
+    checkpoint = torch.load(tmp_path / "last.ckpt", weights_only=False)
+    assert checkpoint["global_step"] == 1
+    assert torch.isfinite(checkpoint["state_dict"]["training_model.projection.weight"]).all()

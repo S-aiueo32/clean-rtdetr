@@ -290,42 +290,17 @@ class DecoderOutput:
 
 
 @dataclass(frozen=True)
-class DenoisingMetadata:
-    """Identify positive DN slots and the repeated target groups."""
-
-    positive_indices: tuple[Int64[Tensor, " _positives"], ...]
-    num_groups: int
-    num_queries: int
-
-
-@dataclass(frozen=True)
-class DenoisingBatch:
-    """Prepared decoder queries and assignments, independent of training targets."""
-
-    queries: DenoisingQueries
-    metadata: DenoisingMetadata
-
-
-@dataclass(frozen=True)
-class DenoisingOutput:
-    """Keep DN layer predictions separate from matching predictions."""
-
-    decoder: DecoderOutput
-    metadata: DenoisingMetadata
-
-
-@dataclass(frozen=True)
 class ModelOutput:
     """Return image-to-prediction results with the same fields in train and eval.
 
     Encoder auxiliary predictions retain gradients. AIFI features are present
-    only when requested. ``final`` always contains matching predictions only.
+    only when requested. Every supplied query remains in execution order;
+    assigning predictions to supervision groups belongs to the caller.
     """
 
     decoder: DecoderOutput
     encoder_aux: DetectionOutput
     after_aifi: MultiScaleFeatures | None
-    denoising: DenoisingOutput | None = None
 
     @property
     def final(self) -> DetectionOutput:

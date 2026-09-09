@@ -7,7 +7,7 @@ encoding, and independent composition. Deploy fusion remains outside this module
 
 import copy
 import math
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from dataclasses import asdict, dataclass
 from itertools import pairwise
 
@@ -218,6 +218,14 @@ class HybridEncoder(Encoder):
             CSPRepLayer(config.hidden_dim * 2, config.hidden_dim, depth, config.expansion)
             for _ in range(2)
         )
+
+    def aifi_parameters(self) -> Iterator[nn.Parameter]:
+        """Iterate existing AIFI parameters, excluding input projections and CCFF.
+
+        Parameters retain their identity and registration, so gradient inspection
+        and optimizer grouping do not depend on internal child module names.
+        """
+        return self.encoder.parameters()
 
     @property
     def output_specs(self) -> tuple[FeatureSpec, ...]:

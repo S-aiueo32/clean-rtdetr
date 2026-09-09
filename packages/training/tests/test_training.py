@@ -18,6 +18,7 @@ from clean_rtdetr_training import (
     HungarianMatcher,
     MatcherConfig,
     SetCriterion,
+    TrainingOutput,
 )
 
 if TYPE_CHECKING:
@@ -86,12 +87,12 @@ def test_criterion_values_and_gradients_match_pinned_oracle(
     """Weighted losses and gradients agree with the extracted upstream criterion."""
     predictions = _predictions(dtype)
     targets = _targets(dtype, empty=mode == "empty", mixed=mode == "mixed")
-    actual = SetCriterion(matcher=HungarianMatcher())(predictions, targets)
+    actual = SetCriterion(matcher=HungarianMatcher()).stage_losses(predictions, targets)
     expected = criterion_oracle(predictions, targets)
     assert set(actual) == {"loss_vfl", "loss_bbox", "loss_giou"}
     for name, value in actual.items():
         torch.testing.assert_close(value, expected[name], rtol=2e-5, atol=2e-6)
-    sum(actual.values()).backward()
+    torch.stack(list(actual.values())).sum().backward()
     assert predictions.logits.grad is not None
     assert predictions.boxes.grad is not None
     assert torch.isfinite(predictions.logits.grad).all()
@@ -120,7 +121,7 @@ def test_target_count_above_query_count_and_match_cost_detachment() -> None:
     for match, (rows, columns) in zip(matches, expected_matches, strict=True):
         torch.testing.assert_close(match.prediction_indices, rows)
         torch.testing.assert_close(match.target_indices, columns)
-    actual_losses = SetCriterion(matcher=HungarianMatcher())(predictions, targets)
+    actual_losses = SetCriterion(matcher=HungarianMatcher()).stage_losses(predictions, targets)
     expected_losses = criterion_oracle(predictions, targets)
     for name, value in actual_losses.items():
         torch.testing.assert_close(value, expected_losses[name])
@@ -141,7 +142,7 @@ def test_vfl_iou_quality_is_detached_from_box_gradients() -> None:
         CriterionConfig(weight_vfl=1.0, weight_bbox=0.0, weight_giou=0.0),
         matcher=HungarianMatcher(),
     )
-    criterion(predictions, targets)["loss_vfl"].backward()
+    criterion.stage_losses(predictions, targets)["loss_vfl"].backward()
     assert predictions.boxes.grad is None
     assert predictions.logits.grad is not None
 
@@ -162,7 +163,7 @@ def test_model_output_auxiliary_stages_are_independently_matched_and_named(
     )
     output = ModelOutput(decoder, encoder, None)
     targets = _targets(dtype)
-    losses = SetCriterion(matcher=HungarianMatcher())(output, targets)
+    losses = SetCriterion(matcher=HungarianMatcher())(TrainingOutput(output), targets)
     reference = ModelOutput(
         DecoderOutput(
             decoder.logits.detach().clone().requires_grad_(),
@@ -230,7 +231,7 @@ def test_criterion_backward_reaches_model_stages() -> None:
     model = small_model().train()
     output = model(torch.randn(1, 3, 64, 64))
     target = DetectionTarget(torch.tensor([1]), torch.tensor([[0.5, 0.5, 0.3, 0.2]]))
-    losses = SetCriterion(matcher=HungarianMatcher())(output, [target])
+    losses = SetCriterion(matcher=HungarianMatcher())(TrainingOutput(output), [target])
     sum(losses.values()).backward()
     for module in (
         model.backbone,
@@ -254,7 +255,7 @@ def test_custom_loss_configuration_matches_upstream() -> None:
     targets = _targets(torch.float64)
     config = CriterionConfig(weight_vfl=2.0, weight_bbox=3.0, weight_giou=4.0, alpha=0.5, gamma=1.0)
     matcher = HungarianMatcher(MatcherConfig(alpha=0.3, gamma=1.5))
-    actual = SetCriterion(config, matcher=matcher)(output, targets)
+    actual = SetCriterion(config, matcher=matcher).stage_losses(output, targets)
     expected = criterion_oracle(
         output,
         targets,
@@ -275,15 +276,15 @@ def test_invalid_inputs_are_rejected_before_matching() -> None:
     predictions = _predictions(torch.float32)
     targets = _targets(torch.float32)
     with pytest.raises(ValueError, match="finite"):
-        SetCriterion(matcher=HungarianMatcher())(
+        SetCriterion(matcher=HungarianMatcher()).stage_losses(
             replace(predictions, logits=predictions.logits.detach().clone().fill_(float("nan"))),
             targets,
         )
     with pytest.raises(ValueError, match="labels"):
-        SetCriterion(matcher=HungarianMatcher())(
+        SetCriterion(matcher=HungarianMatcher()).stage_losses(
             predictions, [replace(targets[0], labels=torch.tensor([3, 0])), targets[1]]
         )
     with pytest.raises(ValueError, match="shape"):
-        SetCriterion(matcher=HungarianMatcher())(
+        SetCriterion(matcher=HungarianMatcher()).stage_losses(
             _unchecked_output(predictions.logits, predictions.boxes[..., :3]), targets
         )

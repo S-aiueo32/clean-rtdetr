@@ -41,6 +41,11 @@ val = PennFudanDetectionDataset("datasets/PennFudanPed", split="val")
 image, target = train[0]
 ```
 
+The dataset constructor is independent of a model and takes only `root`,
+`split`, `seed`, and `val_size`. It always emits the fixed foreground class
+`person=0`; choose the corresponding one-class model in the recipe or CLI
+configuration. Dataset factories receive no training-model object.
+
 - The default split sorts filenames, shuffles with a private PyTorch generator
   seeded with 41, and reserves the final 50 images for validation: 120 train,
   50 validation. This project split is not an official Penn-Fudan protocol.

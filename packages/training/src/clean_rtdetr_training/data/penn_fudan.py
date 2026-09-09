@@ -10,8 +10,6 @@ from torch.utils.data import Dataset
 from clean_rtdetr.inference import preprocess_images
 from clean_rtdetr_training.contracts import DetectionTarget
 from clean_rtdetr_training.data.contracts import DetectionSample
-from clean_rtdetr_training.interfaces import TrainingModel
-from clean_rtdetr_training.models.rtdetr import DenoisingTrainingModel
 
 
 class PennFudanDetectionDataset(Dataset[DetectionSample]):
@@ -59,25 +57,6 @@ class PennFudanDetectionDataset(Dataset[DetectionSample]):
     def __len__(self) -> int:
         """Return the number of images in the selected split."""
         return len(self.image_paths)
-
-    @classmethod
-    def from_training_model(
-        cls,
-        training_model: TrainingModel,
-        *,
-        root: str | Path,
-        split: Literal["train", "val", "all"] = "train",
-        seed: int = 41,
-        val_size: int = 50,
-    ) -> "PennFudanDetectionDataset":
-        """Bind the benchmark to a one-class DN-wrapped RTDETR recipe."""
-        if not isinstance(training_model, DenoisingTrainingModel):
-            msg = "Penn-Fudan model-aware data requires DenoisingTrainingModel"
-            raise TypeError(msg)
-        if training_model.model.num_classes != cls.num_classes:
-            msg = "Penn-Fudan requires a model with one class (person = 0)"
-            raise ValueError(msg)
-        return cls(root, split=split, seed=seed, val_size=val_size)
 
     def __getitem__(self, index: int) -> DetectionSample:
         """Return a normalized RGB image and normalized cxcywh person boxes."""

@@ -3,15 +3,73 @@
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Literal
 
 import torch
 from jaxtyping import Float, Int64, Shaped
 from torch import Tensor
 
-from clean_rtdetr.contracts import BOX_COORDINATES, QUERY_RANK, DetectionOutput
+from clean_rtdetr.contracts import (
+    BOX_COORDINATES,
+    QUERY_RANK,
+    DecoderOutput,
+    DenoisingQueries,
+    DetectionOutput,
+    ModelOutput,
+)
 
 _ALLOWED_FLOAT_DTYPES = (torch.float32, torch.float64)
 _TARGET_BOX_RANK = 2
+
+
+@dataclass(frozen=True)
+class DenoisingMetadata:
+    """Identify positive DN slots and repeated target groups for supervision."""
+
+    positive_indices: tuple[Int64[Tensor, " _positives"], ...]
+    num_groups: int
+    num_queries: int
+
+
+@dataclass(frozen=True)
+class DenoisingBatch:
+    """Keep prepared model inputs paired with training-owned assignments."""
+
+    queries: DenoisingQueries
+    metadata: DenoisingMetadata
+
+    def validate(self) -> None:
+        """Check assignment count against prepared tensors before model execution."""
+        count = self.metadata.num_queries
+        if (
+            type(count) is not int
+            or count <= 0
+            or self.queries.content.ndim != QUERY_RANK
+            or count != self.queries.content.shape[1]
+        ):
+            msg = "Denoising metadata query count must be a positive integer matching queries"
+            raise ValueError(msg)
+
+
+@dataclass(frozen=True)
+class DenoisingOutput:
+    """Associate separated DN predictions with their known target assignments."""
+
+    decoder: DecoderOutput
+    metadata: DenoisingMetadata
+
+
+@dataclass(frozen=True)
+class TrainingOutput:
+    """Pair matching model predictions with optional denoising supervision."""
+
+    predictions: ModelOutput
+    denoising: DenoisingOutput | None = None
+
+    @property
+    def final(self) -> DetectionOutput:
+        """Return matching-only final detections from the training composition."""
+        return self.predictions.final
 
 
 @dataclass(frozen=True)
@@ -30,10 +88,15 @@ class MatchIndices:
     target_indices: Int64[Tensor, " matches"]
 
 
-def _validate_predictions(output: DetectionOutput) -> tuple[int, int, int]:
+type PredictionBoxRange = Literal["unit", "unbounded"]
+
+
+def _validate_predictions(
+    output: DetectionOutput, *, prediction_box_range: PredictionBoxRange
+) -> tuple[int, int, int]:
     logits, boxes = output.logits, output.boxes
     _validate_prediction_shapes(logits, boxes)
-    _validate_prediction_values(logits, boxes)
+    _validate_prediction_values(logits, boxes, prediction_box_range=prediction_box_range)
     return int(logits.shape[0]), int(logits.shape[1]), int(logits.shape[2])
 
 
@@ -58,13 +121,19 @@ def _validate_prediction_shapes(
 
 
 def _validate_prediction_values(
-    logits: Shaped[Tensor, "..."], boxes: Shaped[Tensor, "..."]
+    logits: Shaped[Tensor, "..."],
+    boxes: Shaped[Tensor, "..."],
+    *,
+    prediction_box_range: PredictionBoxRange,
 ) -> None:
     if not torch.isfinite(logits).all() or not torch.isfinite(boxes).all():
         msg = "Detection logits and boxes must be finite"
         raise ValueError(msg)
-    if bool((boxes < 0).any()) or bool((boxes > 1).any()):
+    if prediction_box_range == "unit" and (bool((boxes < 0).any()) or bool((boxes > 1).any())):
         msg = "Detection boxes must be normalized to [0, 1]"
+        raise ValueError(msg)
+    if prediction_box_range == "unbounded" and bool((boxes[..., 2:] < 0).any()):
+        msg = "Detection box widths and heights must be nonnegative"
         raise ValueError(msg)
 
 
@@ -121,9 +190,17 @@ def _validate_target_values(
         raise ValueError(msg)
 
 
-def validate_detection(output: DetectionOutput, targets: Sequence[DetectionTarget]) -> None:
+def validate_detection(
+    output: DetectionOutput,
+    targets: Sequence[DetectionTarget],
+    *,
+    prediction_box_range: PredictionBoxRange = "unit",
+) -> None:
     """Validate predictions and their per-image normalized detection targets."""
-    batch, _, classes = _validate_predictions(output)
+    if prediction_box_range not in ("unit", "unbounded"):
+        msg = "prediction_box_range must be 'unit' or 'unbounded'"
+        raise ValueError(msg)
+    batch, _, classes = _validate_predictions(output, prediction_box_range=prediction_box_range)
     if len(targets) != batch:
         msg = "Expected one target per batch image"
         raise ValueError(msg)

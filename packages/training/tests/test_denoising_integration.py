@@ -14,13 +14,12 @@ from training_oracle import criterion_oracle
 
 from clean_rtdetr.contracts import (
     DecoderOutput,
-    DenoisingMetadata,
-    DenoisingOutput,
     DetectionOutput,
     ModelOutput,
 )
 from clean_rtdetr.models.decoder import DecoderPlan
 from clean_rtdetr_training import DetectionTarget, HungarianMatcher, SetCriterion
+from clean_rtdetr_training.contracts import DenoisingMetadata, DenoisingOutput, TrainingOutput
 from clean_rtdetr_training.models import (
     DenoisingConfig,
     DenoisingQueryGenerator,
@@ -53,7 +52,7 @@ def _targets(
 
 def _synthetic_output(
     dtype: torch.dtype = torch.float64, *, mixed_empty: bool = False
-) -> ModelOutput:
+) -> TrainingOutput:
     torch.manual_seed(71)
     matching = DecoderOutput(
         torch.randn(2, 2, 3, 3, dtype=dtype, requires_grad=True),
@@ -75,7 +74,9 @@ def _synthetic_output(
         num_groups=2,
         num_queries=8,
     )
-    return ModelOutput(matching, encoder, None, DenoisingOutput(denoising, metadata))
+    return TrainingOutput(
+        ModelOutput(matching, encoder, None), DenoisingOutput(denoising, metadata)
+    )
 
 
 def _dn_model(config: DenoisingConfig | None = None) -> DenoisingTrainingModel:
@@ -134,18 +135,18 @@ def test_dn_criterion_values_and_gradients_match_pinned_upstream(
     assert reference.denoising is not None
     for actual_tensor, expected_tensor in zip(
         (
-            output.decoder.logits,
-            output.decoder.boxes,
-            output.encoder_aux.logits,
-            output.encoder_aux.boxes,
+            output.predictions.decoder.logits,
+            output.predictions.decoder.boxes,
+            output.predictions.encoder_aux.logits,
+            output.predictions.encoder_aux.boxes,
             output.denoising.decoder.logits,
             output.denoising.decoder.boxes,
         ),
         (
-            reference.decoder.logits,
-            reference.decoder.boxes,
-            reference.encoder_aux.logits,
-            reference.encoder_aux.boxes,
+            reference.predictions.decoder.logits,
+            reference.predictions.decoder.boxes,
+            reference.predictions.encoder_aux.logits,
+            reference.predictions.encoder_aux.boxes,
             reference.denoising.decoder.logits,
             reference.denoising.decoder.boxes,
         ),
@@ -165,26 +166,63 @@ def test_model_splits_dn_predictions_and_preserves_matching_outputs() -> None:
     torch.manual_seed(202)
     second = model(images, targets=targets)
     assert first.denoising is not None
-    assert first.decoder.logits.shape == (2, 2, 2, 3)
+    assert second.denoising is not None
+    assert first.predictions.decoder.logits.shape == (2, 2, 2, 3)
     assert first.denoising.decoder.logits.shape == (2, 2, 8, 3)
     assert not torch.equal(first.denoising.decoder.logits, second.denoising.decoder.logits)
-    torch.testing.assert_close(first.decoder.logits, second.decoder.logits)
-    torch.testing.assert_close(first.decoder.boxes, second.decoder.boxes)
+    torch.testing.assert_close(first.predictions.decoder.logits, second.predictions.decoder.logits)
+    torch.testing.assert_close(first.predictions.decoder.boxes, second.predictions.decoder.boxes)
 
 
-@pytest.mark.parametrize("count", [0, -1, True, 7, 9])
-def test_detector_rejects_inconsistent_dn_count_before_backbone(count: int) -> None:
-    """The public detector must not split DN slots into matching predictions."""
+def test_core_detector_accepts_queries_and_returns_all_decoded_slots() -> None:
+    """Core forwards tensor-only queries without interpreting their supervision."""
+    wrapper = _dn_model().train()
+    images = torch.randn(2, 3, 64, 64)
+    prepared = wrapper.denoising(_targets(), num_queries=wrapper.model.num_queries)
+    assert prepared is not None
+    output = wrapper.model(images, denoising=prepared.queries)
+    assert output.decoder.logits.shape == (2, 2, 10, 3)
+    assert output.decoder.boxes.shape == (2, 2, 10, 4)
+    assert not hasattr(output, "denoising")
+    assert output.final.logits.shape == (2, 10, 3)
+
+
+@pytest.mark.parametrize("count", [0, -1, True, 7, 9, 8.0])
+def test_wrapper_rejects_inconsistent_dn_count_before_backbone(
+    count: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Training validates supervision metadata before passing tensors to core."""
     wrapper = _dn_model()
     prepared = wrapper.denoising(_targets(), num_queries=wrapper.model.num_queries)
     assert prepared is not None
-    malformed = replace(prepared, metadata=replace(prepared.metadata, num_queries=count))
+    malformed = replace(prepared, metadata=replace(prepared.metadata))
+    object.__setattr__(malformed.metadata, "num_queries", count)
+    monkeypatch.setattr(wrapper.denoising, "forward", lambda *_args, **_kwargs: malformed)
     hook = wrapper.model.backbone.register_forward_pre_hook(
         lambda *_: pytest.fail("Invalid DN metadata reached the backbone")
     )
     try:
         with pytest.raises(ValueError, match="metadata query count"):
-            wrapper.model(torch.zeros(2, 3, 64, 64), denoising=malformed)
+            wrapper(torch.zeros(2, 3, 64, 64), targets=_targets())
+    finally:
+        hook.remove()
+
+
+def test_wrapper_rejects_malformed_dn_content_before_backbone(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Training metadata validation rejects malformed inputs before model computation."""
+    wrapper = _dn_model()
+    prepared = wrapper.denoising(_targets(), num_queries=wrapper.model.num_queries)
+    assert prepared is not None
+    object.__setattr__(prepared.queries, "content", torch.randn(2, 8))
+    monkeypatch.setattr(wrapper.denoising, "forward", lambda *_args, **_kwargs: prepared)
+    hook = wrapper.model.backbone.register_forward_pre_hook(
+        lambda *_: pytest.fail("Invalid DN content reached the backbone")
+    )
+    try:
+        with pytest.raises(ValueError, match="metadata query count"):
+            wrapper(torch.zeros(2, 3, 64, 64), targets=_targets())
     finally:
         hook.remove()
 
@@ -233,10 +271,12 @@ def test_eval_ignores_configured_dn_and_rejects_targets() -> None:
     core_output = model.model(images)
     assert output.denoising is None
     assert torch.equal(rng_before, rng_after)
-    torch.testing.assert_close(output.decoder.logits, core_output.decoder.logits)
-    torch.testing.assert_close(output.decoder.boxes, core_output.decoder.boxes)
-    torch.testing.assert_close(output.encoder_aux.logits, core_output.encoder_aux.logits)
-    torch.testing.assert_close(output.encoder_aux.boxes, core_output.encoder_aux.boxes)
+    torch.testing.assert_close(output.predictions.decoder.logits, core_output.decoder.logits)
+    torch.testing.assert_close(output.predictions.decoder.boxes, core_output.decoder.boxes)
+    torch.testing.assert_close(
+        output.predictions.encoder_aux.logits, core_output.encoder_aux.logits
+    )
+    torch.testing.assert_close(output.predictions.encoder_aux.boxes, core_output.encoder_aux.boxes)
     with pytest.raises(ValueError, match="training mode"):
         model(images, targets=_targets())
 

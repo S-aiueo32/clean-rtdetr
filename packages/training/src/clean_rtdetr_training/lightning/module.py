@@ -1,7 +1,7 @@
 # Copyright 2026 Clean RT-DETR contributors
 """Lightning training against injected model and criterion interfaces."""
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import asdict, is_dataclass
 from functools import partial
 from typing import Any
@@ -42,13 +42,15 @@ def _factory_recipe(factory: object) -> dict[str, Any] | None:
 class RTDETRLightningModule[PredictionT](LightningModule):
     """Keep the detector reusable while delegating loops and resume to Lightning."""
 
-    def __init__(
+    def __init__(  # noqa: PLR0913 - explicit training dependencies and callback requirements
         self,
         training_model: TrainingModel[PredictionT],
         criterion: TrainingCriterion[PredictionT],
         optimizer_factory: OptimizerFactory,
         scheduler_factory: SchedulerFactory | None = None,
         parameter_groups_factory: ParameterGroupsFactory | None = None,
+        *,
+        required_callback_keys: Sequence[str] = (),
     ) -> None:
         """Register interface implementations and factories as ordinary module dependencies."""
         super().__init__()
@@ -57,6 +59,12 @@ class RTDETRLightningModule[PredictionT](LightningModule):
         self.optimizer_factory = optimizer_factory
         self.scheduler_factory = scheduler_factory
         self.parameter_groups_factory = parameter_groups_factory
+        if isinstance(required_callback_keys, str) or any(
+            not isinstance(key, str) or not key.strip() for key in required_callback_keys
+        ):
+            msg = "Required callback keys must be a sequence of nonempty strings"
+            raise ValueError(msg)
+        self.required_callback_keys = frozenset(required_callback_keys)
         for factory in (optimizer_factory, scheduler_factory, parameter_groups_factory):
             _factory_recipe(factory)
         self._resume_execution: dict[str, Any] | None = None
@@ -136,10 +144,13 @@ class RTDETRLightningModule[PredictionT](LightningModule):
         if self._resume_execution is not None and self._resume_execution != self._execution():
             msg = "Checkpoint Trainer execution settings do not match"
             raise ValueError(msg)
-        if not self._resume_callback_keys <= {
-            callback.state_key for callback in getattr(trainer, "callbacks", ())
-        }:
-            msg = "Resume requires the checkpoint's EMA and epoch RNG callbacks"
+        available = {callback.state_key for callback in getattr(trainer, "callbacks", ())}
+        missing = (self.required_callback_keys | self._resume_callback_keys) - available
+        if missing:
+            context = (
+                "Resume requires" if self._resume_execution is not None else "Training requires"
+            )
+            msg = f"{context} callbacks: {', '.join(sorted(missing))}"
             raise ValueError(msg)
 
     def _execution(self) -> dict[str, Any]:
@@ -177,6 +188,10 @@ class RTDETRLightningModule[PredictionT](LightningModule):
         """Let Lightning own serialization while adding the reproduction settings."""
         checkpoint["clean_rtdetr_recipe"] = self._recipe()
         checkpoint["clean_rtdetr_execution"] = self._execution()
+        # Retain loaded requirements even if the caller removes their declaration.
+        checkpoint["clean_rtdetr_required_callbacks"] = sorted(
+            self.required_callback_keys | self._resume_callback_keys
+        )
 
     def on_load_checkpoint(self, checkpoint: dict[str, Any]) -> None:
         """Reject changed training settings instead of silently resuming another recipe."""
@@ -189,3 +204,4 @@ class RTDETRLightningModule[PredictionT](LightningModule):
             for key in checkpoint.get("callbacks", {})
             if key in {"RTDETREMA", "EpochBoundaryState"}
         }
+        self._resume_callback_keys.update(checkpoint.get("clean_rtdetr_required_callbacks", ()))

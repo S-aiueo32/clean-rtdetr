@@ -8,8 +8,9 @@ normalized cxcywh L1 loss, GIoU loss, and contrastive denoising construction/los
 A separate [Lightning adapter](lightning.md) implements the baseline optimizer
 settings and single-process CPU FP32 training with epoch-boundary resume.
 Hydra config groups inject baseline components and optimizer/scheduler factories.
-Training augmentation, distributed normalization, mixed precision, and research-method
-composition remain pending. No convergence or trained accuracy is claimed.
+Training augmentation, distributed normalization, and mixed precision remain
+outside this implementation. Research methods are composed in checkout-only
+[recipes](../recipes/README.md). No convergence or trained accuracy is claimed.
 
 ## Installation and CPU example
 
@@ -33,6 +34,7 @@ packages/training/src/clean_rtdetr_training/
   interfaces.py         # shared model, criterion, matcher, and DN interfaces
   losses/
     criterion.py
+    supervision.py       # standard matched stages, pairs, and box losses
     matcher.py
     geometry.py
   models/
@@ -57,20 +59,20 @@ depend on implementation filenames. Lightning-specific lifecycle code stays in
 `clean_rtdetr_training.lightning`.
 
 Training model components live in `models/`: `denoising.py` builds DN queries,
-and `rtdetr.py` composes the detector and generator. Imports formerly under
-`clean_rtdetr_training.denoising` now use `clean_rtdetr_training.models`;
-package-root exports and Hydra targets remain unchanged. Tensor state-dict keys
-are unchanged, but Lightning resume rejects checkpoints saved before this move
-because the recorded implementation module paths differ.
+and `rtdetr.py` composes the detector and generator. The DN contracts
+`DenoisingMetadata`, `DenoisingBatch`, and `DenoisingOutput` live in
+`clean_rtdetr_training.contracts` (and are exported from the package root); the split helper
+is in `clean_rtdetr_training.models.rtdetr` and is also root-exported. These module moves are
+source API changes; state-dict keys remain unchanged.
 
 ```python
-from clean_rtdetr_training import DetectionTarget, HungarianMatcher, SetCriterion
+from clean_rtdetr_training import DetectionTarget, HungarianMatcher, SetCriterion, TrainingOutput
 
 # model is an RTDETR instance; images and targets share its device and dtype.
 model.train()
 output = model(images)  # Default DecoderPlan retains all decoder layers.
 targets = [DetectionTarget(labels=labels, boxes=boxes)]  # One target per image.
-losses = SetCriterion(matcher=HungarianMatcher())(output, targets)
+losses = SetCriterion(matcher=HungarianMatcher())(TrainingOutput(output), targets)
 total_loss = sum(losses.values())  # Values are already weighted.
 total_loss.backward()
 ```
@@ -91,14 +93,18 @@ per image, with int64 `prediction_indices` and `target_indices` on the predictio
 device. Assignment is nondifferentiable. Rectangular assignment matches
 `min(number_of_queries, number_of_targets)` pairs.
 
-`SetCriterion` accepts a `DetectionOutput` for one stage or a `ModelOutput`
-for final and auxiliary supervision. For `ModelOutput`, retained intermediate
-decoder predictions are followed by the encoder auxiliary prediction. Every
-stage is matched independently. Use the default
-`DecoderPlan(collect_intermediate=True)` for all decoder losses; discarded
-intermediate predictions cannot be supervised. The main decoder field contains
-only matching queries; the optional `denoising` field carries DN predictions and
-their known target assignments separately.
+`SetCriterion` implements `TrainingCriterion[TrainingOutput]`: its module call
+accepts one explicit training contract for final, auxiliary, and optional DN
+supervision. Wrap a core `ModelOutput` in `TrainingOutput(model_output)` when
+training without DN. To supervise just one `DetectionOutput`, call
+`criterion.stage_losses(detection_output, targets)`.
+
+Core `ModelOutput` contains only `decoder`,
+`encoder_aux`, and `after_aifi`; its decoder and `final` retain all supplied query
+slots, including a DN prefix when prepared DN queries were passed to core.
+The training wrapper separates that prefix and returns
+`TrainingOutput(predictions, denoising)`: `predictions` and `final` contain only
+matching queries, while `denoising` carries the DN slots and assignments.
 
 | Term | Matcher cost weight | Returned loss weight |
 | --- | --- | --- |
@@ -107,6 +113,16 @@ their known target assignments separately.
 | GIoU | 2 | 2 |
 
 `MatcherConfig` and `CriterionConfig` expose these weights and focal parameters.
+`SetCriterion` owns only the standard VFL, L1, and GIoU terms; classification
+loss injection and the former classification weight hook were removed. Default
+configuration values and state-dict keys remain unchanged.
+Another classification objective belongs to a recipe criterion. It can reuse
+`clean_rtdetr_training.losses.iter_matched_stages`, `gather_matched_pairs`,
+`matched_iou_targets`, and `matched_box_losses` while owning its equation and
+weights. `iter_matched_stages` accepts `TrainingOutput`; `match_stage` matches a
+single `DetectionOutput` and returns a `MatchedStage` for the same loss helpers.
+The stage helpers retain standard RT-DETR matching and DN supervision;
+a recipe that changes those policies owns its stage supervision too.
 `SetCriterion` requires the abstract `Matcher` module interface for assignment;
 the caller or Hydra configuration constructs the matcher. Custom matchers implement
 `forward` and `checkpoint_config` without needing Hungarian-specific configuration.
@@ -114,7 +130,7 @@ Base keys are `loss_vfl`, `loss_bbox`, and `loss_giou`. Auxiliary keys append
 `_aux_0`, `_aux_1`, etc.; the encoder uses the final auxiliary index, matching
 upstream ordering. Every term is divided by `max(total targets in batch, 1)`,
 including when there are more targets than queries. An all-empty batch retains
-negative classification loss and differentiable zero box losses. Varifocal IoU
+classification loss for negatives and differentiable zero box losses. Varifocal IoU
 targets and probability weights are detached, preserving upstream gradients.
 Active distributed execution with multiple ranks is rejected because local
 target normalization would be incorrect.
@@ -135,19 +151,22 @@ training_model = DenoisingTrainingModel(
     rtdetr_r50vd(),
     DenoisingQueryGenerator(80, 256, DenoisingConfig()),
 ).train()
-output = training_model(images, targets=targets)
-losses = SetCriterion(matcher=HungarianMatcher())(output, targets)
+training_output = training_model(images, targets=targets)
+losses = SetCriterion(matcher=HungarianMatcher())(training_output, targets)
 sum(losses.values()).backward()
 ```
 
 The wrapper owns the detector and learnable `denoising.class_embed` together.
-It implements `TrainingModel[ModelOutput]`; `SetCriterion` implements
-`TrainingCriterion[DetectionOutput | ModelOutput]`. These optional integration
+It implements `TrainingModel[TrainingOutput]`. Pass the entire `TrainingOutput`
+to `SetCriterion` so it computes both matching and DN losses. To explicitly omit
+DN supervision, pass `TrainingOutput(training_output.predictions)`.
+`TrainingOutput.final` is
+matching-only. These optional integration
 interfaces are described in [Lightning training](lightning.md#model-and-criterion-interfaces).
 Use `training_model.parameters()` for optimizer construction and its `state_dict()`
 for weights. The core detector receives no dataset targets. In evaluation mode,
 call the wrapper without targets; it delegates to the inference model and does
-not draw DN noise. `output.final` always contains only matching queries.
+not draw DN noise. The wrapper's `training_output.final` contains only matching queries.
 
 Defaults follow upstream: `num_denoising=100`, `label_noise_ratio=0.5`, and
 `box_noise_scale=1.0`. For the largest target count `M` in a batch, the builder
@@ -160,7 +179,11 @@ the pinned implementation. In particular, upstream skips inverse sigmoid when
 `box_noise_scale=0`; this edge-case behavior is preserved for parity.
 
 Calling a generator as `generator(targets, num_queries=Q)` returns a `DenoisingBatch` of
-prepared queries and metadata. `num_denoising=0` or an all-empty target batch
+prepared queries and metadata. `Detector.forward(..., denoising=prepared.queries)`
+accepts only the `DenoisingQueries` tensors. The detector receives no metadata
+or raw targets and generates no noise. It returns all decoded slots without splitting;
+the training wrapper validates the prepared query count and separates the outputs.
+`num_denoising=0` or an all-empty target batch
 returns `None`, without drawing noise; the wrapper then uses the ordinary path.
 A nonempty batch is required, even when DN is disabled. Targets and images must
 share the embedding's FP32/FP64 dtype and device. The existing target validation
@@ -173,7 +196,7 @@ Negative and padding slots receive negative classification supervision. Use the
 default decoder plan to supervise every layer. No DN keys are returned when
 construction returns `None`.
 
-Official compatibility loading is checkout-only. Use
+Official training-weight compatibility loading is checkout-only. Use
 `tools.compatibility.training.load_official_training_weights(...,
 model=training_model, ...)` with the original official envelope, explicit
 `source="model"` or `source="ema"`, and its expected SHA-256. For packaged use,

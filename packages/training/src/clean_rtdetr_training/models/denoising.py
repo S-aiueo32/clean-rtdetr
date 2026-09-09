@@ -21,9 +21,14 @@ from jaxtyping import (  # noqa: TC002 - runtime jaxtyping instrumentation resol
 )
 from torch import Tensor, nn
 
-from clean_rtdetr.contracts import DenoisingBatch, DenoisingMetadata, DenoisingQueries
+from clean_rtdetr.contracts import DenoisingQueries
 from clean_rtdetr.geometry import inverse_sigmoid
-from clean_rtdetr_training.contracts import DetectionTarget, _validate_target
+from clean_rtdetr_training.contracts import (
+    DenoisingBatch,
+    DenoisingMetadata,
+    DetectionTarget,
+    _validate_target,
+)
 from clean_rtdetr_training.interfaces import DenoisingGenerator
 
 if TYPE_CHECKING:

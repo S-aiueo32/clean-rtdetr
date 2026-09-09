@@ -49,6 +49,39 @@ def test_encoder_tap_retains_gradient() -> None:
     assert features.levels[2].grad is not None
 
 
+def test_aifi_parameters_preserve_identity_and_exclude_projection_and_fusion() -> None:
+    """Expose the tap's transformer parameters without extra state registration."""
+    features, specs = _features()
+    encoder = HybridEncoder(
+        specs, HybridEncoderConfig(hidden_dim=8, num_heads=2, feedforward_dim=16)
+    )
+    state_keys = tuple(encoder.state_dict())
+    parameters = tuple(encoder.aifi_parameters())
+    expected = {
+        id(parameter)
+        for name, parameter in encoder.named_parameters()
+        if name.startswith("encoder.")
+    }
+    assert parameters
+    assert {id(parameter) for parameter in parameters} == expected
+    assert len(parameters) == len(expected)
+    parameters[0].requires_grad = False
+    assert tuple(map(id, encoder.aifi_parameters())) == tuple(map(id, parameters))
+    assert tuple(encoder.state_dict()) == state_keys
+    output = encoder(features, collect_aifi=True)
+    assert output.after_aifi is not None
+    output.after_aifi.levels[0].square().mean().backward()
+    assert parameters[0].grad is None
+    assert any(
+        parameter.grad is not None and parameter.grad.abs().sum() > 0 for parameter in parameters
+    )
+    assert all(
+        parameter.grad is None
+        for name, parameter in encoder.named_parameters()
+        if not name.startswith(("encoder.", "input_proj."))
+    )
+
+
 def test_encoder_rejects_bad_stride_geometry() -> None:
     """Reject a feature pyramid whose spatial heights do not follow strides."""
     features, specs = _features()

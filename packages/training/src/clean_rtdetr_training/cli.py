@@ -27,7 +27,6 @@ def run(config: DictConfig) -> None:
     module = instantiate(config.module, _convert_="all")
     datamodule = instantiate(
         config.datamodule,
-        training_model=module.training_model,
         generator=generator,
         _convert_="all",
     )

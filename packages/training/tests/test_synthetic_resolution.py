@@ -1,107 +1,60 @@
 # Copyright 2026 Clean RT-DETR contributors
-"""Resolve synthetic inputs from a constructed model before loading data."""
+"""Explicit synthetic data configuration remains independent of detector layout."""
 
 from functools import partial
-from pathlib import Path
 
 import pytest
 import torch
-from hydra.utils import instantiate
-from test_training_interfaces import ToyTrainingModel
 from torch.utils.data import DataLoader
 
-from clean_rtdetr_training import DenoisingTrainingModel, compose_training_config
 from clean_rtdetr_training.data import SyntheticDetectionDataset, collate_detection_batch
-from clean_rtdetr_training.interfaces import TrainingModel
 from clean_rtdetr_training.lightning import DetectionDataModule
 
 
-def _model(num_queries: int = 300) -> DenoisingTrainingModel:
-    config = compose_training_config(
-        "lightning_training",
-        config_dir=Path(__file__).resolve().parents[3] / "configs",
-        overrides=[f"module.training_model.model.selector.config.num_queries={num_queries}"],
-    )
-    with torch.device("meta"):
-        return instantiate(config.module.training_model, _convert_="all")
-
-
-@pytest.mark.parametrize(
-    ("num_queries", "expected_size"), [(2, 64), (84, 64), (85, 96), (300, 128), (337, 160)]
-)
-def test_auto_size_tracks_actual_query_capacity(num_queries: int, expected_size: int) -> None:
-    """The resolver crosses stride-aligned size boundaries as query counts grow."""
-    dataset = SyntheticDetectionDataset.from_training_model(_model(num_queries))
-    assert dataset.image_size == expected_size
-    assert dataset[0][0].shape == (3, expected_size, expected_size)
-
-
-@pytest.mark.parametrize("image_size", [128, 256])
-def test_explicit_compatible_image_size_is_preserved(image_size: int) -> None:
-    """An explicit training condition is never silently resized."""
-    dataset = SyntheticDetectionDataset.from_training_model(_model(), image_size=image_size)
+@pytest.mark.parametrize("image_size", [32, 65, 128, 256])
+def test_explicit_image_size_is_preserved(image_size: int) -> None:
+    """The dataset owns pixel generation; model input restrictions belong to its caller."""
+    dataset = SyntheticDetectionDataset(image_size=image_size, num_classes=2)
     assert dataset.image_size == image_size
+    assert dataset[0][0].shape == (3, image_size, image_size)
 
 
-@pytest.mark.parametrize(
-    ("image_size", "message"),
-    [
-        (0, "positive"),
-        (-1, "positive"),
-        (True, "positive"),
-        (32, "multiple"),
-        (65, "multiple"),
-        (96, "memory positions"),
-    ],
-)
-def test_incompatible_image_size_fails_before_sampling(image_size: int, message: str) -> None:
-    """Invalid explicit inputs fail before a training forward or DataLoader iteration."""
-    with pytest.raises(ValueError, match=message):
-        SyntheticDetectionDataset.from_training_model(_model(), image_size=image_size)
+@pytest.mark.parametrize("field", ["size", "image_size", "num_classes"])
+@pytest.mark.parametrize("value", [0, -1, True])
+def test_invalid_dataset_dimensions_are_rejected(field: str, value: int) -> None:
+    """Reject nonpositive dimensions and booleans without constructing a model."""
+    with pytest.raises(ValueError, match="positive integers"):
+        SyntheticDetectionDataset(**{field: value})
 
 
-def test_data_class_count_comes_from_constructed_model() -> None:
-    """Synthetic labels follow the model without a duplicated class-count setting."""
-    num_classes = 2
-    config = compose_training_config(
-        "lightning_training",
-        config_dir=Path(__file__).resolve().parents[3] / "configs",
-        overrides=[f"module.training_model.model.selector.config.num_classes={num_classes}"],
-    )
-    with torch.device("meta"):
-        model = instantiate(config.module.training_model, _convert_="all")
-    dataset = SyntheticDetectionDataset.from_training_model(model)
-    assert dataset.num_classes == model.model.num_classes == num_classes
-    assert all(bool((target.labels < num_classes).all()) for _, target in dataset)
+def test_explicit_class_count_controls_labels() -> None:
+    """Generate all configured foreground labels while retaining empty targets."""
+    num_classes = 3
+    dataset = SyntheticDetectionDataset(size=6, image_size=16, num_classes=num_classes)
+    labels = [target.labels.tolist() for _, target in dataset]
+    assert labels == [[0], [], [2], [], [1], []]
+    assert dataset.num_classes == num_classes
 
 
-def test_default_synthetic_factory_rejects_unsupported_training_model() -> None:
-    """Custom model families must supply their own compatible dataset factory."""
-    with pytest.raises(TypeError, match="wrapping RTDETR"):
-        SyntheticDetectionDataset.from_training_model(ToyTrainingModel())
+def test_datamodule_defers_independent_dataset_until_setup() -> None:
+    """A no-argument factory creates data once and retains the shared loader RNG."""
+    calls: list[None] = []
 
-
-def test_datamodule_binds_model_and_defers_dataset_until_setup() -> None:
-    """Construction binds metadata once and retains the shared DataLoader RNG."""
-    model = _model()
-    calls: list[TrainingModel] = []
-
-    def dataset_factory(*, training_model: TrainingModel) -> SyntheticDetectionDataset:
-        calls.append(training_model)
-        return SyntheticDetectionDataset.from_training_model(training_model)
+    def dataset_factory() -> SyntheticDetectionDataset:
+        calls.append(None)
+        return SyntheticDetectionDataset(image_size=32, num_classes=2)
 
     generator = torch.Generator().manual_seed(41)
-    datamodule = DetectionDataModule.from_training_model(
+    datamodule = DetectionDataModule(
         dataset_factory=dataset_factory,
         dataloader_factory=partial(DataLoader, batch_size=1, collate_fn=collate_detection_batch),
         generator=generator,
-        training_model=model,
     )
     assert calls == []
     datamodule.setup("fit")
     dataset = datamodule.train_dataloader().dataset
     datamodule.setup("fit")
-    assert calls == [model]
+    assert calls == [None]
     loader = datamodule.train_dataloader()
     assert loader.dataset is dataset
     assert loader.generator is generator
