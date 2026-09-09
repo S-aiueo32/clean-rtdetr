@@ -1,5 +1,9 @@
 # RT-DETR provenance notice
 
+The retained upstream box-geometry source carries:
+Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
+This attribution also applies to the corresponding geometry adaptations.
+
 Parts of the model, geometry, query-selection, postprocessing, and checkpoint
 compatibility behavior are adapted from
 [lyuwenyu/RT-DETR](https://github.com/lyuwenyu/RT-DETR) at commit

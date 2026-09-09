@@ -29,6 +29,7 @@ evaluation extra は任意であり、`--all-packages` には含まれません�
 
 ## 利用ガイド
 
+- [ライセンスの適用範囲](licensing.md): ソースのライセンス、帰属表示、外部データ・重み、teacher を含む checkpoint。
 - [推論の入出力](inference.md): モデルと画像の契約、Python の推論例、チェックポイントの読み込み、後処理、固定形状 ONNX の実行。
 - [COCO 評価](evaluation.md): ローカルデータセットの要件、予測 JSON、カテゴリ対応、部分集合の評価、指標レポート。
 - [学習損失](training.md): ターゲット形式、Hungarian マッチング、重み付き損失、ノイズ除去クエリ、勾配と一致検証の保証範囲。

@@ -1,5 +1,8 @@
 # Recipes
 
+recipe のソースは Apache-2.0 で提供します。外部の重み・データ・依存物と、
+それらを含む学習成果物の扱いは[ライセンスの適用範囲](../docs/ja/licensing.md)を参照してください。
+
 recipe 実装から整理した[ライブラリとユーザーの責務分担](../docs/ja/recipe-boundaries.md)を参照してください。
 共通化した API と、各 recipe に残す数式・構成・状態管理・検証の判断を記録しています。
 

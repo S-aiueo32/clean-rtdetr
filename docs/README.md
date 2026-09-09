@@ -31,6 +31,8 @@ metadata or dependency selections change.
 
 ## User guides
 
+- [License scope](licensing.md): source licenses, attribution, external data and
+  weights, and teacher-containing checkpoints.
 - [Inference I/O](inference.md): model and image contracts, a Python inference
   example, checkpoint loading, postprocessing, and fixed-shape ONNX execution.
 - [COCO evaluation](evaluation.md): local dataset requirements, prediction JSON,

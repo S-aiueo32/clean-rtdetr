@@ -7,6 +7,11 @@ they are not included in the Apache-2.0 Python distribution. See the source page
 for attribution and dataset information: Wang, Shi, Song, and Shen, *Object
 Detection Combining Recognition and Segmentation*, ACCV 2007.
 
+The distribution page does not state an Apache-2.0 grant for the images or
+annotations. The loader's code license does not license the dataset. Check the
+provider's terms for your intended use and obtain clarification from the provider
+when reuse or redistribution permission is unclear.
+
 ## Prepare
 
 Run from the repository root (or worktree root):
