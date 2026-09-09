@@ -39,6 +39,10 @@ in the training distribution. Installed users must provide their own tree or a
 copy of the repository's tree. Positional Hydra overrides can follow the two
 config options, for example `trainer.max_epochs=1`.
 
+For a small real-image benchmark, the optional `benchmark` extra provides a
+Penn-Fudan loader with a reproducible 120/50 train/validation split. See the
+[dataset setup and training example](benchmarks/penn_fudan.md).
+
 For loss construction, the public API accepts normalized cxcywh targets with
 zero-based contiguous class labels:
 

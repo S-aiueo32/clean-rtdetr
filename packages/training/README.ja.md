@@ -29,6 +29,8 @@ uv run clean-rtdetr-train \
 
 設定ツリーはリポジトリルートの `configs/` に置き、YAML は training distribution に同梱しません。インストール利用者は独自の設定ツリー、または `configs/` のコピーを指定してください。設定オプションに続けて `trainer.max_epochs=1` などの Hydra override を渡せます。
 
+小規模な実画像ベンチマークとして、`benchmark` extra で Penn-Fudan ローダーを利用できます。既定の分割は学習120枚・評価50枚です。[取得手順と学習例](benchmarks/penn_fudan.md)を参照してください。
+
 loss の構築では、公開 API は正規化された cxcywh の target と、0 始まりで連続したクラスラベルを受け取ります。
 
 ```python

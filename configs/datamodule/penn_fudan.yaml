@@ -1,0 +1,6 @@
+defaults:
+  - dataset_factory: penn_fudan
+  - dataloader_factory: default
+  - _self_
+
+_target_: clean_rtdetr_training.lightning.DetectionDataModule.from_training_model
