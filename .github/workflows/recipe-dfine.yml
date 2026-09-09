@@ -1,0 +1,43 @@
+name: Recipe D-FINE
+
+on:
+  push:
+    paths:
+      - "packages/**"
+      - "recipes/dfine/**"
+      - ".github/workflows/recipe-dfine.yml"
+      - "pyproject.toml"
+      - "uv.lock"
+  pull_request:
+    paths:
+      - "packages/**"
+      - "recipes/dfine/**"
+      - ".github/workflows/recipe-dfine.yml"
+      - "pyproject.toml"
+      - "uv.lock"
+
+permissions:
+  contents: read
+
+jobs:
+  recipe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      OMP_NUM_THREADS: "4"
+      MKL_NUM_THREADS: "4"
+    defaults:
+      run:
+        working-directory: recipes/dfine
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: "0.12.10"
+          python-version: "3.13"
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run --locked pytest tests
+      - run: uv run --locked ruff check .
+      - run: uv run --locked ruff format --check .
+      - run: uv run --locked ty check

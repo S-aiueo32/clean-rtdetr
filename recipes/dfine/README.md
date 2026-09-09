@@ -1,0 +1,97 @@
+# D-FINE FDR recipe
+
+パッケージ内部を変更せず、手元の decoder / matcher / criterion を注入する例です。
+既存の RT-DETR backbone・encoder・query stages と Lightning 学習ループに、
+D-FINE の分布回帰を組み合わせます。
+
+実装範囲は FDR の非一様 bin・残差分布更新・LQE、FGL、GO-LSD の
+union matching と最終層からの DDF 自己蒸留です。VFL と L1/GIoU も含みます。
+公式 D-FINE の HGNetv2・attention gate・広い追加層・DN・augmentation・
+学習スケジュールは含みません。公式モデルや重みとの互換性、COCO AP は未検証です。
+検証範囲は単一プロセス CPU FP32 と、一部の FP64 数値チェックです。
+
+## uv で実行
+
+Python 3.13 以降と uv を使い、リポジトリ内で実行します。
+`__init__.py` やリポジトリのソースを import path に追加する処理はありません。
+
+```sh
+cd /path/to/clean-rtdetr/recipes/dfine
+uv sync --locked
+uv run --locked python -m clean_rtdetr_training.cli --config-dir configs --config-name train \
+  data.root=/absolute/path/PennFudanPed +trainer.limit_train_batches=1
+```
+
+独立した `pyproject.toml` / `uv.lock` / `.venv` を持ち、親 workspace には参加しません。
+core / training は `../../packages/core` / `../../packages/training` の path 依存です。
+uv がローカルのパッケージを editable でインストールするため、ソース変更も反映されます。
+recipe を別の場所へコピーする場合は path を調整してください。
+
+デフォルトはランダム初期化した R18vd ベース・person 1クラス・Penn-Fudan です。
+上のコマンドは実画像1バッチの確認です。`+trainer.limit_train_batches=1` を外すと
+train split 全体を1 epoch 学習します。収束や AP を検証した設定ではありません。
+
+## Penn-Fudan dataset
+
+この checkout の公開 `clean_rtdetr_training.data.PennFudanDetectionDataset` を再利用します。
+`clean-rtdetr-training[benchmark]` を uv の依存に含めています。
+`data.root` は `PNGImages/` と `PedMasks/` を持つ展開済み `PennFudanPed` です。
+入手・検証手順は[benchmark ドキュメント](../../packages/training/benchmarks/penn_fudan.md)を参照してください。
+データのダウンロードは自動では行いません。
+
+読み込み・分割・640角への resize・mask から box への変換は、すべて既存 dataset が
+担当します。dataset は model object なしで構築し、固定の person=0 を使います。
+synthetic も公開 `SyntheticDetectionDataset` を使い、画像サイズ160とクラス数を
+設定から明示的に渡します。
+
+person=0、正規化 cxcywh、既定の `seed=41` / `data.val_size=50` で
+train 120画像／val 50画像です。この CLI は train のみ実行し、val AP は計算しません。
+
+データなしで接続確認する場合:
+
+```sh
+uv run --locked python -m clean_rtdetr_training.cli --config-dir configs --config-name train \
+  data=synthetic
+```
+
+モデルは `module.training_model.name=rtdetr_r50vd`、分布 bin は
+`distribution.reg_max=16` のように変更できます。分布設定は decoder と criterion に
+同じ値を渡します。片側だけ変えると学習開始時に拒否されます。
+
+同じ設定から epoch 境界で再開する場合:
+
+```sh
+uv run --locked python -m clean_rtdetr_training.cli --config-dir configs --config-name train \
+  data.root=/absolute/path/PennFudanPed \
+  resume=outputs/dfine/checkpoints/last.ckpt trainer.max_epochs=2 +trainer.limit_train_batches=1
+```
+
+実画像での再開には初回と同じ data/model/trainer overrides も指定します。
+モデル・criterion 設定の変更は checkpoint の互換性チェックで検出します。
+
+## 注入の構成
+
+- `model.py`: 既存の `create_model` が作る stages に `FDRDecoder` を渡して構成。
+- `decoder.py`: 分布・固定 reference・初期予測を明示的に返す `DistributionOutput`。
+  モジュールの隠れたキャッシュや forward hook で loss に渡す方式は使いません。
+- `criterion.py`: 公開 `TrainingCriterion` を実装し、分布を使って loss を計算。
+- `matcher.py`: `DFINEMatcher` が公開 `HungarianMatcher` の
+  `prediction_box_range="unbounded"` を選び、FDR の `[0, 1]` を超える box を扱います。
+  cost と solver はライブラリを再利用し、target の正規化検証は維持します。
+
+予測の box は正規化座標系の cxcywh ですが、画像の外へ出ることがあります。
+この recipe の分布出力を既存の推論／export CLI に直接渡す対応は含みません。
+
+## 検証と出典
+
+```sh
+uv run --locked pytest tests
+uv run --locked ruff check .
+uv run --locked ruff format --check .
+uv run --locked ty check
+```
+
+非一様 bin・座標変換、VFL/L1/GIoU/FGL/DDF の値と分布勾配を、固定した
+公式ソースの関数と比較します。モデル全体の upstream parity を示すものではありません。
+空ターゲット、raw box、union の割り当て、初期 box head の勾配、LQE の on/off、
+decoder depth と設定の不整合も検証します。参照 commit と差分は [NOTICE.md](NOTICE.md)。

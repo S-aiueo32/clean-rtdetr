@@ -1,0 +1,68 @@
+defaults:
+  - data: penn_fudan
+  - _self_
+
+seed: 41
+output_dir: outputs/dfine
+resume: null
+distribution:
+  reg_max: 32
+  reg_scale: 4.0
+  up: 0.5
+
+module:
+  _target_: clean_rtdetr_training.lightning.RTDETRLightningModule
+  training_model:
+    _target_: dfine_recipe.model.create_training_model
+    name: rtdetr_r18vd
+    num_classes: 1
+    reg_max: ${distribution.reg_max}
+    reg_scale: ${distribution.reg_scale}
+    up: ${distribution.up}
+  criterion:
+    _target_: dfine_recipe.criterion.DFINECriterion
+    matcher:
+      _target_: dfine_recipe.matcher.DFINEMatcher
+    config:
+      _target_: dfine_recipe.criterion.DFINECriterionConfig
+      reg_max: ${distribution.reg_max}
+      reg_scale: ${distribution.reg_scale}
+      up: ${distribution.up}
+  optimizer_factory:
+    _target_: torch.optim.AdamW
+    _partial_: true
+    lr: 0.0001
+    weight_decay: 0.0001
+
+datamodule:
+  _target_: clean_rtdetr_training.lightning.DetectionDataModule
+  dataset_factory: ${data}
+  dataloader_factory:
+    _target_: torch.utils.data.DataLoader
+    _partial_: true
+    batch_size: 2
+    shuffle: true
+    num_workers: 0
+    collate_fn:
+      _target_: clean_rtdetr_training.data.collate_detection_batch
+      _partial_: true
+
+trainer:
+  _target_: lightning.pytorch.Trainer
+  accelerator: cpu
+  devices: 1
+  precision: 32-true
+  deterministic: true
+  max_epochs: 1
+  gradient_clip_val: 0.1
+  logger: false
+  enable_progress_bar: false
+  enable_model_summary: false
+  callbacks:
+    rng:
+      _target_: clean_rtdetr_training.lightning.EpochBoundaryState
+    checkpoint:
+      _target_: lightning.pytorch.callbacks.ModelCheckpoint
+      dirpath: ${output_dir}/checkpoints
+      save_last: true
+      save_top_k: 0
