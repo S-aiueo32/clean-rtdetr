@@ -1,6 +1,8 @@
 # Matching and training losses
 
-`clean_rtdetr.training` implements the pinned R50vd criterion for single-process
+English | [日本語](ja/training.md)
+
+`clean_rtdetr_training` implements the pinned R50vd criterion for single-process
 FP32/FP64 PyTorch predictions: Hungarian assignment, Varifocal classification,
 normalized cxcywh L1 loss, GIoU loss, and contrastive denoising construction/losses.
 A separate [Lightning adapter](lightning.md) implements the baseline optimizer
@@ -12,7 +14,7 @@ composition remain pending. No convergence or trained accuracy is claimed.
 ## Installation and CPU example
 
 ```sh
-uv sync --locked --extra training
+uv sync --package clean-rtdetr-training
 uv run python tools/training_losses.py
 ```
 
@@ -26,7 +28,7 @@ The example runs a synthetic CPU backward pass without datasets or checkpoints.
 Implementation modules are grouped by responsibility:
 
 ```text
-training/
+packages/training/src/clean_rtdetr_training/
   contracts.py          # shared targets, assignments, and validation
   interfaces.py         # shared model, criterion, matcher, and DN interfaces
   losses/
@@ -48,13 +50,14 @@ training/
     state.py
 ```
 
-The `clean_rtdetr.training` public exports remain the composition entry point.
-`training.data` and `training.denoising` also expose their public types from
-their package initializers, so Hydra targets do not depend on implementation
-filenames. Lightning-specific lifecycle code stays in `training.lightning`.
+The `clean_rtdetr_training` public exports are the composition entry point.
+`clean_rtdetr_training.data` and `clean_rtdetr_training.denoising` also expose
+their public types from their package initializers, so Hydra targets do not
+depend on implementation filenames. Lightning-specific lifecycle code stays in
+`clean_rtdetr_training.lightning`.
 
 ```python
-from clean_rtdetr.training import DetectionTarget, HungarianMatcher, SetCriterion
+from clean_rtdetr_training import DetectionTarget, HungarianMatcher, SetCriterion
 
 # model is an RTDETR instance; images and targets share its device and dtype.
 model.train()
@@ -112,9 +115,8 @@ target normalization would be incorrect.
 ## Contrastive denoising
 
 ```python
-from hydra.utils import instantiate
-from clean_rtdetr.configuration import compose_model_config
-from clean_rtdetr.training import (
+from clean_rtdetr import rtdetr_r50vd
+from clean_rtdetr_training import (
     DenoisingConfig,
     DenoisingQueryGenerator,
     DenoisingTrainingModel,
@@ -123,7 +125,7 @@ from clean_rtdetr.training import (
 )
 
 training_model = DenoisingTrainingModel(
-    instantiate(compose_model_config("r50vd"), _convert_="all"),
+    rtdetr_r50vd(),
     DenoisingQueryGenerator(80, 256, DenoisingConfig()),
 ).train()
 output = training_model(images, targets=targets)
@@ -164,10 +166,11 @@ Negative and padding slots receive negative classification supervision. Use the
 default decoder plan to supervise every layer. No DN keys are returned when
 construction returns `None`.
 
-`load_official_model_weights(..., model=training_model, ...)` validates and loads
-the official DN embedding along with the detector before mutating any parameters.
-The inference model loader continues to exclude that embedding. This loads
-weights only; use the [Lightning adapter](lightning.md) for resumable training.
+`load_official_training_weights(..., model=training_model, ...)` from
+`clean_rtdetr_training.compatibility` validates and loads the official DN
+embedding along with the detector before mutating any parameters. The core
+inference loader continues to exclude that embedding. This loads weights only;
+use the [Lightning adapter](lightning.md) for resumable training.
 
 ## Validation scope
 

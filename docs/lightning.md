@@ -1,6 +1,8 @@
 # Lightning training and epoch-boundary resume
 
-`clean_rtdetr.training.lightning` provides a thin adapter around the existing
+English | [日本語](ja/lightning.md)
+
+`clean_rtdetr_training.lightning` provides a thin adapter around the existing
 DN training model. Lightning's `Trainer` owns automatic optimization, gradient
 clipping, epoch scheduling, logging, and checkpoint serialization/restoration.
 This project supplies the RT-DETR loss step, optimizer parameter groups, EMA,
@@ -14,9 +16,11 @@ GPU/DDP/AMP, arbitrary mid-epoch resume, and research-method composition remain 
 ## Install and run
 
 ```sh
-uv sync --locked --extra lightning
-uv run clean-rtdetr-train trainer.max_epochs=1 output_dir=outputs/lightning
-uv run clean-rtdetr-train trainer.max_epochs=2 output_dir=outputs/lightning \
+uv sync --package clean-rtdetr-training
+uv run clean-rtdetr-train \
+  trainer.max_epochs=1 output_dir=outputs/lightning
+uv run clean-rtdetr-train \
+  trainer.max_epochs=2 output_dir=outputs/lightning \
   resume=outputs/lightning/last.ckpt
 ```
 
@@ -25,18 +29,24 @@ The default recipe uses a compact detector with a partially frozen R50vd backbon
 and synthetic 64×64 images. It downloads no checkpoints or datasets. It
 exercises execution and restart, not an official trained model or accuracy.
 
-Lightning and Hydra are optional consumer dependencies. Importing `clean_rtdetr`
-or `clean_rtdetr.training` does not import them. The development environment
-includes them so adapter regression tests and type checks always run.
+Lightning is owned by the `clean-rtdetr-training` distribution. Installing or
+importing the core `clean-rtdetr` package does not install or import the training
+stack. Hydra is confined to the training distribution and its experiment recipes.
 
 ## Hierarchical configuration and dependency injection
 
-The application uses Hydra's Compose API and `hydra.utils.instantiate`.
-Configuration is packaged under `clean_rtdetr/configs/`; no configured target
-imports a command-line module.
+The application uses Hydra's Compose API and `hydra.utils.instantiate` through
+`clean_rtdetr_training.compose_training_config`. Configuration is packaged in
+the training distribution; no configured target imports a command-line module.
+
+```python
+from clean_rtdetr_training import compose_training_config
+
+config = compose_training_config("lightning_training")
+```
 
 ```text
-src/clean_rtdetr/configs/
+packages/training/src/clean_rtdetr_training/configs/
   lightning_training.yaml
   criterion/set.yaml
   matcher/hungarian.yaml
@@ -121,30 +131,27 @@ matching and DN predictions, preserving the `ModelOutput.final` contract.
 `RTDETR` in turn accepts abstract backbone, encoder, projector, selector,
 assembler, and decoder stages from `clean_rtdetr.models.interfaces`. Each stage
 declares its tensor boundary, compatibility metadata, and checkpoint settings.
-Implementations remain registered PyTorch modules. The baseline R50vd composition
-also lives in packaged YAML: `compose_model_config("r50vd")` returns its composed
-model config for `hydra.utils.instantiate`. There is no Python baseline builder;
-experimental compositions choose implementations through config overrides.
+Implementations remain registered PyTorch modules. Core exposes the fixed inference
+baseline through `rtdetr_r50vd()` without requiring a configuration framework.
+Experimental compositions remain in the training distribution's Hydra config groups.
 
-The packaged recipe is available after installing the wheel, independent of the
-repository checkout. For example:
+The baseline factory is available after installing the core wheel:
 
 ```python
-from hydra.utils import instantiate
-from clean_rtdetr.configuration import compose_model_config
+from clean_rtdetr import rtdetr_r50vd
 
-config = compose_model_config("r50vd", ["model.selector.config.num_queries=100"])
-model = instantiate(config, _convert_="all")
+model = rtdetr_r50vd()
 ```
 
-The training config uses the same packaged model group. Selecting
-`model@module.training_model.model=r50vd` uses the same baseline YAML; set the
-training recipe's shared `dimensions.hidden_dim=256` and
-`dimensions.num_classes=80` to match its DN generator and dataset.
+The training distribution packages its model groups with the training recipe.
+Their shared dimensions are controlled by the root recipe and checked against the
+DN generator and dataset during composition and construction.
 
 The `criterion`, `matcher`, and `denoising` config groups expose those choices
-alongside the existing model-stage, optimizer, and scheduler groups. For example,
-after adding `clean_rtdetr/configs/matcher/experimental.yaml`, select it with
+alongside the existing model-stage, optimizer, and scheduler groups. For
+example, after adding
+`packages/training/src/clean_rtdetr_training/configs/matcher/experimental.yaml`,
+select it with
 `matcher@module.criterion.matcher=experimental`. A replacement config supplies
 its own `_target_` and constructor arguments. No command-line module is required.
 
@@ -230,9 +237,9 @@ For the baseline wrapper, the live detector is available as
 `module.training_model.model`. After fitting,
 `ema.module` holds the separate EMA wrapper in evaluation mode. These remain
 ordinary PyTorch modules, so inference does not require a Lightning Trainer.
-The existing official checkpoint loader can initialize `training_model` before
-constructing the Lightning adapter; official weights are not Lightning resume
-checkpoints.
+`clean_rtdetr_training.compatibility.load_official_training_weights` can
+initialize `training_model` before constructing the Lightning adapter; official
+weights are not Lightning resume checkpoints.
 
 ## Validation
 

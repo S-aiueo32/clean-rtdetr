@@ -1,5 +1,7 @@
 # Clean RT-DETR
 
+[日本語ドキュメント一覧](ja/README.md)
+
 Readable Reference Implementation, Research Extensions & Optimization Playground
 
 RT-DETR の意味論を保ったまま、研究・推論変換・最適化を分離する設計案
@@ -430,27 +432,35 @@ golden tensor は少数画像の各 stage 出力を lossless に圧縮し、入�
 ## 11. リポジトリ構成案
 
 ```text
-clean_rtdetr/
-  core/           # contracts, geometry, common tensor operations
-  models/         # backbone, encoder, memory projection, selector, decoder, heads
-  variants/       # explicit factories, variant payloads, refinement implementations
-  training/       # training wrapper, matcher, criterion, denoising, recipes
-  methods/        # auxiliary branches, distillation, loss composition, step control
-  transforms/     # optimization / lowering passes
-  export/         # stable tensor schemas and exporters
-  backends/       # onnxruntime, tensorrt, openvino, torch_tensorrt
-  compatibility/  # official weight/config converters
-  data/           # thin dataset adapters and transforms
-  evaluation/     # COCO evaluator and parity reports
-tests/            # unit, contract, parity, export, training smoke
-benchmarks/       # reproducible benchmark harness and manifests
-cli/              # installed training, inference, export command entrypoints
-tools/            # checkout-only developer diagnostics
-experiments/      # research modules, resolved recipes, ablation definitions
-docs/             # paper-to-code map, extension guide, contracts, backend notes, ADRs
+pyproject.toml                            # non-package uv workspace and shared tools
+packages/
+  core/
+    pyproject.toml
+    src/clean_rtdetr/                     # model, inference, and evaluation
+    tests/
+  export/
+    pyproject.toml
+    src/clean_rtdetr_export/              # ONNX adapter, exporter, and CLI
+    tests/
+  training/
+    pyproject.toml
+    src/clean_rtdetr_training/            # losses, DN, Lightning, and configs
+    tests/
+benchmarks/                               # reproducible benchmark harness and manifests
+tools/                                    # checkout-only developer diagnostics
+experiments/                              # research recipes and ablation definitions
+docs/                                     # extension guide, contracts, backend notes, ADRs
 ```
 
-core と models は torchvision / Lightning / Hydra / backend SDK に依存しない。optional dependency は training、export、backends の extras として分離する。
+uv workspace は `clean-rtdetr`、`clean-rtdetr-export`、
+`clean-rtdetr-training` の distribution を管理する。export と training は core
+にのみ依存し、相互には依存しない。ONNX Runtime と Lightning / SciPy は各
+distribution が所有し、core の import・推論環境へ流入させない。workspace
+は lockfile を共有するため、依存境界の検証では対象 package を明示して
+環境を同期・実行する。repository root 自体は distribution とせず、各 member
+が PyPI に独立して build / publish できる metadata、README、source、test を
+所有する。public namespace は `clean_rtdetr`、`clean_rtdetr_export`、
+`clean_rtdetr_training` とし、旧 subpackage への shim は置かない。
 
 `core/` は contract と geometry など小さな共通処理に限る。各 component の具体的な計算は `models/` に残し、汎用化のための registry や独自 graph framework を追加しない。公式コードを移植する箇所は元の license と attribution を保持する。
 

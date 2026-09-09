@@ -1,142 +1,90 @@
 # Clean RT-DETR
 
+English | [日本語](README.ja.md)
+
 A readable RT-DETR reference implementation with composable research extensions.
 The design separates model variants, training methods, and experiment recipes
 from deployment transformations.
 
-## Current implementation
+See the [implementation roadmap](docs/roadmap.md) for implemented features,
+validation evidence, and planned work.
 
-The current implementation connects **images → R50vd backbone → HybridEncoder →
-projected memory → selected queries → iterative decoder predictions** in PyTorch.
+## Quick start
 
-- Frozen feature/query contracts with jaxtyping shape/dtype annotations and eager validation.
-- Decoder input projection, row-major flattening, and explicit level offsets.
-- Anchor generation and top-k selection preserving upstream masking semantics.
-- Feature-content detach and differentiable encoder auxiliary predictions.
-- DN-ready query assembly with an explicit reference-logit detach boundary.
-- Self-attention, multi-scale deformable cross-attention, and iterative box refinement.
-- Explicit decoder execution/output plans instead of implicit inference-layer selection.
-- Forward and gradient parity tests against SHA-256-pinned upstream methods.
-- An explicit R50vd factory and component-injected `RTDETR`, with optional AIFI features.
-- Strict official checkpoint loading for all inference stages, with a reproducible parity example.
-- Shared Pillow/uint8 image preprocessing and upstream-compatible top-k postprocessing.
-- Fixed-shape ONNX export through the `FixedShapeRTDETR` wrapper, with CPU FP32
-  ONNX Runtime parity verification.
-- Single-process Hungarian matching and Varifocal/L1/GIoU losses, with CPU
-  upstream loss/gradient parity and decoder/encoder auxiliary supervision.
-- Contrastive denoising query construction, a training wrapper with registered
-  class embeddings, and per-layer DN losses with CPU upstream parity.
-- Optional Lightning training adapter with baseline AdamW groups, EMA, and
-  tested CPU FP32 epoch-boundary resume; see [Lightning training](docs/lightning.md).
-- Hierarchical Hydra configs for model-stage and training-component injection.
-
-COCO-format prediction JSON and optional official bbox evaluation are available
-as separate commands; see [COCO evaluation](docs/evaluation.md). pycocotools is
-loaded only by the metric adapter, and is unnecessary for prediction generation.
-
-See [training losses](docs/training.md) for the target contract and a synthetic
-CPU backward example. SciPy is an optional training dependency for assignment.
-
-Full dataset training, GPU/DDP/AMP validation, research-method composition, and COCO AP measurement
-remain to be implemented. No AP or latency is claimed; export is limited to the fixed
-batch-1 640×640 CPU FP32 profile described below.
-`tools/query_selection.py` continues to demonstrate the component path using
-synthetic features and randomly initialized weights.
-
-## Image-to-prediction API
-
-```python
-import torch
-from hydra.utils import instantiate
-from clean_rtdetr import DecoderPlan
-from clean_rtdetr.configuration import compose_model_config
-
-model = instantiate(compose_model_config("r50vd"), _convert_="all").eval()  # Random weights.
-with torch.inference_mode():
-    output = model(torch.rand(1, 3, 640, 640), plan=DecoderPlan(collect_intermediate=False))
-print(output.final.logits.shape, output.final.boxes.shape)  # [1,300,80], [1,300,4]
-```
-
-Inputs and outputs are raw model tensors. See [inference I/O](docs/inference.md)
-for their contracts, image conversion, official weights, and parity commands.
-
-## Image preprocessing and detections
-
-Install Pillow support with `uv sync --locked --extra inference` (or combine it
-with export as `uv sync --locked --extra export --extra inference`), then run the
-complete path with local official weights:
+Use Python 3.13 or 3.14 and uv. Run these commands from the repository root:
 
 ```sh
-uv run clean-rtdetr-predict image.jpg \
-  --checkpoint checkpoints/rtdetr_r50vd_6x_coco_from_paddle.pth \
-  --source ema \
-  --expected-sha256 dfaafa5a3d29958a360c35f1fad553a6f287bfae9967e8ee007e65cff21ddf45
+uv sync --all-packages
+uv run python tools/query_selection.py
 ```
 
-See [inference I/O](docs/inference.md) for the Python API, tensor contracts, and
-postprocessing semantics. The example does not download artifacts or establish
-COCO AP or latency.
+This small CPU example needs no images, datasets, or checkpoints. It uses random
+weights to exercise feature projection, query selection, and decoding, and prints:
 
-## Fixed-shape ONNX export
-
-Install the export dependencies with `uv sync --locked --extra export`. The
-`export_onnx` API exports a `FixedShapeRTDETR` graph with raw logits
-`[1,300,80]` and normalized cxcywh boxes `[1,300,4]`:
-
-```python
-from pathlib import Path
-from hydra.utils import instantiate
-from clean_rtdetr.configuration import compose_model_config
-from clean_rtdetr.export import export_onnx
-
-model = instantiate(
-    compose_model_config("r50vd"), _convert_="all"
-).eval()  # Load trained weights separately.
-report = export_onnx(model, Path("outputs/rtdetr.onnx"))
+```text
+memory: (2, 336, 32)
+query content: (2, 20, 32)
+encoder auxiliary boxes: (2, 20, 4)
+decoder logits: (2, 20, 80)
+decoder boxes: (2, 20, 4)
 ```
 
-For a checkpoint-backed export, use the CLI. It requires a local official
-checkpoint and its SHA-256; weights are never downloaded:
+For detections on a real image, follow the [inference guide](docs/inference.md)
+with a local official checkpoint. Random weights only demonstrate the API.
 
-```sh
-uv run clean-rtdetr-export \
-  --checkpoint checkpoints/rtdetr_r50vd_6x_coco_from_paddle.pth \
-  --source ema \
-  --expected-sha256 dfaafa5a3d29958a360c35f1fad553a6f287bfae9967e8ee007e65cff21ddf45 \
-  --output outputs/rtdetr.onnx \
-  --report outputs/rtdetr.json
-```
+## Documentation
 
-The exporter uses fixed batch 1 and 640×640 CPU FP32, ONNX opset 18, and
-compares eager and ONNX Runtime outputs for seeds 41 and 42 (`atol=1e-5`,
-`rtol=1e-4`). Both exporter and Runtime graph optimizations are disabled in
-the validated profile; see [runtime settings](docs/inference.md#fixed-shape-onnx-export).
-The [official-weight report](benchmarks/onnx-parity.json) records errors and
-reproducibility metadata. Dynamic shapes, TensorRT, AP, and latency are not supported.
+| Task | Guide |
+| --- | --- |
+| Check implementation status and planned work | [Implementation roadmap](docs/roadmap.md) |
+| Choose an environment or find the next guide | [Documentation index](docs/README.md) |
+| Run image inference or load official weights | [Inference I/O](docs/inference.md) |
+| Export and run an ONNX model | [Fixed-shape ONNX export](docs/inference.md#fixed-shape-onnx-export) |
+| Generate COCO predictions and evaluate saved JSON | [COCO evaluation](docs/evaluation.md) |
+| Work with targets, matching, and denoising losses | [Training losses](docs/training.md) |
+| Run synthetic training and resume a checkpoint | [Lightning training](docs/lightning.md) |
+| Extend model stages and understand gradient boundaries | [Extension guide](docs/extensions.md) |
+| Develop, test, and build packages | [Contributing](CONTRIBUTING.md) |
+
+## Packages
+
+The uv workspace publishes three packages with one-way dependencies:
+
+| Distribution | Python package | Workspace member | Responsibility |
+| --- | --- | --- | --- |
+| `clean-rtdetr` | `clean_rtdetr` | `packages/core` | Core model, inference, preprocessing, and evaluation |
+| `clean-rtdetr-export` | `clean_rtdetr_export` | `packages/export` | Fixed-shape ONNX export and runtime parity |
+| `clean-rtdetr-training` | `clean_rtdetr_training` | `packages/training` | Matching, losses, denoising, and Lightning training |
+
+The export and training packages depend on the core package, but not on each
+other. The former `clean_rtdetr.export` and `clean_rtdetr.training` namespaces
+are not compatibility aliases. Each member has its own package metadata, README,
+source tree, and tests so it can be built and published independently. The root
+`pyproject.toml` coordinates the workspace and shared development tools; the
+repository root is not itself a Python distribution.
 
 ## Contributing
 
 Development setup, validation commands, linting policy, and implementation notes
 are documented in [CONTRIBUTING.md](CONTRIBUTING.md).
 
-For a quick local check, install the locked development environment and run:
+For a quick local check, install the development environment and run:
 
 ```sh
-uv sync --locked
+uv sync --all-packages
 uv run pytest
 ```
 
+See [distribution artifacts](CONTRIBUTING.md#distribution-artifacts) for package
+builds, metadata dry runs, and release ordering.
+
 ## Research direction
 
-The [design proposal](docs/design-proposal.md) describes the planned
-`ModelVariant × TrainingMethod × ExperimentRecipe` composition. RT-DETRv3's
-auxiliary branches, RT-DETRv4-style distillation, DEIM recipes, and D-FINE-style
-distribution refinement inform these boundaries. They are design targets, not
-implemented integrations. New regression representations may replace an entire
-decoder/selector boundary rather than conforming to RT-DETR coordinate deltas.
-
-See the [implementation roadmap](docs/roadmap.md) and the
-[extension example](docs/extensions.md) for the next concrete steps.
+The [design proposal](docs/design-proposal.md) describes the intended
+`ModelVariant × TrainingMethod × ExperimentRecipe` architecture. See the
+[extension guide](docs/extensions.md) for component boundaries and the
+[implementation roadmap](docs/roadmap.md#research-acceptance) for research
+acceptance criteria.
 
 ## License
 
@@ -149,5 +97,6 @@ license and attribution notices described in [third_party/RT-DETR/README.md](thi
 Based on [lyuwenyu/RT-DETR](https://github.com/lyuwenyu/RT-DETR), pinned to commit
 `068dfde65f2667ad6555883c69d73de886518cad`. Upstream-derived modules carry change
 notices. The [oracle source and license](third_party/RT-DETR/README.md) are retained
-for parity testing. [Baseline metadata](benchmarks/baseline.json) explicitly marks
-checkpoint, AP, and latency measurements as pending.
+for parity testing. [Baseline metadata](benchmarks/baseline.json) records the
+official checkpoint URL, SHA-256, and EMA source. Validation reports and their
+scope are listed in the [implementation roadmap](docs/roadmap.md).

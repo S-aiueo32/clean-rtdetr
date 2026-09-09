@@ -1,5 +1,7 @@
 # COCO bounding-box evaluation
 
+English | [日本語](ja/evaluation.md)
+
 Prediction generation and metric calculation are separate commands. Image
 loading, preprocessing, model inference, category mapping, and result JSON
 serialization do not import pycocotools. Only the private metric adapter
@@ -8,10 +10,11 @@ COCO objects and native-extension types never appear in the public API.
 
 ## Generate predictions
 
-Install image support with `uv sync --locked --extra inference`, then use local
-images, annotations, and the verified official checkpoint:
+Install the core package with image support, then use local images, annotations,
+and the verified official checkpoint:
 
 ```sh
+uv sync --package clean-rtdetr --extra inference
 uv run clean-rtdetr-coco-predict \
   --images datasets/coco/val2017 \
   --annotations datasets/coco/annotations/instances_val2017.json \
@@ -46,7 +49,7 @@ Only this step requires the evaluation extra. It can run in a separate
 environment from inference:
 
 ```sh
-uv sync --locked --extra evaluation
+uv sync --package clean-rtdetr --extra evaluation
 uv run clean-rtdetr-coco-evaluate \
   --annotations datasets/coco/annotations/instances_val2017.json \
   --predictions outputs/coco-predictions.json \
