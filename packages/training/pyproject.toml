@@ -31,6 +31,9 @@ dependencies = [
     "typer>=0.16,<1",
 ]
 
+[project.optional-dependencies]
+benchmark = ["pillow>=11,<13"]
+
 [project.urls]
 Homepage = "https://github.com/S-aiueo32/clean-rtdetr"
 Documentation = "https://github.com/S-aiueo32/clean-rtdetr/blob/main/docs/training.md"
@@ -44,6 +47,7 @@ clean-rtdetr-train = "clean_rtdetr_training.cli:main"
 [dependency-groups]
 dev = [
     "beartype>=0.20,<1",
+    "pillow>=11,<13",
     "pytest>=8,<10",
     "pytest-cov>=6,<8",
 ]

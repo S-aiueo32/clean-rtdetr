@@ -1,0 +1,14 @@
+# Small real-image training recipe; validation metrics are not run by this CLI.
+defaults:
+  - lightning_training
+  - override datamodule: penn_fudan
+  - _self_
+
+module:
+  training_model:
+    model:
+      selector:
+        config:
+          num_classes: 1
+
+output_dir: outputs/penn_fudan

@@ -3,11 +3,13 @@
 
 from clean_rtdetr_training.data.collate import collate_detection_batch
 from clean_rtdetr_training.data.contracts import DetectionBatch, DetectionSample
+from clean_rtdetr_training.data.penn_fudan import PennFudanDetectionDataset
 from clean_rtdetr_training.data.synthetic import SyntheticDetectionDataset
 
 __all__ = [
     "DetectionBatch",
     "DetectionSample",
+    "PennFudanDetectionDataset",
     "SyntheticDetectionDataset",
     "collate_detection_batch",
 ]
