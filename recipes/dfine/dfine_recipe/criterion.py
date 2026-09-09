@@ -1,5 +1,8 @@
 # Copyright 2026 Clean RT-DETR contributors
 # Copyright (c) 2024 The D-FINE Authors. All Rights Reserved.
+# Copyright (c) 2023 lyuwenyu. All Rights Reserved.
+# Adapted for Clean RT-DETR public contracts; see ../NOTICE.md for the pinned
+# source and implementation differences.
 """VFL, union localization and final-layer distillation; see ../NOTICE.md."""
 
 import math

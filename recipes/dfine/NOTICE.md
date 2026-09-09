@@ -11,7 +11,8 @@ commit `956d1709314c2c6a4df6f34de232054578a7449f`.
 - `src/zoo/dfine/dfine_criterion.py`: VFL, union assignments, FGL and DDF.
 
 Copyright (c) 2024 The D-FINE Authors. All Rights Reserved.
-Upstream decoder is modified from RT-DETR, Copyright (c) 2023 lyuwenyu.
+Upstream decoder and criterion are modified from RT-DETR,
+Copyright (c) 2023 lyuwenyu. All Rights Reserved.
 Apache-2.0; upstream `LICENSE` is included. Unmodified utility and criterion
 sources are retained as `.txt` test fixtures under `tests/reference/`.
 Tests load selected pure methods without importing the upstream registry.

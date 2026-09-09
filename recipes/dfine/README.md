@@ -95,3 +95,7 @@ uv run --locked ty check
 公式ソースの関数と比較します。モデル全体の upstream parity を示すものではありません。
 空ターゲット、raw box、union の割り当て、初期 box head の勾配、LQE の on/off、
 decoder depth と設定の不整合も検証します。参照 commit と差分は [NOTICE.md](NOTICE.md)。
+
+この recipe のソースは Apache-2.0 で、出典と変更範囲は [NOTICE.md](NOTICE.md) に
+記録しています。外部の重み・データ・依存パッケージにはそれぞれの利用条件が適用されます。
+リポジトリ全体の方針は [ライセンス案内](../../docs/ja/licensing.md) を参照してください。

@@ -1,5 +1,7 @@
 # Copyright 2026 Clean RT-DETR contributors
 # Copyright (c) 2024 The D-FINE Authors. All Rights Reserved.
+# Adapted for Clean RT-DETR public contracts; see ../NOTICE.md for the pinned
+# source and implementation differences.
 """D-FINE's nonuniform bins and box transforms, adapted under Apache-2.0.
 
 See ../NOTICE.md for the pinned source. Constants are caller-owned floats;

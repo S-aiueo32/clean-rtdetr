@@ -1,4 +1,8 @@
 # Copyright 2026 Clean RT-DETR contributors
+# Copyright (c) 2024 The D-FINE Authors. All Rights Reserved.
+# Copyright (c) 2023 lyuwenyu. All Rights Reserved.
+# Adapted from D-FINE's FDR/LQE behavior for Clean RT-DETR public contracts;
+# registry-based construction is replaced by the public decoder interfaces.
 """Recipe-local FDR decoder built on the public RT-DETR decoder layer."""
 
 import copy
