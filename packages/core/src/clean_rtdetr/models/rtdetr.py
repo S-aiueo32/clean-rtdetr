@@ -92,7 +92,44 @@ class RTDETR[
         collect_aifi: bool = False,
         denoising: DenoisingBatch | None = None,
     ) -> ModelOutput:
-        """Run images through all stages and return decoder and auxiliary predictions."""
+        """Run images through all stages and return decoder and auxiliary predictions.
+
+        The stage boundaries and retained outputs follow this data flow::
+
+            images → backbone → encoder ─┬─ features → projector → memory
+                                         └─ after_aifi (optional)
+
+            memory → selector ─┬─ matching queries ─┐
+                               └─ encoder_aux       ├→ assembler → queries
+            prepared DN queries (optional) ─────────┘
+
+            memory ──┐
+                     ├→ decoder → split ─┬─ matching outputs
+            queries ─┘                   └─ DN outputs (optional)
+
+        ``after_aifi`` is optional; encoder auxiliary predictions keep the
+        selector's gradient path. Prepared DN queries enter at the assembler and
+        their leading decoder slots are separated after all requested layers run.
+        ``plan`` controls decoder depth and retained intermediate predictions.
+        This boundary returns raw logits and normalized cxcywh boxes.
+        """
+        self._validate_denoising(denoising)
+        features = self.backbone(images)
+        encoded_features = self.encoder(features, collect_aifi=collect_aifi)
+        encoded = self.projector(encoded_features.features)
+        selected = self.selector(encoded)
+        queries = self.assembler(selected.queries, None if denoising is None else denoising.queries)
+        decoded = self.decoder(queries, encoded, plan=plan)
+        matching, dn_output = self._split_predictions(decoded, denoising)
+        return ModelOutput(
+            decoder=matching,
+            encoder_aux=DetectionOutput(selected.encoder_logits, selected.encoder_boxes),
+            after_aifi=encoded_features.after_aifi,
+            denoising=dn_output,
+        )
+
+    def _validate_denoising(self, denoising: DenoisingBatch | None) -> None:
+        """Check DN query counts before executing any model stage."""
         if denoising is not None:
             count = denoising.metadata.num_queries
             if (
@@ -103,12 +140,18 @@ class RTDETR[
             ):
                 msg = "Denoising metadata query count must be a positive integer matching queries"
                 raise ValueError(msg)
-        features = self.backbone(images)
-        encoded_features = self.encoder(features, collect_aifi=collect_aifi)
-        encoded = self.projector(encoded_features.features)
-        selected = self.selector(encoded)
-        queries = self.assembler(selected.queries, None if denoising is None else denoising.queries)
-        decoded = self.decoder(queries, encoded, plan=plan)
+
+    def _split_predictions(
+        self, decoded: DecoderOutput, denoising: DenoisingBatch | None
+    ) -> tuple[DecoderOutput, DenoisingOutput | None]:
+        """Separate the leading DN predictions from the matching query predictions.
+
+        Decoder tensors have layout ``[layers, B, D+Q, ...]``. Slice ``:D`` for
+        denoising and ``D:`` for matching, retaining every collected layer. Slices
+        preserve autograd connections; DN metadata travels with its predictions.
+        A DN prefix must leave at least one matching query. Without DN, the
+        original ``DecoderOutput`` is returned directly.
+        """
         if denoising is None:
             matching = decoded
             dn_output = None
@@ -122,12 +165,7 @@ class RTDETR[
                 DecoderOutput(decoded.logits[:, :, :count], decoded.boxes[:, :, :count]),
                 denoising.metadata,
             )
-        return ModelOutput(
-            decoder=matching,
-            encoder_aux=DetectionOutput(selected.encoder_logits, selected.encoder_boxes),
-            after_aifi=encoded_features.after_aifi,
-            denoising=dn_output,
-        )
+        return matching, dn_output
 
     @property
     def num_classes(self) -> int:

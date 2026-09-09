@@ -133,7 +133,23 @@ class MultiScaleDeformableAttention(nn.Module):
         spatial_shapes: Int64[Tensor, "feature_levels 2"],
         shapes: tuple[tuple[int, int], ...],
     ) -> Float[Tensor, "batch queries channels"]:
-        """Apply attention after the caller validates the spatial metadata."""
+        """Apply attention after the caller validates the spatial metadata.
+
+        Deformable DETR Eq. (3), https://arxiv.org/html/2010.04159v4, aggregates
+        sampled values over levels and points within each attention head. Here
+        softmax jointly normalizes the ``num_levels * num_points`` weights.
+
+        Sampling locations use the pinned implementation's two parameterizations::
+
+            reference (x, y):       location = reference + offset / (W_l, H_l)
+            reference (cx,cy,w,h):  location = center + offset / num_points * size / 2
+
+        Spatial metadata stores (H, W), hence the flip for the point normalizer.
+        Locations are in normalized image coordinates. The sampling kernel maps
+        them to [-1, 1] for bilinear ``grid_sample(align_corners=False)``; samples
+        beyond the image use zero padding. Head outputs are merged and projected
+        back to ``[B, Q, hidden_dim]``.
+        """
         batch, queries, _ = query.shape
         sequence = value.shape[1]
         value = self.value_proj(value).reshape(batch, sequence, self.num_heads, self.head_dim)

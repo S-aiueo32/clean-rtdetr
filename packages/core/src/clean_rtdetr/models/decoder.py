@@ -121,7 +121,39 @@ class DecoderLayer(nn.Module):
         query_position: Float[Tensor, "batch queries channels"],
         attention_mask: Bool[Tensor, "total_queries total_queries"] | None,
     ) -> Float[Tensor, "batch queries channels"]:
-        """Update query content while preserving upstream residual/norm ordering."""
+        """Update query content while preserving upstream residual/norm ordering.
+
+        Each sublayer preserves ``[B, Q, C]`` and has its own residual and norm::
+
+            target -> self-attention -> cross-attention -> feed-forward
+                       other queries    encoder memory    channel mixing
+
+        ``query_position`` enters the attention queries (and self-attention keys).
+        ``reference_points`` locates cross-attention samples in the image pyramid.
+        ``attention_mask`` restricts query-to-query interaction only.
+        """
+        target = self._self_attention(target, query_position, attention_mask)
+        target = self._cross_attention(
+            target, query_position, reference_points, memory, spatial_shapes
+        )
+        return self._feed_forward(target)
+
+    def _self_attention(
+        self,
+        target: Float[Tensor, "batch queries channels"],
+        query_position: Float[Tensor, "batch queries channels"],
+        attention_mask: Bool[Tensor, "total_queries total_queries"] | None,
+    ) -> Float[Tensor, "batch queries channels"]:
+        """Attend among queries, then apply the first residual and normalization.
+
+        With ``x = target`` and ``p = query_position``::
+
+            a = MHA(query=x+p, key=x+p, value=x, mask=attention_mask)
+            y = norm1(x + dropout1(a))
+
+        Boolean mask entry ``[i, j] = True`` blocks query i from reading query j.
+        Values contain content only, so positional features are not copied into x.
+        """
         positioned = target + query_position
         attended, _ = self.self_attn(
             positioned,
@@ -130,14 +162,38 @@ class DecoderLayer(nn.Module):
             attn_mask=attention_mask,
             need_weights=False,
         )
-        target = self.norm1(target + self.dropout1(attended))
+        return self.norm1(target + self.dropout1(attended))
+
+    def _cross_attention(
+        self,
+        target: Float[Tensor, "batch queries channels"],
+        query_position: Float[Tensor, "batch queries channels"],
+        reference_points: Float[Tensor, "batch queries _levels coordinates"],
+        memory: Float[Tensor, "batch sequence channels"],
+        spatial_shapes: Int64[Tensor, "_levels 2"],
+    ) -> Float[Tensor, "batch queries channels"]:
+        """Sample encoder memory, then apply the second residual and normalization.
+
+        ``cross_attn`` implements the multi-scale aggregation in Deformable DETR
+        Eq. (3), https://arxiv.org/html/2010.04159v4. The positioned target
+        predicts offsets and weights; references locate samples in each level.
+        Flattened memory supplies their values, giving ``[B, Q, C]``::
+
+            a = cross_attn(target + query_position, references, memory, shapes)
+            y = norm2(target + dropout2(a))
+        """
         attended = self.cross_attn(
             target + query_position,
             reference_points,
             memory,
             spatial_shapes,
         )
-        target = self.norm2(target + self.dropout2(attended))
+        return self.norm2(target + self.dropout2(attended))
+
+    def _feed_forward(
+        self, target: Float[Tensor, "batch queries channels"]
+    ) -> Float[Tensor, "batch queries channels"]:
+        """Transform channels and clamp the residual before final normalization."""
         feedforward = self.linear2(self.dropout3(self.activation(self.linear1(target))))
         return self.norm3((target + self.dropout4(feedforward)).clamp(min=-65504, max=65504))
 
@@ -199,8 +255,19 @@ class Decoder(DecoderInterface):
         plan: DecoderPlan | None = None,
     ) -> DecoderOutput:
         """Execute the requested layer prefix and collect predictions per the plan."""
+        self._validate_inputs(queries, features)
+        selected_plan = DecoderPlan() if plan is None else plan
+        executed_layers = self._execution_depth(selected_plan)
+        return self._decode(queries, features, executed_layers, selected_plan)
+
+    def _validate_inputs(self, queries: DecoderInput, features: EncodedFeatures) -> None:
+        """Check query and memory dimensions against the configured decoder."""
         queries.validate()
         features.validate()
+        self._validate_dimensions(queries, features)
+
+    def _validate_dimensions(self, queries: DecoderInput, features: EncodedFeatures) -> None:
+        """Check shared batch size, configured hidden width, and feature level count."""
         config = self.config
         if queries.content.shape[0] != features.memory.shape[0]:
             msg = "Queries and memory must share batch size"
@@ -214,14 +281,17 @@ class Decoder(DecoderInterface):
         if features.spatial_shapes.shape[0] != config.num_levels:
             msg = "Encoded feature levels must match the decoder configuration"
             raise ValueError(msg)
-        selected_plan = DecoderPlan() if plan is None else plan
+
+    def _execution_depth(self, selected_plan: DecoderPlan) -> int:
+        """Resolve and validate the requested layer prefix."""
+        config = self.config
         executed_layers = (
             config.num_layers if selected_plan.num_layers is None else selected_plan.num_layers
         )
         if not 1 <= executed_layers <= config.num_layers:
             msg = "Decoder plan num_layers must select a nonempty configured prefix"
             raise ValueError(msg)
-        return self._decode(queries, features, executed_layers, selected_plan)
+        return executed_layers
 
     def _decode(
         self,
@@ -230,15 +300,43 @@ class Decoder(DecoderInterface):
         executed_layers: int,
         selected_plan: DecoderPlan,
     ) -> DecoderOutput:
-        """Share refinement arithmetic after boundary and execution-plan validation."""
+        """Share refinement arithmetic after boundary and execution-plan validation.
+
+        Refinement uses ``refine(delta, ref) = sigmoid(delta + inverse_sigmoid(ref))``.
+        During training, the previous layer's refined box has two routes::
+
+            previous_refinement
+                ├─ detach → sampling_reference ─┬→ position / attention
+                │                               └→ refine(delta_i, sampling_reference)
+                │                                      │
+                │                                      └→ refinement_i → next iteration
+                │
+                └→ refine(delta_i, previous_refinement)
+                       │
+                       └→ loss boxes_i
+
+        Here ``delta_i = box_head_i(content_i)`` is evaluated separately for each
+        refinement, preserving the pinned implementation's head-call order.
+        The two refinements have the same values but different gradient paths.
+        Loss boxes can differentiate the preceding box head through
+        ``previous_refinement``; the sampling route stops that gradient.
+        The first layer uses its refinement directly as loss boxes. In eval,
+        neither route detaches and the second box-head call is unnecessary.
+        Query content keeps its gradient across layers in both modes.
+
+        All requested layers execute even when only the last prediction is kept.
+        Outputs stack as ``[retained_layers, B, Q, classes]`` and
+        ``[retained_layers, B, Q, 4]``. The initial detach boundary belongs to
+        ``QueryAssembler``; this internal method also serves fixed-shape export.
+        """
         output = queries.content
-        detached_reference = queries.ref_logits.sigmoid()
-        previous_reference = detached_reference
+        sampling_reference = queries.ref_logits.sigmoid()
+        previous_refinement = sampling_reference
         layer_boxes = []
         layer_logits = []
         for index, layer in enumerate(self.layers[:executed_layers]):
-            reference_input = detached_reference.unsqueeze(2)
-            query_position = self.query_pos_head(detached_reference)
+            reference_input = sampling_reference.unsqueeze(2)
+            query_position = self.query_pos_head(sampling_reference)
             output = layer(
                 output,
                 reference_input,
@@ -248,18 +346,18 @@ class Decoder(DecoderInterface):
                 queries.attention_mask,
             )
             refined = (
-                self.dec_bbox_head[index](output) + inverse_sigmoid(detached_reference)
+                self.dec_bbox_head[index](output) + inverse_sigmoid(sampling_reference)
             ).sigmoid()
             if selected_plan.collect_intermediate or index == executed_layers - 1:
                 layer_logits.append(self.dec_score_head[index](output))
                 boxes = refined
                 if self.training and index > 0:
                     boxes = (
-                        self.dec_bbox_head[index](output) + inverse_sigmoid(previous_reference)
+                        self.dec_bbox_head[index](output) + inverse_sigmoid(previous_refinement)
                     ).sigmoid()
                 layer_boxes.append(boxes)
-            previous_reference = refined
-            detached_reference = refined.detach() if self.training else refined
+            previous_refinement = refined
+            sampling_reference = refined.detach() if self.training else refined
 
         result = DecoderOutput(torch.stack(layer_logits), torch.stack(layer_boxes))
         result.validate()

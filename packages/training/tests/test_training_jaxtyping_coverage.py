@@ -4,7 +4,7 @@
 import ast
 from pathlib import Path
 
-JAXTYPING_ALIASES = {"Bool", "Float", "Float32", "Int64", "Shaped", "UInt8"}
+JAXTYPING_ALIASES = {"Bool", "Float", "Float32", "Int32", "Int64", "Shaped", "UInt8"}
 PACKAGE_ROOT = Path(__file__).parents[1]
 SOURCE_ROOT = PACKAGE_ROOT / "src" / "clean_rtdetr_training"
 

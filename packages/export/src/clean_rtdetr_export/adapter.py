@@ -97,16 +97,21 @@ class FixedShapeRTDETR(nn.Module):
     def forward(
         self, images: Float32[Tensor, "1 3 height width"]
     ) -> tuple[Float32[Tensor, "1 queries classes"], Float32[Tensor, "1 queries 4"]]:
-        """Reject inputs outside the fixed profile and return final raw predictions."""
-        if images.shape != self.input_shape:
-            msg = f"Expected fixed input shape {self.input_shape}"
-            raise ValueError(msg)
-        if images.dtype != torch.float32 or images.device.type != "cpu":
-            msg = "Fixed-shape export expects CPU float32 input"
-            raise ValueError(msg)
-        if self.training or any(module.training for module in self.model.modules()):
-            msg = "Fixed-shape export requires eval mode"
-            raise ValueError(msg)
+        """Reject inputs outside the fixed profile and return final raw predictions.
+
+        Construction freezes anchors, valid positions, and attention split sizes.
+        This path reuses the selector and decoder arithmetic with that metadata::
+
+            fixed CPU FP32 image -> features -> selected queries -> all decoder layers
+                                                                         |
+                                                           final (logits, boxes)
+
+        Results have shapes ``[1, Q, classes]`` and ``[1, Q, 4]``. Boxes are
+        normalized cxcywh; score filtering and conversion to pixel coordinates
+        belong to postprocessing. Both this wrapper and its model must be in eval
+        mode, and the input must match the construction-time shape exactly.
+        """
+        self._validate_input(images)
         features = self.model.backbone(images)
         encoded = self.model.projector(self.model.encoder(features).features)
         selected = self.model.selector._select(  # noqa: SLF001 - prevalidated metadata
@@ -117,3 +122,15 @@ class FixedShapeRTDETR(nn.Module):
             queries, encoded, self.model.decoder.config.num_layers, self.plan
         )
         return decoded.logits[-1], decoded.boxes[-1]
+
+    def _validate_input(self, images: Float32[Tensor, "1 3 height width"]) -> None:
+        """Check input shape, precision, device, and eval mode before inference."""
+        if images.shape != self.input_shape:
+            msg = f"Expected fixed input shape {self.input_shape}"
+            raise ValueError(msg)
+        if images.dtype != torch.float32 or images.device.type != "cpu":
+            msg = "Fixed-shape export expects CPU float32 input"
+            raise ValueError(msg)
+        if self.training or any(module.training for module in self.model.modules()):
+            msg = "Fixed-shape export requires eval mode"
+            raise ValueError(msg)

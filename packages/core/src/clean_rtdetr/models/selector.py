@@ -134,7 +134,24 @@ class QuerySelector(Selector):
         anchors: Float[Tensor, "1 sequence 4"],
         valid: Bool[Tensor, "1 sequence 1"],
     ) -> SelectionOutput:
-        """Share selection arithmetic with validated, shape-specialized callers."""
+        """Share selection arithmetic with validated, shape-specialized callers.
+
+        For memory ``[B, S, C]`` and K requested queries, selection follows::
+
+            encoded = enc_output(memory * valid)
+            logits, refs = score_head(encoded), box_head(encoded) + anchor_logits
+            indices = topk(max_over_classes(logits), K)
+            indices -> gather content, reference logits, auxiliary predictions
+
+        Masking occurs before projection: biases can still give invalid positions
+        nonzero scores. Ranking uses class logits directly, with no additional IoU
+        or uncertainty score evaluated here.
+
+        Gathered content is detached unless learned embeddings provide it.
+        Reference logits and encoder auxiliary predictions keep their gradients;
+        ``QueryAssembler`` later detaches only the decoder's reference branch.
+        ``refs.sigmoid()`` supplies normalized cxcywh encoder auxiliary boxes.
+        """
         batch, sequence, _ = memory.shape
         cfg = self.config
         # Upstream masks memory, not scores: LayerNorm/linear biases still contribute.
