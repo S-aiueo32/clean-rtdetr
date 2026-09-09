@@ -1,0 +1,47 @@
+[project]
+name = "clean-rtdetr-rtdetrv4-recipe"
+version = "0.1.0"
+description = "Caller-owned RT-DETRv4 training recipe for installed Clean RT-DETR"
+requires-python = ">=3.13"
+dependencies = [
+    "clean-rtdetr==0.1.0.dev0",
+    "clean-rtdetr-training[benchmark]==0.1.0.dev0",
+]
+
+[dependency-groups]
+dev = ["pytest>=8,<10", "ruff>=0.11,<1", "ty>=0.0.1,<1"]
+
+[tool.uv]
+package = false
+
+# An independent project even when kept inside the library checkout.
+[tool.uv.workspace]
+members = []
+
+# Install the dataset API from this checkout; dataset construction is model-independent.
+# Keep editable dependencies consistent with the training package's workspace source.
+[tool.uv.sources]
+clean-rtdetr = { path = "../../packages/core", editable = true }
+clean-rtdetr-training = { path = "../../packages/training", editable = true }
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = ["COM812", "D203", "D213"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["clean_rtdetr", "clean_rtdetr_training", "rtdetrv4_recipe"]
+
+[tool.ruff.lint.per-file-ignores]
+"rtdetrv4_recipe/*.py" = ["F722", "INP001"]
+"tests/*.py" = ["INP001", "S101"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ty.src]
+include = ["rtdetrv4_recipe", "tests"]
