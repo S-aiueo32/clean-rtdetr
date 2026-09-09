@@ -4,6 +4,10 @@
 The DINOv3 preprocessing and token reshape follow the official implementation
 (RT-DETRs/RT-DETRv4, commit ``55fefaaed7efe2a5f72d0a18fd4e05965e35c292``):
 ``engine/rtv4/dinov3_teacher.py``.
+
+Externally loaded DINOv3 code and weights use the DINOv3 License, not this
+recipe's Apache-2.0 license. The registered teacher weights are included in
+full training checkpoints; see ``../NOTICE.md`` before redistributing them.
 """
 
 from __future__ import annotations

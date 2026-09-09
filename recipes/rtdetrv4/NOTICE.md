@@ -36,7 +36,25 @@ Differences and validation scope:
 - Missing/invalid training features raise errors instead of producing a CUDA zero loss.
 - Rectangular stride-aligned teacher token grids are supported explicitly.
 - DINOv3 loads caller-provided local code and weights and is not vendored.
-  Its [separate license](https://github.com/facebookresearch/dinov3/blob/main/LICENSE.md) applies.
+  Its [DINOv3 License (August 19, 2025 revision)](https://github.com/facebookresearch/dinov3/blob/ffb4bb89c6558ca3244655c25a3955d01788b732/LICENSE.md)
+  applies to both code and weights; retain the terms supplied with the actual artifacts.
   `SmokeTeacher` is random test code with no pretrained semantic knowledge.
 - Tests validate this composition, not full detector parity, pretrained DINOv3
   execution, convergence, COCO AP or latency.
+
+## External materials and saved artifacts
+
+The recipe's Apache-2.0 license covers its source, not the externally loaded
+DINOv3 materials or Penn-Fudan data. Keep this notice and LICENSE when copying
+the recipe, and follow the provider's terms for each external material.
+
+The training wrapper registers the teacher as a submodule. Full training state
+dictionaries and Lightning resume checkpoints contain its weights; EMA state
+also contains them when enabled. Redistribution of DINOv3 materials and their
+derivatives is subject to DINOv3 License section 1(b)(i), including a copy of
+that agreement. Section 1(b)(ii) requires acknowledgment in research publications.
+Do not label a checkpoint containing DINOv3 as wholly Apache-2.0.
+
+Saving only the student detector excludes teacher tensors from that file, but
+does not by itself determine the license of a distilled student. Record the
+teacher revision, weight provenance and applicable terms with experiment records.

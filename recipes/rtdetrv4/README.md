@@ -10,6 +10,10 @@ augmentation・公式スケジュールは含みません。公式モデル全�
 検出器重みの互換性、収束、COCO AP、推論速度は未検証です。
 参照 commit と差分は [NOTICE.md](NOTICE.md) に記録しています。
 
+この recipe のソースは Apache-2.0 です。再配布時は LICENSE と NOTICE.md を保持してください。
+外部の重み・データ・依存パッケージにはそれぞれの条件が適用されます。
+詳細は[ライセンスの適用範囲](../../docs/ja/licensing.md)を参照してください。
+
 ## インストールと接続確認
 
 Python 3.13 以降と uv を使います。親 workspace に参加しない独立プロジェクトです。
@@ -35,6 +39,9 @@ editable install します。recipe を別の場所へコピーする場合は
 [DINOv3 の公式手順](https://github.com/facebookresearch/dinov3#pretrained-models)に従い、
 公式 checkout と LVD-1689M の ViT-B/16 重みを用意してください。
 teacher のコード・重みは同梱せず、自動ダウンロードも行いません。
+DINOv3 のコードと重みには、recipe の Apache-2.0 とは別の
+[DINOv3 License](https://github.com/facebookresearch/dinov3/blob/ffb4bb89c6558ca3244655c25a3955d01788b732/LICENSE.md)
+が適用されます。実際に取得する checkout と重みに付属する条件を確認してください。
 `repo_dir` は `hubconf.py` があるディレクトリ、`weights` はローカルの `.pth` です。
 実験時は利用した DINOv3 checkout の commit も記録してください。
 
@@ -90,6 +97,12 @@ uv run --locked python -m clean_rtdetr_training.cli --config-dir configs --confi
 student・projector・teacher・蒸留重みは state dict、GAM の設定と観測値は
 callback state に保存します。teacher のローカル重みの SHA256 も照合します。
 GAM 設定変更、callback の省略、teacher／criterion 設定変更は再開時に拒否します。
+
+DINOv3 を使う場合、再開用 checkpoint と学習モデル全体の state dict には
+DINOv3 の重みも含まれます。EMA を有効にした場合はその状態にも含まれます。
+これらを共有するときは DINOv3 License の再配布条件に従い、契約書も添付してください。
+student detector だけを抽出すれば teacher tensor の同梱は避けられますが、
+それだけで蒸留した重みのライセンスが確定するわけではありません。
 
 `training_model.predict(images)` は teacher と projector を実行せず、
 呼び出し前の train/eval 状態を保ちます。recipe の checkpoint や
