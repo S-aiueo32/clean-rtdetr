@@ -132,18 +132,23 @@ class RTDETRLightningModule[PredictionT](LightningModule):
     def on_fit_start(self) -> None:
         """Fail early for execution modes outside the current loss and resume scope."""
         trainer = self.trainer
-        if trainer.world_size != 1 or self.device.type != "cpu":
-            msg = "Lightning training currently supports single-process CPU execution only"
+        if trainer.world_size != 1:
+            msg = "Lightning training currently supports single-process execution only"
             raise ValueError(msg)
-        if trainer.precision != "32-true":
-            msg = "Lightning training currently requires 32-true precision"
+        if (self.device.type, trainer.precision) not in {
+            ("cpu", "32-true"),
+            ("cuda", "32-true"),
+            ("cuda", "16-mixed"),
+        }:
+            msg = "Lightning training supports CPU 32-true or CUDA 32-true/16-mixed precision"
             raise ValueError(msg)
         if trainer.accumulate_grad_batches != 1:
             msg = "Gradient accumulation is not yet supported by the baseline recipe"
             raise ValueError(msg)
-        if self._resume_execution is not None and self._resume_execution != self._execution():
+        if self._resume_execution is not None and not self._execution_matches_resume():
             msg = "Checkpoint Trainer execution settings do not match"
             raise ValueError(msg)
+
         available = {callback.state_key for callback in getattr(trainer, "callbacks", ())}
         missing = (self.required_callback_keys | self._resume_callback_keys) - available
         if missing:
@@ -153,10 +158,20 @@ class RTDETRLightningModule[PredictionT](LightningModule):
             msg = f"{context} callbacks: {', '.join(sorted(missing))}"
             raise ValueError(msg)
 
+    def _execution_matches_resume(self) -> bool:
+        """Compare settings while accepting v1 CPU checkpoints without device metadata."""
+        saved = self._resume_execution
+        if saved is None:
+            return False
+        if "device_type" not in saved:
+            saved = {**saved, "device_type": "cpu"}
+        return saved == self._execution()
+
     def _execution(self) -> dict[str, Any]:
         """Retain Trainer settings that change optimizer updates across a restart."""
         return {
             "precision": self.trainer.precision,
+            "device_type": self.device.type,
             "gradient_clip_val": self.trainer.gradient_clip_val,
             "gradient_clip_algorithm": str(self.trainer.gradient_clip_algorithm),
             "accumulate_grad_batches": self.trainer.accumulate_grad_batches,

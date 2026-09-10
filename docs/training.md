@@ -2,14 +2,16 @@
 
 English | [日本語](ja/training.md)
 
-`clean_rtdetr_training` implements the pinned R50vd criterion for single-process
+`clean_rtdetr_training` implements the pinned R50vd criterion for
 FP32/FP64 PyTorch predictions: Hungarian assignment, Varifocal classification,
 normalized cxcywh L1 loss, GIoU loss, and contrastive denoising construction/losses.
 A separate [Lightning adapter](lightning.md) implements the baseline optimizer
-settings and single-process CPU FP32 training with epoch-boundary resume.
+settings and single-process CPU FP32 or CUDA FP32/AMP training with epoch-boundary resume.
 Hydra config groups inject baseline components and optimizer/scheduler factories.
-Training augmentation, distributed normalization, and mixed precision remain
-outside this implementation. Research methods are composed in checkout-only
+The built-in model retains FP32 predictions under autocast, so matching and losses
+need no external cast adapter. Under PyTorch DDP, target counts are summed across
+ranks, divided by world size, and clamped to one before normalization. Training
+augmentation remains outside this implementation. Research methods are composed in checkout-only
 [recipes](../recipes/README.md). No convergence or trained accuracy is claimed.
 
 ## Installation and CPU example

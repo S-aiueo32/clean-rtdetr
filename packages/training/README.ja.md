@@ -14,7 +14,7 @@ Lightning adapter は `required_callback_keys` の宣言を checkpoint と再開
 python -m pip install clean-rtdetr-training
 ```
 
-検証済み範囲は、CPU FP32/FP64 の loss と勾配のパリティ、および epoch 境界で再開できる小規模な単一プロセス CPU FP32 Lightning 統合です。データセット全体の学習、収束、COCO AP、GPU/DDP/AMP、学習時 augmentation、分散正規化は主張しません。サンプルレシピの合成データはプログラムの配線を確認するもので、本番用データパイプラインではありません。
+検証済み範囲は、CPU FP32/FP64 の loss と勾配のパリティ、および epoch 境界で再開できる小規模な単一プロセス Lightning 統合です。CUDA FP32 と FP16 AMP、PyTorch DDP の world 平均 target 数による loss 正規化にも対応します。測定済み範囲と制限は [GPU 実行](../../docs/gpu-validation.md) を参照してください。データセット全体の学習、収束、COCO AP、学習時 augmentation は主張しません。サンプルレシピの合成データはプログラムの配線を確認するもので、本番用データパイプラインではありません。
 
 ソースから開発する場合は次を実行します。
 

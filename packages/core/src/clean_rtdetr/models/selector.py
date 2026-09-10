@@ -181,7 +181,13 @@ class QuerySelector(Selector):
             if self.tgt_embed is not None
             else gather(encoded).detach()
         )
-        return SelectionOutput(QuerySet(content, refs, indices), gather(logits), refs.sigmoid())
+        # Anchors keep coordinates in FP32 (or promoted FP64). Match the public
+        # prediction and assembled-query dtype across the public boundary.
+        return SelectionOutput(
+            QuerySet(content.to(refs.dtype), refs, indices),
+            gather(logits).to(refs.dtype),
+            refs.sigmoid(),
+        )
 
     def checkpoint_config(self) -> dict[str, object]:
         """Describe selector dimensions and query initialization settings."""

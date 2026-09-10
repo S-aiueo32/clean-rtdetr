@@ -28,7 +28,7 @@ class TinyTrainingModule(pl.LightningModule):
 
 
 def _update(callback: RTDETREMA, wrapper: TinyTrainingModule) -> None:
-    callback.on_train_batch_end(None, wrapper, None, None, 0)
+    callback._update(wrapper.training_model)
 
 
 def _oracle(model: nn.Module) -> Any:  # noqa: ANN401 - unmodified upstream dynamic class
@@ -113,3 +113,42 @@ def test_ema_state_can_resume_and_validates_configuration() -> None:
         RTDETREMA(decay=0.8, warmups=3).load_state_dict(state)
     with pytest.raises(ValueError, match="warmups"):
         RTDETREMA(decay=0.9, warmups=2).load_state_dict(state)
+
+
+def test_ema_resume_counts_only_successful_optimizer_steps() -> None:
+    """Restored counts advance on real steps and ignore skipped batch attempts."""
+    wrapper = TinyTrainingModule()
+    callback = RTDETREMA()
+    callback.on_fit_start(None, wrapper)
+    _update(callback, wrapper)
+    resumed = RTDETREMA()
+    resumed.load_state_dict(callback.state_dict())
+    resumed.on_fit_start(None, wrapper)
+    optimizer = torch.optim.SGD(wrapper.parameters(), lr=0.1)
+    trainer: Any = SimpleNamespace(optimizers=[optimizer], global_step=1)
+    resumed.on_train_start(trainer, wrapper)
+    scaler = torch.amp.GradScaler("cpu", init_scale=128)
+    loss = torch.stack([parameter.square().sum() for parameter in wrapper.parameters()]).sum()
+    scaler.scale(loss).backward()
+    for parameter in wrapper.parameters():
+        assert parameter.grad is not None
+        parameter.grad.fill_(float("inf"))
+    trainer.global_step += 1
+    scaler.step(optimizer)
+    scaler.update()
+    resumed.on_train_batch_end(trainer, wrapper, None, None, 0)
+    assert resumed.updates == 1
+    optimizer.zero_grad()
+    loss = torch.stack([parameter.square().sum() for parameter in wrapper.parameters()]).sum()
+    scaler.scale(loss).backward()
+    scaler.step(optimizer)
+    scaler.update()
+    assert resumed.updates == 2  # noqa: PLR2004
+    # Repeated registration and teardown must not retain duplicate callbacks.
+    resumed.on_train_start(trainer, wrapper)
+    optimizer.step()
+    assert resumed.updates == 3  # noqa: PLR2004
+    resumed.on_exception(trainer, wrapper, RuntimeError("interrupted"))
+    resumed.teardown(trainer, wrapper, "fit")
+    optimizer.step()
+    assert resumed.updates == 3  # noqa: PLR2004

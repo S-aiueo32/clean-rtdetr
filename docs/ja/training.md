@@ -2,7 +2,7 @@
 
 [English version](../training.md)
 
-`clean_rtdetr_training` は、単一プロセスの FP32/FP64 PyTorch 予測に対する固定 R50vd criterion を実装します。内容は Hungarian 割り当て、Varifocal 分類、正規化 cxcywh L1 損失、GIoU 損失、contrastive denoising の構築と損失です。別の [Lightning アダプター](lightning.md) はベースラインの optimizer 設定と単一プロセス CPU FP32 学習、epoch 境界での再開を実装します。Hydra の config group はベースライン部品と optimizer/scheduler factory を注入します。学習 augmentation、分散正規化、mixed precision はこの実装の対象外です。研究手法の組み合わせは checkout 専用の [recipe](../../recipes/README.md) に置きます。収束や学習済み精度は保証しません。
+`clean_rtdetr_training` は、FP32/FP64 PyTorch 予測に対する固定 R50vd criterion を実装します。内容は Hungarian 割り当て、Varifocal 分類、正規化 cxcywh L1 損失、GIoU 損失、contrastive denoising の構築と損失です。別の [Lightning アダプター](lightning.md) はベースラインの optimizer 設定と単一プロセス CPU FP32 または CUDA FP32/AMP 学習、epoch 境界での再開を実装します。Hydra の config group はベースライン部品と optimizer/scheduler factory を注入します。組み込みモデルは autocast 中も予測値を FP32 に保つため、loss 前の外部キャストは不要です。PyTorch DDP では全 rank の target 数を合計し、world size で割って最小 1 に clamp して正規化します。学習 augmentation は対象外です。研究手法の組み合わせは checkout 専用の [recipe](../../recipes/README.md) に置きます。収束や学習済み精度は保証しません。
 
 <a id="installation-and-cpu-example"></a>
 

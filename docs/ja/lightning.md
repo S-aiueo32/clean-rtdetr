@@ -4,7 +4,7 @@
 
 `clean_rtdetr_training.lightning` は training model と criterion の組を受け取る薄いアダプターです。標準の DN model と set criterion もこの組として使います。Lightning の `Trainer` が automatic optimization、gradient clipping、epoch scheduling、logging、checkpoint の保存と復元を管理します。本プロジェクトは RT-DETR の loss step、optimizer parameter group、EMA、アプリケーション RNG callback state を提供します。
 
-検証済みプロファイルは **単一プロセス CPU FP32** で、batch ごとに optimizer step を 1 回、DataLoader を 1 つ、専用 CPU generator を 1 つ使い、`num_workers=0` とします。テストは合成データを使います。COCO augmentation、完全な収束、GPU/DDP/AMP、epoch 途中の任意再開は検証対象外です。個別の[recipe](recipe-boundaries.md)では、範囲を限定した手法の組み合わせを実装しています。
+対応プロファイルは **単一プロセス CPU FP32 と CUDA FP32/FP16 AMP** です。batch ごとに optimizer step を 1 回試行し、DataLoader を 1 つ、専用 CPU generator を 1 つ使い、`num_workers=0` とします。GradScaler が更新をスキップした場合、EMA も進めません。テストは合成データを使います。COCO augmentation、完全な収束、Lightning の複数 rank DDP、epoch 途中の任意再開は対象外です。PyTorch を直接使う DDP の loss 正規化は別途対応します。詳細は [GPU 実行](../gpu-validation.md) を参照してください。個別の[recipe](recipe-boundaries.md)では、範囲を限定した手法の組み合わせを実装しています。
 
 <a id="install-and-run"></a>
 
@@ -179,7 +179,7 @@ datamodule と `EpochBoundaryState` には **同じ** generator object を注入
 Lightning は model、optimizer、scheduler、epoch、global step、loop progress、callback state を通常の checkpoint 形式で保存します。追加する state は次のとおりです。
 
 - `RTDETREMA`: DN wrapper の別個の frozen copy、update count、decay、warmup 設定。浮動小数点 parameter/buffer は upstream の `decay * (1 - exp(-updates / warmups))` に従い、整数 buffer は初期値のままです。EMA は optimizer step 後に更新し live weight を置換しません。
-- `EpochBoundaryState`: Python、global NumPy、PyTorch CPU、供給された DataLoader generator の state。callback は Lightning の resume lifecycle で復元し、不完全な epoch の checkpoint を拒否します。
+- `EpochBoundaryState`: Python、global NumPy、PyTorch CPU、CUDA 実行時の対象 device の RNG、供給された DataLoader generator の state。callback は Lightning の resume lifecycle で復元し、不完全な epoch の checkpoint を拒否します。
 - Recipe metadata: factory target と引数、loss/DN/model 設定、trainable parameter name、更新に影響する Trainer 設定。不一致の resume 設定は拒否されます。checkpoint に保存された EMA/RNG callback は再開時にも必要です。
 
 ユーザー独自の callback は `required_callback_keys` に宣言します。保存された必須 key は、

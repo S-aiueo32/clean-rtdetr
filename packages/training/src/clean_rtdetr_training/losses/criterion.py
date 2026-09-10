@@ -1,7 +1,7 @@
 # Copyright 2026 Clean RT-DETR contributors
 """RT-DETR matching losses, adapted from lyuwenyu/RT-DETR (Apache-2.0).
 
-Changed: typed prediction/target boundaries and an explicit single-process scope.
+Changed: typed prediction/target boundaries and bounded distributed normalization.
 The reference objective is Varifocal, L1, and GIoU. See third_party/RT-DETR/README.md
 for the pinned source and attribution.
 """
@@ -61,7 +61,8 @@ class SetCriterion(TrainingCriterion[TrainingOutput]):
     on its own. Sum returned scalar values before ``backward``.
     Recipes with another classification equation
     implement their own criterion and may reuse the set-supervision helpers.
-    Distributed normalization and mixed-precision training are outside this API.
+    Distributed normalization averages target counts across ranks and clamps the
+    result to one, matching the reference objective's bounded normalization.
     """
 
     def __init__(
@@ -118,7 +119,7 @@ class SetCriterion(TrainingCriterion[TrainingOutput]):
         self,
         logits: Float[Tensor, "batch queries classes"],
         pairs: MatchedPairs,
-        normalizer: int,
+        normalizer: float,
     ) -> Float[Tensor, ""]:
         """Build dense IoU targets and reduce VFL over all queries and classes.
 

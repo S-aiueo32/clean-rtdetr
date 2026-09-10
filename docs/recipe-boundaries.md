@@ -8,7 +8,7 @@ exercise its extension points; they do not turn the core into a training framewo
 | Owner | Responsibility | Examples |
 | --- | --- | --- |
 | `clean_rtdetr` | Model tensor computation, dimensions and observable stage outputs | Features, query assembly, attention masks, decoder predictions, AIFI parameters |
-| `clean_rtdetr_training` | Reference RT-DETR supervision and its validated adapter | Targets, matching, DN assignments, VFL/L1/GIoU, single-process normalization, epoch-boundary resume |
+| `clean_rtdetr_training` | Reference RT-DETR supervision and its validated adapter | Targets, matching, DN assignments, VFL/L1/GIoU, distributed target-count normalization, epoch-boundary resume |
 | Recipe / application | Research method and experiment composition | MAL, FDR, SAP/O2M, DSI/GAM, data configuration, teacher weights, augmentation and schedules |
 
 Code shared by two recipes is a candidate for review, not sufficient reason to
@@ -67,7 +67,7 @@ The public `clean_rtdetr_training.losses` functions expose reusable operations:
 
 | Function | Contract |
 | --- | --- |
-| `iter_matched_stages` | Independent final/auxiliary matching and canonical DN assignments, with single-process normalizers |
+| `iter_matched_stages` | Independent final/auxiliary matching and canonical DN assignments, with distributed target-count normalizers |
 | `gather_matched_pairs` | Aligned predicted/target boxes and labels, retaining prediction gradients |
 | `matched_iou_targets` | Detached IoU scores and a separate mask including zero-IoU positive matches |
 | `matched_box_losses` | Unweighted L1/GIoU scalars using the supplied positive normalizer |
