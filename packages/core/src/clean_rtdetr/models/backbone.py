@@ -273,9 +273,7 @@ class PResNet(Backbone):
             x = stage(x)
             if index in (1, 2, 3):
                 outputs.append(x)
-        features = MultiScaleFeatures(tuple(outputs), self.specs)
-        features.validate()
-        return features
+        return MultiScaleFeatures(tuple(outputs), self.specs)
 
     def checkpoint_config(self) -> dict[str, object]:
         """Describe backbone freezing and output feature settings."""

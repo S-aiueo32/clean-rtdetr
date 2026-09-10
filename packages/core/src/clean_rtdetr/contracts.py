@@ -1,5 +1,5 @@
 # Copyright 2026 Clean RT-DETR contributors
-"""Eager boundary checks; export lowering will use a separate tensor-only schema."""
+"""Typed tensor contracts with explicit boundary and internal structure checks."""
 
 from dataclasses import dataclass
 
@@ -46,38 +46,47 @@ class MultiScaleFeatures:
     specs: tuple[FeatureSpec, ...]
 
     def validate(self) -> None:
-        """Check feature layout, spec ordering, and shared batch/dtype/device."""
+        """Check annotated layouts as well as feature metadata and placement."""
+        for level in self.levels:
+            if level.ndim != FEATURE_RANK:
+                msg = "Features must have shape [B, channels, H, W] matching their spec"
+                raise ValueError(msg)
+            if not level.is_floating_point():
+                msg = "Features must be nonempty floating-point tensors"
+                raise ValueError(msg)
+            if level.shape[0] != self.levels[0].shape[0]:
+                msg = "Feature levels must share batch size, dtype, and device"
+                raise ValueError(msg)
+        self.validate_structure()
+
+    def validate_structure(self) -> None:
+        """Check metadata and placement while trusting annotated tensor layouts."""
         if not self.levels or len(self.levels) != len(self.specs):
             msg = "Expected one FeatureSpec per nonempty feature level"
             raise ValueError(msg)
         previous_stride = 0
-        first = self.levels[0]
         for level, spec in zip(self.levels, self.specs, strict=True):
-            self._validate_level(level, spec, first, previous_stride)
+            self._validate_level_structure(level, spec, self.levels[0], previous_stride)
             previous_stride = spec.stride
 
     @staticmethod
-    def _validate_level(
+    def _validate_level_structure(
         level: Shaped[Tensor, "..."],
         spec: FeatureSpec,
         first: Shaped[Tensor, "..."],
         previous_stride: int,
     ) -> None:
-        """Validate one level in the same order as the public boundary check."""
-        if level.ndim != FEATURE_RANK or level.shape[1] != spec.channels:
-            msg = "Features must have shape [B, channels, H, W] matching their spec"
+        """Check dimensions tied to specs, nonempty axes, and shared placement."""
+        if level.shape[1] != spec.channels:
+            msg = "Feature channels must match their spec"
             raise ValueError(msg)
-        if min(level.shape) <= 0 or not level.is_floating_point():
-            msg = "Features must be nonempty floating-point tensors"
+        if min(level.shape) <= 0:
+            msg = "Features must be nonempty tensors"
             raise ValueError(msg)
         if spec.stride <= previous_stride:
             msg = "Feature levels must have strictly increasing strides"
             raise ValueError(msg)
-        if (level.shape[0], level.dtype, level.device) != (
-            first.shape[0],
-            first.dtype,
-            first.device,
-        ):
+        if (level.dtype, level.device) != (first.dtype, first.device):
             msg = "Feature levels must share batch size, dtype, and device"
             raise ValueError(msg)
 
@@ -103,37 +112,43 @@ class EncodedFeatures:
     level_start_index: Int64[Tensor, " levels"]  # leading space avoids Ruff F821; prefix sum
 
     def validate(self) -> None:
-        """Check memory layout and the exact level area/offset correspondence."""
-        self._validate_memory()
-        self._validate_spatial_metadata()
-        self._validate_area_and_offsets()
-
-    def _validate_memory(self) -> None:
-        """Check the rank, nonempty dimensions, and dtype of projected memory."""
-        if self.memory.ndim != MEMORY_RANK or min(self.memory.shape) <= 0:
+        """Check annotated layouts as well as spatial values and placement."""
+        if self.memory.ndim != MEMORY_RANK:
             msg = "Memory must have nonempty shape [B, S, C]"
             raise ValueError(msg)
         if not self.memory.is_floating_point():
             msg = "Memory must be floating point"
             raise ValueError(msg)
-
-    def _validate_spatial_metadata(self) -> None:
-        """Check spatial dimensions and metadata placement before computing areas."""
-        shapes = self.spatial_shapes
         if (
-            shapes.ndim != SPATIAL_SHAPE_RANK
-            or shapes.shape[1] != SPATIAL_DIMENSIONS
-            or shapes.shape[0] == 0
+            self.spatial_shapes.ndim != SPATIAL_SHAPE_RANK
+            or self.spatial_shapes.shape[1] != SPATIAL_DIMENSIONS
         ):
             msg = "Spatial shapes must have nonempty shape [N, 2]"
             raise ValueError(msg)
-        for tensor in (shapes, self.level_start_index):
-            if tensor.dtype != torch.int64 or tensor.device != self.memory.device:
+        for tensor in (self.spatial_shapes, self.level_start_index):
+            if tensor.dtype != torch.int64:
                 msg = "Shape metadata must be int64 on the memory device"
                 raise ValueError(msg)
-        if not bool((shapes > 0).all()):
+        self.validate_structure()
+
+    def validate_structure(self) -> None:
+        """Check nonempty memory, spatial values, offsets, and metadata placement."""
+        if min(self.memory.shape) <= 0:
+            msg = "Memory must have nonempty shape [B, S, C]"
+            raise ValueError(msg)
+        if self.spatial_shapes.shape[0] == 0:
+            msg = "Spatial shapes must have nonempty shape [N, 2]"
+            raise ValueError(msg)
+        if any(
+            tensor.device != self.memory.device
+            for tensor in (self.spatial_shapes, self.level_start_index)
+        ):
+            msg = "Shape metadata must be on the memory device"
+            raise ValueError(msg)
+        if not bool((self.spatial_shapes > 0).all()):
             msg = "Spatial dimensions must be positive"
             raise ValueError(msg)
+        self._validate_area_and_offsets()
 
     def _validate_area_and_offsets(self) -> None:
         """Check sequence length and exclusive prefix sums from level areas."""
@@ -188,12 +203,32 @@ class DecoderInput:
     matching_queries: int
 
     def validate(self) -> None:
-        """Check query shapes, mask convention, device, and the required detach route."""
+        """Check annotated query layouts as well as placement and detach rules."""
         self._validate_query_shapes()
-        self._validate_query_tensor_compatibility()
-        total_queries = self.content.shape[1]
-        self._validate_matching_query_count(total_queries)
-        self._validate_attention_mask(total_queries)
+        if not self.content.is_floating_point() or not self.ref_logits.is_floating_point():
+            msg = "Query content and references must share floating dtype and device"
+            raise ValueError(msg)
+        self._validate_attention_mask(self.content.shape[1])
+        self.validate_structure()
+
+    def validate_structure(self) -> None:
+        """Check nonempty queries, placement, matching count, and detached references."""
+        if min(self.content.shape) <= 0:
+            msg = "Query content must have nonempty shape [B, Q, C]"
+            raise ValueError(msg)
+        if (self.content.dtype, self.content.device) != (
+            self.ref_logits.dtype,
+            self.ref_logits.device,
+        ):
+            msg = "Query content and references must share floating dtype and device"
+            raise ValueError(msg)
+        if self.ref_logits.requires_grad:
+            msg = "Decoder reference logits must be detached during query assembly"
+            raise ValueError(msg)
+        self._validate_matching_query_count(self.content.shape[1])
+        if self.attention_mask is not None and self.attention_mask.device != self.content.device:
+            msg = "Attention mask must be on the query device"
+            raise ValueError(msg)
 
     def _validate_query_shapes(self) -> None:
         """Validate the content layout and matching reference dimensions."""
@@ -203,20 +238,6 @@ class DecoderInput:
         batch, total_queries, _ = self.content.shape
         if self.ref_logits.shape != (batch, total_queries, BOX_COORDINATES):
             msg = "Reference logits must have shape [B, Q, 4]"
-            raise ValueError(msg)
-
-    def _validate_query_tensor_compatibility(self) -> None:
-        """Validate floating dtype/device compatibility and detached references."""
-        if (
-            not self.content.is_floating_point()
-            or not self.ref_logits.is_floating_point()
-            or self.content.dtype != self.ref_logits.dtype
-            or self.content.device != self.ref_logits.device
-        ):
-            msg = "Query content and references must share floating dtype and device"
-            raise ValueError(msg)
-        if self.ref_logits.requires_grad:
-            msg = "Decoder reference logits must be detached during query assembly"
             raise ValueError(msg)
 
     def _validate_matching_query_count(self, total_queries: int) -> None:

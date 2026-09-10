@@ -103,6 +103,21 @@ limits and Ruff's shape-string parsing. We exempt `F722` only in modules using
 these strings. For a single named axis, the leading space in `" levels"` avoids
 a false `F821` without disabling undefined-name checks.
 
+The annotations also define the policy for internal tensor paths: a tensor whose
+dtype and shape are already stated by its jaxtyping contract is not checked again
+at every internal stage. Public boundaries retain their explicit `validate()`
+checks, including value constraints and relationships that annotations cannot
+express. Internal helpers may use a narrower structural check when they need to
+verify metadata, device placement, detach state, or a configuration-dependent
+relationship before computation. `MultiScaleFeatures`, `EncodedFeatures`, and
+`DecoderInput` provide `validate_structure()` for this purpose; use `validate()`
+when accepting an untrusted payload. Shared precision checks remain because
+`Float` alone does not require two tensors to use the same floating dtype. Generated tensors between trusted model stages
+do not need duplicate rank, dtype, or symbolic-shape checks. Tests cover the
+public validation behavior and the stage contracts, with jaxtyping runtime
+instrumentation enabled only in pytest. This first cleanup covers the core model
+stages; prediction/target validation at training and export boundaries is retained.
+
 ## Gradient ownership
 
 `QuerySet.ref_logits` still has gradients at this boundary. `QueryAssembler`
