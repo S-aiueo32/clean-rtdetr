@@ -318,7 +318,8 @@ class HybridEncoder(Encoder):
         for block in self.encoder:
             x = feature.flatten(2).transpose(1, 2)
             h, w = feature.shape[-2:]
-            x = block(x, self._position_embedding(h, w, device=x.device))
+            position = self._position_embedding(h, w, device=x.device).to(dtype=x.dtype)
+            x = block(x, position)
             feature = x.transpose(1, 2).reshape_as(feature).contiguous()
         return feature
 

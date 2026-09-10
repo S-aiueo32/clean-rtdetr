@@ -35,9 +35,12 @@ def _deformable_attention(
 ) -> Float[Tensor, "batch queries channels"]:
     """Share sampling arithmetic with callers holding validated Python metadata."""
     batch, _, num_heads, head_dim = value.shape
+    # Keep interpolation and accumulation in FP32 for low-precision features.
+    # grid_sample requires matching value/grid dtypes outside autocast as well.
+    sample_dtype = torch.float32 if value.dtype in (torch.float16, torch.bfloat16) else value.dtype
     _, queries, _, num_levels, num_points, _ = sampling_locations.shape
     values_by_level = value.split([height * width for height, width in shapes], dim=1)
-    sampling_grids = 2 * sampling_locations - 1
+    sampling_grids = 2 * sampling_locations.to(sample_dtype) - 1
     sampled = []
     for level, (height, width) in enumerate(shapes):
         level_value = (
@@ -49,8 +52,8 @@ def _deformable_attention(
         level_grid = sampling_grids[:, :, :, level].transpose(1, 2).flatten(0, 1)
         sampled.append(
             functional.grid_sample(
-                level_value,
-                level_grid,
+                level_value.to(sample_dtype),
+                level_grid.to(sample_dtype),
                 mode="bilinear",
                 padding_mode="zeros",
                 align_corners=False,
@@ -59,8 +62,8 @@ def _deformable_attention(
     weights = attention_weights.transpose(1, 2).reshape(
         batch * num_heads, 1, queries, num_levels * num_points
     )
-    output = (torch.stack(sampled, dim=-2).flatten(-2) * weights).sum(-1)
-    return output.reshape(batch, num_heads * head_dim, queries).transpose(1, 2)
+    output = (torch.stack(sampled, dim=-2).flatten(-2) * weights.to(sample_dtype)).sum(-1)
+    return output.reshape(batch, num_heads * head_dim, queries).transpose(1, 2).to(value.dtype)
 
 
 class MultiScaleDeformableAttention(nn.Module):

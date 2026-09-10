@@ -2,7 +2,7 @@
 
 [日本語版](README.ja.md)
 
-`clean-rtdetr-training` provides single-process matching and losses, contrastive
+`clean-rtdetr-training` provides matching and losses, contrastive
 denoising queries, and an optional Lightning adapter for `clean-rtdetr`. It
 requires Python 3.13 or newer.
 
@@ -18,9 +18,11 @@ python -m pip install clean-rtdetr-training
 ```
 
 The validated scope is CPU FP32/FP64 loss and gradient parity, plus a small
-single-process CPU FP32 Lightning integration with epoch-boundary resume. It
-does not claim full-dataset training, convergence, COCO AP, GPU/DDP/AMP,
-training augmentation, or distributed normalization. Synthetic data in the
+single-process Lightning integration with epoch-boundary resume. CUDA FP32 and
+FP16 AMP are supported by the adapter; native PyTorch DDP uses world-average
+target normalization. See [GPU execution](../../docs/gpu-validation.md) for the
+measured smoke scope and remaining limits. This does not claim full-dataset
+training, convergence, COCO AP, or training augmentation. Synthetic data in the
 example recipe exercises program wiring and is not a production data pipeline.
 
 For development from source:

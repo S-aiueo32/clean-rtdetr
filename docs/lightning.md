@@ -8,10 +8,13 @@ clipping, epoch scheduling, logging, and checkpoint serialization/restoration.
 This project supplies the RT-DETR loss step, optimizer parameter groups, EMA,
 and application RNG callback state.
 
-The validated profile is **single-process CPU FP32**, with one optimizer step
-per batch, one DataLoader, a dedicated CPU generator, and `num_workers=0`.
-Tests use synthetic data. COCO training augmentation, full training convergence,
-GPU/DDP/AMP, and arbitrary mid-epoch resume remain outside this validated scope.
+The adapter supports **single-process CPU FP32 and CUDA FP32/FP16 AMP**,
+with one optimizer step attempt per batch, one DataLoader, a dedicated CPU
+generator, and `num_workers=0`. EMA advances only after successful optimizer
+updates; GradScaler overflow skips do not update EMA. Tests use synthetic data.
+COCO training augmentation, full training convergence, Lightning multi-rank DDP,
+and arbitrary mid-epoch resume remain outside this scope. Native PyTorch DDP
+loss normalization is provided separately; see [GPU execution](gpu-validation.md).
 The separate [recipes](recipe-boundaries.md) demonstrate bounded method compositions.
 
 ## Install and run
@@ -327,7 +330,7 @@ and callback state in its ordinary checkpoint format. We add:
   and warmup settings. Floating parameters and buffers follow upstream's
   `decay * (1 - exp(-updates / warmups))`; integer buffers stay at their initial
   values. EMA updates after optimizer steps and never replaces the live weights.
-- `EpochBoundaryState`: Python, global NumPy, PyTorch CPU, and the supplied
+- `EpochBoundaryState`: Python, global NumPy, PyTorch CPU, the active CUDA device when applicable, and the supplied
   DataLoader generator states. The callback restores them through Lightning's
   resume lifecycle and rejects checkpointing incomplete epochs.
 - Recipe metadata: factory targets and arguments, loss/DN/model configuration, trainable parameter
@@ -370,7 +373,9 @@ tests compare EMA updates against the pinned upstream implementation.
 An independent model/criterion pair with a custom prediction payload also covers
 real Trainer updates and checkpoint restore, forward hooks, trainable criterion
 state, shared parameters, and changed implementation/configuration rejection.
-These checks establish this CPU restart boundary, not training reproduction or AP.
+CPU restart checks require exact equality. CUDA checks use numerical tolerances
+because grid-sampling backward may accumulate nondeterministically. These checks
+do not establish full training reproduction or AP.
 
 Upstream training defaults and EMA provenance are recorded in
 [third_party/RT-DETR](../third_party/RT-DETR/README.md). Lightning's interfaces are

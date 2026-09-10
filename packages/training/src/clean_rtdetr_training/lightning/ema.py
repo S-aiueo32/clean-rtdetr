@@ -38,6 +38,7 @@ class RTDETREMA(pl.Callback):
         self.module: nn.Module | None = None
         self.updates = 0
         self._pending_state: dict[str, Any] | None = None
+        self._step_hook_handles: list[Any] = []
 
     def on_fit_start(self, trainer: Any, pl_module: Any) -> None:  # noqa: ANN401
         """Create the EMA copy after the wrapped module is on its device."""
@@ -50,20 +51,42 @@ class RTDETREMA(pl.Callback):
             self.updates = int(self._pending_state["updates"])
             self._pending_state = None
 
-    def on_train_batch_end(
+    def on_train_start(self, trainer: Any, pl_module: Any) -> None:  # noqa: ANN401
+        """Update EMA only after an optimizer step actually completes."""
+        self._remove_step_hooks()
+
+        def after_step(optimizer: Any, args: Any, kwargs: Any) -> None:  # noqa: ANN401
+            del optimizer, args, kwargs
+            self._update(pl_module.training_model)
+
+        self._step_hook_handles = [
+            optimizer.register_step_post_hook(after_step) for optimizer in trainer.optimizers
+        ]
+
+    def on_train_end(self, trainer: Any, pl_module: Any) -> None:  # noqa: ANN401
+        """Remove optimizer hooks after training."""
+        del trainer, pl_module
+        self._remove_step_hooks()
+
+    def teardown(self, trainer: Any, pl_module: Any, stage: str) -> None:  # noqa: ANN401
+        """Remove hooks during Trainer teardown."""
+        del trainer, pl_module, stage
+        self._remove_step_hooks()
+
+    def on_exception(
         self,
         trainer: Any,  # noqa: ANN401
         pl_module: Any,  # noqa: ANN401
-        outputs: Any,  # noqa: ANN401
-        batch: Any,  # noqa: ANN401
-        batch_idx: int,
+        exception: BaseException,
     ) -> None:
-        """Update EMA after the batch optimizer step has completed."""
-        del trainer, outputs, batch, batch_idx
-        if self.module is None:
-            msg = "EMA module is not initialized; on_fit_start was not called"
-            raise RuntimeError(msg)
-        self._update(pl_module.training_model)
+        """Release model references when training is interrupted."""
+        del trainer, pl_module, exception
+        self._remove_step_hooks()
+
+    def _remove_step_hooks(self) -> None:
+        for handle in self._step_hook_handles:
+            handle.remove()
+        self._step_hook_handles = []
 
     def _update(self, model: nn.Module) -> None:
         """Apply the pinned warmup decay to floating parameters and buffers only."""

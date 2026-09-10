@@ -1,0 +1,8 @@
+defaults:
+  - cpu
+  - _self_
+
+accelerator: gpu
+precision: 16-mixed
+# CUDA grid_sample backward does not guarantee deterministic accumulation.
+deterministic: warn

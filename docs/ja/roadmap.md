@@ -20,12 +20,12 @@ PyTorch の推論経路は、images → R50vd backbone → HybridEncoder → 投
 | Checkpoint と推論 | 公式推論 weight の strict loading、CPU FP32 full-model parity、Pillow/uint8 preprocessing、upstream 互換 top-k postprocessing | [Inference I/O](inference.md) |
 | COCO 評価 | synthetic annotation でテストした prediction JSON と optional bbox metric adapter。pycocotools は metric の場合のみ読み込む | [COCO 評価](evaluation.md) |
 | ONNX エクスポート | 固定 batch-1 640×640 向けの `FixedShapeRTDETR` と CPU FP32 ONNX Runtime parity。graph optimization は無効化 | [エクスポート設定](inference.md#fixed-shape-onnx-export) |
-| Matching と loss | decoder/encoder auxiliary supervision と CPU loss/gradient parity を含む single-process Hungarian matching と Varifocal/L1/GIoU loss | [学習 loss](training.md) |
+| Matching と loss | decoder/encoder auxiliary supervision と CPU loss/gradient parity を含む 分散 target 数正規化に対応した Hungarian matching と Varifocal/L1/GIoU loss | [学習 loss](training.md) |
 | Denoising | contrastive query、training wrapper に登録された class embedding、CPU upstream parity を持つ layer ごとの DN loss | [Contrastive denoising](training.md#contrastive-denoising) |
-| 学習 loop | baseline AdamW group、EMA、CPU FP32 synthetic epoch-boundary resume を備えた Lightning adapter | [Lightning 学習](lightning.md) |
+| 学習 loop | baseline AdamW group、EMA、CPU FP32 / CUDA FP32・AMP synthetic epoch-boundary resume を備えた Lightning adapter | [Lightning 学習](lightning.md) |
 
 Forward と gradient parity のテストは SHA-256 で固定した upstream method を使います。
-全データセットでの学習、GPU/DDP/AMP の検証、research method の構成、
+全データセットでの学習、research method の構成、
 全データセットでの COCO AP 測定、latency は未完了です。dynamic-shape ONNX と TensorRT は
 検証済みエクスポートの範囲外です。
 
@@ -52,19 +52,19 @@ Forward と gradient parity のテストは SHA-256 で固定した upstream met
 6. [x] 固定形状 ONNX エクスポートと CPU FP32 runtime parity を追加。
 7. [x] DN query、criterion、CPU loss/gradient parity を追加。
 8. [x] synthetic CPU FP32 Lightning 学習と epoch-boundary resume を追加。
-9. [ ] 全データセットでの学習と GPU/DDP/AMP 実行を検証。
+9. [ ] 全データセットでの学習を検証。短い合成データでの GPU/DDP/AMP 検証は [GPU 実行](../gpu-validation.md) を参照。
 10. [ ] research method composition を実装。
 
 ## 検証の証拠
 
-single-process FP32/FP64 matching criterion は Hungarian assignment と Varifocal/L1/GIoU
+FP32/FP64 matching criterion は Hungarian assignment と Varifocal/L1/GIoU
 loss を実装し、decoder と encoder の auxiliary supervision を含みます。contrastive DN
 construction、training wrapper に登録された embedding、layer ごとの DN loss も実装済みです。
 CPU upstream query/loss/gradient parity はオフラインテストでカバーされています。詳細は
 [学習 loss](training.md) を参照してください。optional な [Lightning adapter](lightning.md)
-は optimizer、scheduler、EMA、application RNG state を含む CPU FP32 の学習 loop と
+は optimizer、scheduler、EMA、application RNG state を含む CPU FP32 / CUDA FP32・AMP の学習 loop と
 epoch-boundary resume を追加します。階層的 Hydra config は baseline model stage と
-optimizer/scheduler factory を注入します。全データセットでの学習、GPU/DDP/AMP validation、
+optimizer/scheduler factory を注入します。全データセットでの学習、
 research method の構成は未完了です。
 
 image-to-prediction API は raw class logits と normalized cxcywh box を返します。分離された

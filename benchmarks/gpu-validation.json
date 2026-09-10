@@ -1,0 +1,208 @@
+{
+  "date": "2026-09-11",
+  "job_url": "https://www.kaggle.com/code/souuchida/clean-rt-detr-gpu-fixes",
+  "kernel_version": 5,
+  "source_base_commit": "5869101932adf8e353cc9e9fc9fc34c3355fc0ef",
+  "source_snapshot_sha256": "70b7b1c25d317d2b09cee5ff79c38a327af9eb50ddd8f225c42942b836086edc",
+  "source_note": "Uncommitted GPU fixes on the base commit. Every packaged source file matches this checkout; source archive and submitted job retained in local outputs.",
+  "package_sources_sha256": "78c6362196bcc945bcc3d9ff2ee6b7f347c563f18bdc640ce6029a559942281d",
+  "environment": {
+    "python": "3.13.13 (main, May 10 2026, 19:26:54) [Clang 22.1.3 ]",
+    "torch": "2.13.0+cu126",
+    "cuda": "12.6",
+    "gpus": [
+      "Tesla T4",
+      "Tesla T4"
+    ]
+  },
+  "seeds": {
+    "precision_and_r50vd": 1729,
+    "lightning_model": 101,
+    "lightning_training": 202,
+    "lightning_resume_perturbation": 909,
+    "ddp_model": 2309,
+    "ddp_cuda_per_rank": [
+      871,
+      872
+    ]
+  },
+  "pytest": [
+    {
+      "name": "test_half_model_retains_valid_prediction_contract[cpu]",
+      "passed": true
+    },
+    {
+      "name": "test_half_model_retains_valid_prediction_contract[cuda]",
+      "passed": true
+    },
+    {
+      "name": "test_autocast_prediction_contract[cpu]",
+      "passed": true
+    },
+    {
+      "name": "test_autocast_prediction_contract[cuda]",
+      "passed": true
+    },
+    {
+      "name": "test_low_precision_sampling_retains_coordinate_gradients[dtype0]",
+      "passed": true
+    },
+    {
+      "name": "test_low_precision_sampling_retains_coordinate_gradients[dtype1]",
+      "passed": true
+    },
+    {
+      "name": "test_autocast_denoising_updates_parameters[cpu]",
+      "passed": true
+    },
+    {
+      "name": "test_autocast_denoising_updates_parameters[cuda]",
+      "passed": true
+    },
+    {
+      "name": "test_cuda_precision_epoch_resume_preserves_rng_and_updates[32-true]",
+      "passed": true,
+      "resume_metrics": {
+        "epochs": 2,
+        "ema_updates": 2,
+        "checkpoint_ema_updates": 1,
+        "max_parameter_abs_diff": 2.2193140466697514e-05,
+        "rtol_atol": 0.0001
+      }
+    },
+    {
+      "name": "test_cuda_precision_epoch_resume_preserves_rng_and_updates[16-mixed]",
+      "passed": true,
+      "resume_metrics": {
+        "epochs": 12,
+        "ema_updates": 6,
+        "checkpoint_ema_updates": 2,
+        "max_parameter_abs_diff": 0.0,
+        "rtol_atol": 0.002
+      }
+    },
+    {
+      "name": "test_two_rank_loss_and_gradients_match_concatenated_batch",
+      "passed": true
+    }
+  ],
+  "checks": {
+    "regressions": {
+      "status": "passed",
+      "returncode": 0
+    },
+    "ddp_fp32": {
+      "case": "ddp_fp32",
+      "returncode": 0,
+      "ranks": [
+        {
+          "case": "ddp_fp32",
+          "rank": 0,
+          "status": "passed",
+          "model_seed": 2309,
+          "cuda_seed": 871,
+          "nccl_all_reduce_sum": 3.0,
+          "autocast_enabled": false,
+          "losses": [
+            30.445056915283203,
+            23.722930908203125
+          ],
+          "max_parameter_diff": 0.0,
+          "max_update": 0.0025235179346054792,
+          "world_size": 2
+        },
+        {
+          "case": "ddp_fp32",
+          "rank": 1,
+          "status": "passed",
+          "model_seed": 2309,
+          "cuda_seed": 872,
+          "nccl_all_reduce_sum": 3.0,
+          "autocast_enabled": false,
+          "losses": [
+            26.92905044555664,
+            26.269227981567383
+          ],
+          "max_parameter_diff": 0.0,
+          "max_update": 0.0025235179346054792,
+          "world_size": 2
+        }
+      ],
+      "status": "passed"
+    },
+    "ddp_amp_fp16": {
+      "case": "ddp_amp_fp16",
+      "returncode": 0,
+      "ranks": [
+        {
+          "case": "ddp_amp_fp16",
+          "rank": 0,
+          "status": "passed",
+          "model_seed": 2309,
+          "cuda_seed": 871,
+          "nccl_all_reduce_sum": 3.0,
+          "autocast_enabled": true,
+          "losses": [
+            30.44391632080078,
+            23.72208023071289
+          ],
+          "max_parameter_diff": 0.0,
+          "max_update": 0.0025227051228284836,
+          "world_size": 2
+        },
+        {
+          "case": "ddp_amp_fp16",
+          "rank": 1,
+          "status": "passed",
+          "model_seed": 2309,
+          "cuda_seed": 872,
+          "nccl_all_reduce_sum": 3.0,
+          "autocast_enabled": true,
+          "losses": [
+            26.928634643554688,
+            26.26583480834961
+          ],
+          "max_parameter_diff": 0.0,
+          "max_update": 0.0025227051228284836,
+          "world_size": 2
+        }
+      ],
+      "status": "passed"
+    },
+    "r50vd_amp_fp16": {
+      "status": "passed",
+      "image_shape": [
+        1,
+        3,
+        256,
+        256
+      ],
+      "logits_shape": [
+        1,
+        300,
+        80
+      ]
+    },
+    "r50vd_model_half": {
+      "status": "passed",
+      "image_shape": [
+        1,
+        3,
+        256,
+        256
+      ],
+      "logits_shape": [
+        1,
+        300,
+        80
+      ]
+    }
+  },
+  "limitations": [
+    "Synthetic random weights only; no convergence/AP/latency claims.",
+    "FP32/AMP resume compares exact restored state, then tolerant subsequent CUDA training; math SDPA used in resume tests.",
+    "CUDA BF16 unvalidated on T4; Lightning bf16-mixed remains unsupported.",
+    "Native DDP is separate from the single-process Lightning adapter.",
+    "GradScaler init_scale=128 in GPU training checks."
+  ]
+}

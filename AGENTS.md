@@ -7,10 +7,12 @@ scope covers image-to-prediction R50vd, including multi-scale features, projecte
 memory, selected queries, and iterative decoder predictions, plus separate
 Pillow/uint8 image preprocessing, top-k detection postprocessing, and fixed-shape
 ONNX export with CPU FP32 runtime parity. Separate COCO prediction JSON and
-optional bbox metric evaluation are implemented. Single-process Hungarian
+optional bbox metric evaluation are implemented. Hungarian
 matching and Varifocal/L1/GIoU training losses are implemented with CPU parity.
 Contrastive denoising queries, a training wrapper, and DN losses have CPU parity.
-An optional Lightning adapter supports CPU FP32 training and epoch-boundary resume.
+An optional Lightning adapter supports single-process CPU FP32 and CUDA FP32/AMP
+training and epoch-boundary resume. Native DDP losses use global target-count
+normalization. See docs/gpu-validation.md for the bounded GPU validation scope.
 Full training and measured full-dataset COCO AP remain outside the validated scope.
 
 ## Repository guidance

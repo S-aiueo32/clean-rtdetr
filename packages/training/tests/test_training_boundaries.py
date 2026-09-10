@@ -24,6 +24,8 @@ from clean_rtdetr_training import (
 if TYPE_CHECKING:
     from torch import Tensor
 
+_EXPECTED_BBOX_LOSS = 5.0
+
 
 def _batch() -> tuple[DetectionOutput, list[DetectionTarget]]:
     """Return one image with valid prediction and target tensors."""
@@ -113,22 +115,25 @@ def test_loss_config_rejects_all_zero_weights_and_alpha_above_one() -> None:
 
 
 @pytest.mark.parametrize("scope", ["stage", "training"])
-def test_distributed_execution_is_rejected(monkeypatch: pytest.MonkeyPatch, scope: str) -> None:
-    """Do not silently apply local normalization to a distributed training run."""
+def test_distributed_execution_uses_bounded_normalization(
+    monkeypatch: pytest.MonkeyPatch, scope: str
+) -> None:
+    """Distributed stages use the reduced target count instead of a local count."""
     monkeypatch.setattr(torch.distributed, "is_available", lambda: True)
     monkeypatch.setattr(torch.distributed, "is_initialized", lambda: True)
     monkeypatch.setattr(torch.distributed, "get_world_size", lambda: 2)
+    monkeypatch.setattr(torch.distributed, "all_reduce", lambda count, **_kwargs: count.mul_(2))
     output, targets = _batch()
     criterion = SetCriterion(matcher=HungarianMatcher())
     if scope == "stage":
-        with pytest.raises(ValueError, match="single-process"):
-            criterion.stage_losses(output, targets)
+        losses = criterion.stage_losses(output, targets)
+        assert losses["loss_bbox"] == _EXPECTED_BBOX_LOSS
         return
     model_output = ModelOutput(
         DecoderOutput(output.logits.unsqueeze(0), output.boxes.unsqueeze(0)), output, None
     )
-    with pytest.raises(ValueError, match="single-process"):
-        criterion(TrainingOutput(model_output), targets)
+    losses = criterion(TrainingOutput(model_output), targets)
+    assert losses["loss_bbox"] == _EXPECTED_BBOX_LOSS
 
 
 def test_encoder_classes_must_match_decoder() -> None:

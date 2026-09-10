@@ -20,12 +20,12 @@ projected memory → selected queries → iterative decoder predictions.
 | Checkpoints and inference | Strict official inference-weight loading, CPU FP32 full-model parity, Pillow/uint8 preprocessing, and upstream-compatible top-k postprocessing | [Inference I/O](inference.md) |
 | COCO evaluation | Prediction JSON and an optional bbox metric adapter, tested on synthetic annotations; pycocotools is loaded only for metrics | [COCO evaluation](evaluation.md) |
 | ONNX export | `FixedShapeRTDETR` and CPU FP32 ONNX Runtime parity for fixed batch-1 640×640, with graph optimizations disabled | [Export profile](inference.md#fixed-shape-onnx-export) |
-| Matching and losses | Single-process Hungarian matching and Varifocal/L1/GIoU losses, including decoder/encoder auxiliary supervision and CPU loss/gradient parity | [Training losses](training.md) |
+| Matching and losses | Hungarian matching and Varifocal/L1/GIoU losses with distributed target-count normalization, including decoder/encoder auxiliary supervision and CPU loss/gradient parity | [Training losses](training.md) |
 | Denoising | Contrastive queries, registered class embeddings in the training wrapper, and per-layer DN losses with CPU upstream parity | [Contrastive denoising](training.md#contrastive-denoising) |
-| Training loop | Lightning adapter with baseline AdamW groups, EMA, and CPU FP32 synthetic epoch-boundary resume | [Lightning training](lightning.md) |
+| Training loop | Lightning adapter with baseline AdamW groups, EMA, and CPU FP32 / CUDA FP32 or AMP synthetic epoch-boundary resume | [Lightning training](lightning.md) |
 
 Forward and gradient parity tests use SHA-256-pinned upstream methods.
-Full-dataset training, GPU/DDP/AMP validation, research-method composition,
+Full-dataset training, research-method composition,
 measured full-dataset COCO AP, and latency remain pending. Dynamic-shape ONNX
 and TensorRT are outside the validated export scope.
 
@@ -52,20 +52,20 @@ and TensorRT are outside the validated export scope.
 6. [x] Add fixed-shape ONNX export and CPU FP32 runtime parity.
 7. [x] Add DN queries, criterion, and CPU loss/gradient parity.
 8. [x] Add synthetic CPU FP32 Lightning training and epoch-boundary resume.
-9. [ ] Validate full-dataset training and GPU/DDP/AMP execution.
+9. [ ] Validate full-dataset training. Short synthetic GPU/DDP/AMP checks are described in [GPU execution](gpu-validation.md).
 10. [ ] Implement research-method composition.
 
 ## Validation evidence
 
-The single-process FP32/FP64 matching criterion is implemented with Hungarian
+The FP32/FP64 matching criterion is implemented with Hungarian
 assignment and Varifocal/L1/GIoU losses, including decoder and encoder auxiliary
 supervision. Contrastive DN construction, registered training-wrapper embeddings,
 and per-layer DN losses are implemented. CPU upstream query/loss/gradient parity
 is covered by offline tests; see [training losses](training.md). The optional
-[Lightning adapter](lightning.md) adds a CPU FP32 training loop and epoch-boundary
+[Lightning adapter](lightning.md) adds a CPU FP32 / CUDA FP32 or AMP training loop and epoch-boundary
 resume, including optimizer, scheduler, EMA, and application RNG state. Hierarchical
 Hydra configs inject baseline model stages and optimizer/scheduler factories. Full
-dataset training, GPU/DDP/AMP validation, and research-method composition remain pending.
+dataset training and research-method composition remain pending. See [GPU execution](gpu-validation.md) for bounded GPU checks.
 
 The image-to-prediction API returns raw class logits and normalized cxcywh boxes.
 Separate image I/O accepts Pillow images or CPU uint8 RGB tensors using the same

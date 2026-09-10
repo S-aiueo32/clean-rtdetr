@@ -1,5 +1,5 @@
 # Copyright 2026 Clean RT-DETR contributors
-"""Standard single-process set supervision shared by explicit training criteria.
+"""Set supervision shared by explicit training criteria.
 
 Stage order, independent assignments, and canonical DN target repetition follow
 RT-DETR. Recipes that change those policies should implement their own stage
@@ -31,14 +31,14 @@ from clean_rtdetr_training.losses.geometry import box_iou, cxcywh_to_xyxy, gener
 class MatchedStage:
     """One supervised stage, its assignment, key suffix and positive normalizer.
 
-    Ordinary stages use the clamped local batch target count. DN stages multiply
+    Ordinary stages use the clamped mean target count across ranks. DN stages multiply
     that count by the number of groups, and use known positive assignments.
     """
 
     suffix: str
     output: DetectionOutput
     matches: Sequence[MatchIndices]
-    normalizer: int
+    normalizer: float
 
 
 @dataclass(frozen=True)
@@ -68,11 +68,11 @@ def iter_matched_stages(
     Each ordinary stage calls the supplied validating matcher independently.
     DN predictions and their known target assignments are validated here. Keys
     use an empty suffix for final, ``_aux_{index}`` for auxiliary predictions,
-    and ``_dn_{index}`` for DN layers. The policy is single-process and uses
+    and ``_dn_{index}`` for DN layers. The policy uses
     normalized RT-DETR boxes; a different supervision policy belongs to its
     criterion rather than options on this helper.
     """
-    normalizer = _target_normalizer(targets)
+    normalizer = _target_normalizer(targets, output.predictions.decoder.logits.device)
     final, auxiliary = _split_stages(output.predictions, targets)
     yield MatchedStage("", final, matcher(final, targets), normalizer)
     for index, stage in enumerate(auxiliary):
@@ -86,28 +86,29 @@ def match_stage(
     targets: Sequence[DetectionTarget],
     matcher: Matcher,
 ) -> MatchedStage:
-    """Match one detection stage with a clamped, single-process target count."""
-    normalizer = _target_normalizer(targets)
+    """Match one detection stage with a clamped global target count."""
+    normalizer = _target_normalizer(targets, output.logits.device)
     return MatchedStage("", output, matcher(output, targets), normalizer)
 
 
-def _target_normalizer(targets: Sequence[DetectionTarget]) -> int:
-    """Reject distributed execution before using local target normalization."""
-    if (
-        torch.distributed.is_available()
-        and torch.distributed.is_initialized()
-        and torch.distributed.get_world_size() > 1
-    ):
-        msg = "Set supervision currently supports single-process normalization only"
-        raise ValueError(msg)
-    return max(sum(target.labels.numel() for target in targets), 1)
+def _target_normalizer(targets: Sequence[DetectionTarget], device: torch.device) -> float:
+    """Average target count across ranks and clamp it to one."""
+    local_count = float(sum(target.labels.numel() for target in targets))
+    if not torch.distributed.is_available() or not torch.distributed.is_initialized():
+        return max(local_count, 1.0)
+    world_size = torch.distributed.get_world_size()
+    if world_size <= 1:
+        return max(local_count, 1.0)
+    count = torch.tensor(local_count, dtype=torch.float32, device=device)
+    torch.distributed.all_reduce(count, op=torch.distributed.ReduceOp.SUM)
+    return max(float(count.item()) / world_size, 1.0)
 
 
 def _denoising_stages(
     denoising: DenoisingOutput,
     predictions: ModelOutput,
     targets: Sequence[DetectionTarget],
-    normalizer: int,
+    normalizer: float,
 ) -> Iterator[MatchedStage]:
     """Use known repeated target assignments for each DN decoder layer."""
     matches = _build_denoising_matches(denoising, targets, predictions.decoder.logits)
@@ -284,7 +285,7 @@ def matched_iou_targets(
 
 def matched_box_losses(
     pairs: MatchedPairs,
-    normalizer: int,
+    normalizer: float,
 ) -> tuple[Float[Tensor, ""], Float[Tensor, ""]]:
     """Return unweighted L1 and GIoU losses over matched pairs, in that order.
 

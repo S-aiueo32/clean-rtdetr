@@ -371,14 +371,17 @@ class Decoder(DecoderInterface):
         ``[retained_layers, B, Q, 4]``. The initial detach boundary belongs to
         ``QueryAssembler``; this internal method also serves fixed-shape export.
         """
-        output = queries.content
+        # Query references retain FP32 geometry even for a half-weight model.
+        # Content projections follow the model weights; autocast may lower them.
+        content_dtype = cast("nn.Linear", self.query_pos_head.layers[0]).weight.dtype
+        output = queries.content.to(content_dtype)
         sampling_reference = queries.ref_logits.sigmoid()
         previous_refinement = sampling_reference
         layer_boxes = []
         layer_logits = []
         for index, layer in enumerate(self.layers[:executed_layers]):
             reference_input = sampling_reference.unsqueeze(2)
-            query_position = self.query_pos_head(sampling_reference)
+            query_position = self.query_pos_head(sampling_reference.to(output.dtype))
             output = layer(
                 output,
                 reference_input,
@@ -391,7 +394,7 @@ class Decoder(DecoderInterface):
                 self.dec_bbox_head[index](output) + inverse_sigmoid(sampling_reference)
             ).sigmoid()
             if selected_plan.collect_intermediate or index == executed_layers - 1:
-                layer_logits.append(self.dec_score_head[index](output))
+                layer_logits.append(self.dec_score_head[index](output).to(refined.dtype))
                 boxes = refined
                 if self.training and index > 0:
                     boxes = (

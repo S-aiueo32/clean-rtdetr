@@ -35,7 +35,7 @@ class MatchabilityAwareLoss(nn.Module):
         logits: Float[Tensor, "batch queries classes"],
         target_scores: Float[Tensor, "batch queries classes"],
         positive_mask: Bool[Tensor, "batch queries classes"],
-        normalizer: int,
+        normalizer: float,
     ) -> Float[Tensor, ""]:
         """Return an unweighted scalar; criterion owns its configured multiplier."""
         scores = target_scores.detach().pow(self.gamma)
