@@ -304,8 +304,8 @@ class Decoder(DecoderInterface):
 
     def _validate_inputs(self, queries: DecoderInput, features: EncodedFeatures) -> None:
         """Check query and memory dimensions against the configured decoder."""
-        queries.validate()
-        features.validate()
+        queries.validate_structure()
+        features.validate_structure()
         self._validate_dimensions(queries, features)
 
     def _validate_dimensions(self, queries: DecoderInput, features: EncodedFeatures) -> None:
@@ -401,9 +401,7 @@ class Decoder(DecoderInterface):
             previous_refinement = refined
             sampling_reference = refined.detach() if self.training else refined
 
-        result = DecoderOutput(torch.stack(layer_logits), torch.stack(layer_boxes))
-        result.validate()
-        return result
+        return DecoderOutput(torch.stack(layer_logits), torch.stack(layer_boxes))
 
     def checkpoint_config(self) -> dict[str, object]:
         """Describe decoder dimensions, layers, and the injected eval plan."""

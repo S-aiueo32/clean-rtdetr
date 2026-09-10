@@ -101,6 +101,19 @@ Python 型を検査し、既存の `validate()` メソッドが runtime contract
 使うモジュールに限り `F722` を除外します。単一の名前付き軸では、先頭に空白を入れた
 `" levels"` によって、undefined-name check を無効にせず誤った `F821` を避けます。
 
+annotation は内部テンソルの検証方針も定義します。jaxtyping の契約で dtype と shape が
+すでに明示されているテンソルを、内部の各 stage で繰り返し検証しません。公開境界の
+明示的な `validate()` は維持し、annotation では表現できない値域やテンソル間の関係も
+検証します。内部 helper では、計算前に metadata、device、detach 状態、設定に依存する
+関係を確認する必要がある場合に限り、より狭い構造検証を使えます。
+`MultiScaleFeatures`、`EncodedFeatures`、`DecoderInput` では `validate_structure()` を使い、
+外部から受け取る payload の完全な検証には `validate()` を使います。`Float` だけでは
+複数テンソルの浮動小数点精度の一致を表さないため、その一致確認は残します。信頼されたモデル
+stage 間で生成されるテンソルについて、rank、dtype、記号 shape の重複検証は不要です。
+公開 validation の動作と stage の契約は、pytest のみで有効にする jaxtyping の runtime
+検査とともにテストで確認します。今回の整理対象は core のモデル stage です。training と
+export の境界にある prediction／target 検証は維持します。
+
 <a id="gradient-ownership"></a>
 
 ## 勾配の所有権

@@ -13,23 +13,6 @@ from clean_rtdetr.contracts import (
 from clean_rtdetr.models.interfaces import Assembler
 
 
-def _validate_matching_queries(matching: QuerySet) -> None:
-    """Check matching query layout and source indices before assembly."""
-    if matching.content.ndim != QUERY_RANK or matching.ref_logits.ndim != QUERY_RANK:
-        msg = "Matching queries must have rank-three content and reference tensors"
-        raise ValueError(msg)
-    batch, matching_queries, _ = matching.content.shape
-    if matching.ref_logits.shape != (batch, matching_queries, BOX_COORDINATES):
-        msg = "Matching reference logits must have shape [B, Q, 4]"
-        raise ValueError(msg)
-    if matching.source_indices.shape != (batch, matching_queries):
-        msg = "Matching source indices must have shape [B, Q]"
-        raise ValueError(msg)
-    if matching.source_indices.dtype != torch.int64:
-        msg = "Matching source indices must be int64"
-        raise ValueError(msg)
-
-
 class QueryAssembler(Assembler):
     """Concatenate optional DN queries and own the initial reference detach boundary."""
 
@@ -52,7 +35,6 @@ class QueryAssembler(Assembler):
         DN embedding gradients and the selector's auxiliary box gradients intact.
         ``matching_queries`` records Q so downstream consumers can locate the tail.
         """
-        _validate_matching_queries(matching)
         matching_queries = matching.content.shape[1]
 
         content = matching.content
@@ -70,7 +52,7 @@ class QueryAssembler(Assembler):
             attention_mask=attention_mask,
             matching_queries=matching_queries,
         )
-        assembled.validate()
+        assembled.validate_structure()
         return assembled
 
     def _validate_denoising(self, matching: QuerySet, denoising: DenoisingQueries) -> None:
@@ -89,6 +71,9 @@ class QueryAssembler(Assembler):
         total_queries = denoising_queries + matching_queries
         if denoising.attention_mask.shape != (total_queries, total_queries):
             msg = "Denoising attention mask must cover all assembled queries"
+            raise ValueError(msg)
+        if denoising.attention_mask.dtype != torch.bool:
+            msg = "Attention mask must be bool [Q, Q] on the query device"
             raise ValueError(msg)
 
     def checkpoint_config(self) -> dict[str, object]:

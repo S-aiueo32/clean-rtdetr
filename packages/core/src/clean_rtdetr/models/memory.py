@@ -46,7 +46,7 @@ class MemoryProjector(Projector):
 
     def forward(self, features: MultiScaleFeatures) -> EncodedFeatures:
         """Project features and concatenate their row-major spatial positions."""
-        features.validate()
+        features.validate_structure()
         if features.specs != self.specs:
             msg = "Input FeatureSpec differs from the projector's construction spec"
             raise ValueError(msg)

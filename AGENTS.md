@@ -26,8 +26,13 @@ Full training and measured full-dataset COCO AP remain outside the validated sco
   Keep stage-parity and training compatibility helpers in checkout-only
   `tools/compatibility`. Packaged code must not depend on checkout tools or metadata.
   Prediction and export CLIs load native state dictionaries.
-- Preserve tensor contracts, validation behavior, and upstream parity semantics
-  when changing model stages.
+- Preserve public tensor contracts, validation behavior, and upstream parity
+  semantics when changing model stages. jaxtyping annotations are the contract
+  for internal tensor dtype and shape; do not add duplicate runtime checks for
+  those properties at every trusted stage. Keep explicit public-boundary checks,
+  value constraints, and relationships not represented by annotations. Narrow
+  internal checks are appropriate for metadata, device/detach state, and
+  configuration-dependent relationships.
 - Do not claim complete detector, AP, latency, checkpoint, or export support
   unless the corresponding implementation and validation exist.
 - Update relevant documentation when changing public behavior or project scope.

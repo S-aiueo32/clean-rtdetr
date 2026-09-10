@@ -117,7 +117,7 @@ class QuerySelector(Selector):
 
     def forward(self, features: EncodedFeatures) -> SelectionOutput:
         """Select positions and preserve the separate query/auxiliary gradient routes."""
-        features.validate()
+        features.validate_structure()
         memory = features.memory
         _, sequence, channels = memory.shape
         cfg = self.config

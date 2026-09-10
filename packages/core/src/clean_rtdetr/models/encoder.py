@@ -280,7 +280,7 @@ class HybridEncoder(Encoder):
 
     def _validate_features(self, features: MultiScaleFeatures) -> None:
         """Check feature specs and spatial ratios before projection and fusion."""
-        features.validate()
+        features.validate_structure()
         if features.specs != self.specs:
             msg = "Input FeatureSpec differs from the encoder's construction spec"
             raise ValueError(msg)
