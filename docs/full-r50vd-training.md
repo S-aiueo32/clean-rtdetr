@@ -19,19 +19,28 @@ these inputs on resume is rejected.
 Install the checkout workspace with `uv sync --all-packages`. This acceptance
 tool also reuses the checkout's exact-restoration test probe, so retain
 `packages/training/tests` and install the development dependencies when moving
-the job to Kaggle. Use a CUDA PyTorch wheel matching the remote driver.
+the job to Kaggle. Use a CUDA PyTorch wheel matching the remote driver. The
+validated Kaggle environment installed torch 2.13.0+cu126 in an isolated Python
+3.13 environment. When using the uv workspace, install the CUDA wheel after
+syncing and keep `--no-sync` on subsequent runs so the chosen GPU environment
+is preserved:
+
+```sh
+uv sync --all-packages
+uv pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/cu126
+```
 
 ## Bounded free-tier validation
 
 Run each precision in a new output directory:
 
 ```sh
-uv run python tools/full_r50vd_training.py validate \
+uv run --no-sync python tools/full_r50vd_training.py validate \
   --image-root /path/to/val2017 \
   --annotation /path/to/annotations/instances_val2017.json \
   --output-dir /kaggle/working/r50vd-fp32 \
   --limit 4 --batch-size 2 --precision 32-true --tolerance 1e-4
-uv run python tools/full_r50vd_training.py validate \
+uv run --no-sync python tools/full_r50vd_training.py validate \
   --image-root /path/to/val2017 \
   --annotation /path/to/annotations/instances_val2017.json \
   --output-dir /kaggle/working/r50vd-amp \
@@ -55,7 +64,7 @@ to include all images with valid non-crowd targets. The exact update count
 depends on filtering and batch size. Start with a single epoch:
 
 ```sh
-uv run python tools/full_r50vd_training.py train \
+uv run --no-sync python tools/full_r50vd_training.py train \
   --image-root /path/to/train2017 \
   --annotation /path/to/annotations/instances_train2017.json \
   --output-dir /kaggle/working/r50vd-session-1 \
@@ -67,7 +76,7 @@ output as input to the next session. Keep the same checkout, dependencies,
 data, batch size, and precision. Set `--epochs` to the cumulative target:
 
 ```sh
-uv run python tools/full_r50vd_training.py train \
+uv run --no-sync python tools/full_r50vd_training.py train \
   --image-root /path/to/train2017 \
   --annotation /path/to/annotations/instances_train2017.json \
   --output-dir /kaggle/working/r50vd-session-2 \
