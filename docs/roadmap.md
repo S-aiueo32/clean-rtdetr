@@ -22,7 +22,7 @@ projected memory → selected queries → iterative decoder predictions.
 | ONNX export | `FixedShapeRTDETR` and CPU FP32 ONNX Runtime parity for fixed batch-1 640×640, with graph optimizations disabled | [Export profile](inference.md#fixed-shape-onnx-export) |
 | Matching and losses | Hungarian matching and Varifocal/L1/GIoU losses with distributed target-count normalization, including decoder/encoder auxiliary supervision and CPU loss/gradient parity | [Training losses](training.md) |
 | Denoising | Contrastive queries, registered class embeddings in the training wrapper, and per-layer DN losses with CPU upstream parity | [Contrastive denoising](training.md#contrastive-denoising) |
-| Training loop | Lightning adapter with baseline AdamW groups, EMA, and CPU FP32 / CUDA FP32 or AMP synthetic epoch-boundary resume | [Lightning training](lightning.md) |
+| Training loop | Lightning adapter with baseline AdamW groups, EMA, synthetic resume tests, and bounded real-image R50vd CUDA FP32/AMP epoch-boundary resume | [Lightning training](lightning.md), [real-image GPU validation](full-r50vd-training.md) |
 
 Forward and gradient parity tests use SHA-256-pinned upstream methods.
 Full-dataset training, research-method composition,
@@ -52,7 +52,7 @@ and TensorRT are outside the validated export scope.
 6. [x] Add fixed-shape ONNX export and CPU FP32 runtime parity.
 7. [x] Add DN queries, criterion, and CPU loss/gradient parity.
 8. [x] Add synthetic CPU FP32 Lightning training and epoch-boundary resume.
-9. [ ] Validate full-dataset training. Short synthetic GPU/DDP/AMP checks are described in [GPU execution](gpu-validation.md).
+9. [ ] Validate full-dataset training. [Real-image R50vd short training and resume](full-r50vd-training.md) passed on T4; a resumable full-data session recipe is prepared. Full-data convergence remains pending. Short synthetic GPU/DDP/AMP checks are described in [GPU execution](gpu-validation.md).
 10. [ ] Implement research-method composition.
 
 ## Validation evidence
