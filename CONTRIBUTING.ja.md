@@ -106,13 +106,38 @@ Hypothesis テストは、入力サイズを制限した低コストなテンソ
 
 upstream 由来のソースと来歴は `third_party/RT-DETR` に置きます。固定した upstream ソースを更新する場合は、`benchmarks/baseline.json` と `packages/core/tests/oracle.py` のコミットと SHA-256 を更新し、ライセンスと帰属表示を保持して、すべてのパリティテストを再実行します。oracle 実装をテスト対象のパッケージへ書き換えないでください。
 
-CI は Python 3.13 と 3.14 で同じチェックを実行します。パッケージ境界のジョブはメンバーを明示的に選択します。CI はコミット済みの `uv.lock` が最新であることを検証するため `--locked` を渡します。たとえば export ジョブは次を使います。
+core と training の CI は Python 3.13 と 3.14、export・評価・静的チェック・配布ビルドの CI は Python 3.13 で実行します。パッケージ境界のジョブはメンバーを明示的に選択します。CI はコミット済みの `uv.lock` が最新であることを検証するため `--locked` を渡します。たとえば export ジョブは次を使います。
 
 ```sh
 uv sync --locked --package clean-rtdetr-export
 uv run pytest \
   packages/export/tests/test_export.py packages/export/tests/test_export_cli.py
 ```
+
+CI は `ci-core.yml`、`ci-training.yml`、`ci-export.yml`、`ci-evaluation.yml`、`ci-quality.yml`、3 つの `ci-dist-<member>.yml` に分割しています。recipe は独立した 4 つの `recipe-<name>.yml` で検証します。PR と `main` への push では GitHub のパスフィルターで対象を選びます。デフォルトブランチに存在するワークフローはすべて `workflow_dispatch` で手動実行できます。同じワークフロー・ref の古い実行はキャンセルしますが、`main` ではグループに run ID を含め、すべての実行を保持します。
+
+変更パスと実行対象の対応は次のとおりです。複数のパスが変わった場合は、該当する対象をすべて実行します。
+
+| 変更ファイル | 自動実行する検証 |
+| --- | --- |
+| core の実装 | core、training、export、評価、静的チェック、core 配布ビルド、全 recipe |
+| training の実装 | training、静的チェック、training 配布ビルド、全 recipe |
+| export の実装 | export、静的チェック、export 配布ビルド |
+| パッケージのテスト | 所有するテストワークフローと静的チェック。core の COCO テストは評価を選択 |
+| ルートの `configs/**` | training |
+| `tools/compatibility/**` | 関連する core/training テストと静的チェック |
+| `tools/query_selection.py` | core と静的チェック |
+| `third_party/RT-DETR/**` | core と training のパリティ |
+| `benchmarks/baseline.json` | core の checkpoint 来歴テスト |
+| パッケージの README・ライセンス・データ | 該当パッケージの配布ビルド |
+| Markdown 以外の recipe ファイル | 該当 recipe。Python・ツール設定の変更は静的チェックも実行 |
+| ルートの `pyproject.toml`・`uv.lock`、パッケージの `pyproject.toml` | ワークスペースの全 8 ワークフロー。core/training のパッケージメタデータは全 recipe も実行 |
+| ワークフローの YAML | 該当ワークフロー |
+| ルート README、`docs/**` の Markdown、CONTRIBUTING、AGENTS、その他のベンチマーク報告 | なし |
+
+uv の locked 操作は共有ワークスペースを解決するため、メタデータ変更ではワークスペース全体を検証します。recipe は独自の lock と Ruff/ty 設定を持つため、ルート lock・無関係なパッケージテスト・export の変更では起動しません。core の実装変更は依存先を保守的に選択します。評価テストにも core 全体を走査する任意依存の import 境界チェックがあります。core のテストはディレクトリから収集し、COCO テストは評価ワークフローで実行します。配布ビルドはテスト・静的チェックから独立し、core のビルドでは checkout 外にインストールした変換コマンドも確認します。
+
+依存関係の追加やファイル移動時には、呼び出し側を含めて push と PR 両方のパスフィルターを更新してください。リネームは移動前と移動後のパスに影響します。個別ワークフローを全実行したい場合や、非常に大きな差分が GitHub のパスフィルター制限を超える場合は手動実行してください。パスでスキップされるワークフローは無条件の必須チェックにはできません。ブランチ保護を導入する場合は、常時実行する集約チェックと条件付きジョブを使う構成にしてください。[GitHub の必須チェックに関する説明](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks)を参照してください。
 
 ローカルでの合格だけでは、完全な検出器の AP、レイテンシ、チェックポイント、export のサポートを主張できません。これらの主張には対応する実装とフィクスチャが必要です。
 

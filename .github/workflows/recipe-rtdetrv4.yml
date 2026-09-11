@@ -2,19 +2,31 @@ name: Recipe RT-DETRv4
 
 on:
   push:
+    branches: [main]
     paths:
-      - "packages/**"
+      - "packages/core/src/**"
+      - "packages/training/src/**"
+      - "packages/core/pyproject.toml"
+      - "packages/training/pyproject.toml"
       - "recipes/rtdetrv4/**"
+      - "!recipes/rtdetrv4/**/*.md"
       - ".github/workflows/recipe-rtdetrv4.yml"
-      - "pyproject.toml"
-      - "uv.lock"
   pull_request:
     paths:
-      - "packages/**"
+      - "packages/core/src/**"
+      - "packages/training/src/**"
+      - "packages/core/pyproject.toml"
+      - "packages/training/pyproject.toml"
       - "recipes/rtdetrv4/**"
+      - "!recipes/rtdetrv4/**/*.md"
       - ".github/workflows/recipe-rtdetrv4.yml"
-      - "pyproject.toml"
-      - "uv.lock"
+
+  workflow_dispatch:
+
+# Keep every main run; supersede older runs on other refs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.ref == 'refs/heads/main' && github.run_id || 'latest' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: read

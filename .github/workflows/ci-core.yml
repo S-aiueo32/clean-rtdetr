@@ -1,0 +1,77 @@
+name: CI Core
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "pyproject.toml"
+      - "uv.lock"
+      - "packages/*/pyproject.toml"
+      - "packages/core/src/**"
+      - "packages/core/tests/**"
+      - "!packages/core/tests/test_coco.py"
+      - "!packages/core/tests/test_coco_cli.py"
+      - "tools/__init__.py"
+      - "tools/compatibility/__init__.py"
+      - "tools/compatibility/checkpoint.py"
+      - "tools/query_selection.py"
+      - "third_party/RT-DETR/**"
+      - "benchmarks/baseline.json"
+      - ".github/workflows/ci-core.yml"
+  pull_request:
+    paths:
+      - "pyproject.toml"
+      - "uv.lock"
+      - "packages/*/pyproject.toml"
+      - "packages/core/src/**"
+      - "packages/core/tests/**"
+      - "!packages/core/tests/test_coco.py"
+      - "!packages/core/tests/test_coco_cli.py"
+      - "tools/__init__.py"
+      - "tools/compatibility/__init__.py"
+      - "tools/compatibility/checkpoint.py"
+      - "tools/query_selection.py"
+      - "third_party/RT-DETR/**"
+      - "benchmarks/baseline.json"
+      - ".github/workflows/ci-core.yml"
+  workflow_dispatch:
+
+# Keep every main run; supersede older runs on other refs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.ref == 'refs/heads/main' && github.run_id || 'latest' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  core:
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.13", "3.14"]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: "0.12.10"
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+      - run: uv sync --locked --package clean-rtdetr --extra inference
+      - name: Check core dependency boundary
+        run: >-
+          uv run python -c
+          "import importlib.util;
+          forbidden = ('clean_rtdetr_export', 'clean_rtdetr_training', 'lightning', 'onnx', 'onnxruntime', 'onnxscript', 'scipy');
+          present = [name for name in forbidden if importlib.util.find_spec(name) is not None];
+          assert not present, f'unexpected core dependencies: {present}'"
+      - name: Test core
+        run: >-
+          uv run pytest
+          --cov=clean_rtdetr --cov-report=term-missing
+          packages/core/tests
+          --ignore=packages/core/tests/test_coco.py
+          --ignore=packages/core/tests/test_coco_cli.py
+      - run: uv run python tools/query_selection.py
