@@ -1,0 +1,580 @@
+{
+  "gpu": "Tesla T4",
+  "torch": "2.13.0+cu126",
+  "cuda": "12.6",
+  "source_commit": "4b23fdc92b1e327d1a54479c3f6fbff2a7147962",
+  "cases": {
+    "random_amp_fp16": {
+      "execution": "passed",
+      "seed": 1729,
+      "shape": [
+        1,
+        3,
+        256,
+        256
+      ],
+      "comparison": {
+        "atol": 0.005,
+        "rtol": 0.05,
+        "ordered_ids_equal": false,
+        "query_sets_equal": false,
+        "common_count": 278,
+        "query_count": 300,
+        "ordered": {
+          "logits": {
+            "max_abs": 0.039678096771240234,
+            "close": true
+          },
+          "boxes": {
+            "max_abs": 0.9687499403953552,
+            "close": false
+          }
+        },
+        "common_subset": {
+          "logits": {
+            "max_abs": 0.004698753356933594,
+            "close": true
+          },
+          "boxes": {
+            "max_abs": 0.0,
+            "close": true
+          }
+        },
+        "full_query_aligned_parity": false,
+        "note": "Common-subset agreement is diagnostic only when query sets differ. Numerical parity remains separate from successful execution."
+      }
+    },
+    "random_native_half": {
+      "execution": "passed",
+      "seed": 1729,
+      "shape": [
+        1,
+        3,
+        256,
+        256
+      ],
+      "comparison": {
+        "atol": 0.005,
+        "rtol": 0.05,
+        "ordered_ids_equal": false,
+        "query_sets_equal": false,
+        "common_count": 280,
+        "query_count": 300,
+        "ordered": {
+          "logits": {
+            "max_abs": 0.04027509689331055,
+            "close": true
+          },
+          "boxes": {
+            "max_abs": 0.9687499403953552,
+            "close": false
+          }
+        },
+        "common_subset": {
+          "logits": {
+            "max_abs": 0.005241870880126953,
+            "close": true
+          },
+          "boxes": {
+            "max_abs": 0.0,
+            "close": true
+          }
+        },
+        "full_query_aligned_parity": false,
+        "note": "Common-subset agreement is diagnostic only when query sets differ. Numerical parity remains separate from successful execution."
+      }
+    },
+    "official_amp_fp16": {
+      "execution": "passed",
+      "seed": 41,
+      "shape": [
+        1,
+        3,
+        640,
+        640
+      ],
+      "comparison": {
+        "atol": 0.005,
+        "rtol": 0.05,
+        "ordered_ids_equal": false,
+        "query_sets_equal": true,
+        "common_count": 300,
+        "query_count": 300,
+        "ordered": {
+          "logits": {
+            "max_abs": 2.8802590370178223,
+            "close": false
+          },
+          "boxes": {
+            "max_abs": 0.9672734141349792,
+            "close": false
+          }
+        },
+        "common_subset": {
+          "logits": {
+            "max_abs": 0.2919783592224121,
+            "close": false
+          },
+          "boxes": {
+            "max_abs": 0.0442984402179718,
+            "close": false
+          }
+        },
+        "full_query_aligned_parity": false,
+        "note": "Common-subset agreement is diagnostic only when query sets differ. Numerical parity remains separate from successful execution."
+      }
+    },
+    "official_native_half": {
+      "execution": "passed",
+      "seed": 41,
+      "shape": [
+        1,
+        3,
+        640,
+        640
+      ],
+      "comparison": {
+        "atol": 0.005,
+        "rtol": 0.05,
+        "ordered_ids_equal": false,
+        "query_sets_equal": false,
+        "common_count": 299,
+        "query_count": 300,
+        "ordered": {
+          "logits": {
+            "max_abs": 2.4754390716552734,
+            "close": false
+          },
+          "boxes": {
+            "max_abs": 0.9008011817932129,
+            "close": false
+          }
+        },
+        "common_subset": {
+          "logits": {
+            "max_abs": 0.8061180114746094,
+            "close": false
+          },
+          "boxes": {
+            "max_abs": 0.1385279893875122,
+            "close": false
+          }
+        },
+        "full_query_aligned_parity": false,
+        "note": "Common-subset agreement is diagnostic only when query sets differ. Numerical parity remains separate from successful execution."
+      }
+    }
+  },
+  "scope": "Native-half/AMP execution, default GradScaler calibration and query-ID precision diagnostics; no full dataset AMP AP claim",
+  "regression_exit_code": 0,
+  "checkpoint_sha256": "dfaafa5a3d29958a360c35f1fad553a6f287bfae9967e8ee007e65cff21ddf45",
+  "execution_regressions_passed": true,
+  "all_numerical_comparisons_passed": false,
+  "job_url": "https://www.kaggle.com/code/souuchida/clean-rtdetr-t4-recheck-20260911",
+  "job_version": 3,
+  "manifest": {
+    "source_commit": "4b23fdc92b1e327d1a54479c3f6fbff2a7147962",
+    "source_archive_sha256": "fef946162615db016d6ea9968094c022cea4c578354e676151bf33a510a84b92",
+    "probe_sha256": "84144f30bc6e50c6a4dafb888a84e96510aa55b65f3ffbb3b3ddd8083c2fa449",
+    "source": "latest main plus AIFI/anchor precision fixes and CUDA regression tests; archive hash identifies snapshot",
+    "profile": "Python 3.13 / torch 2.13.0+cu126 / NvidiaTeslaT4",
+    "scope": "CUDA AMP native-half execution, GradScaler calibration, query-ID comparisons, pytest regressions"
+  },
+  "artifact_sha256": {
+    "bootstrap.log": "aef059f2d9cdd5c3c54a36e00588cc4ac3c55421f8226aa50e951e1c00389bf3",
+    "clean-rtdetr-t4-recheck-20260911.log": "13b783190292f1ece925d9a410dd0b734a403b074919ec18b07210c3786c479d",
+    "job-manifest.json": "421ed89ddc612115134d0b4fa7cd1aafe17e7dee79a124a3d219714f470d5acf",
+    "official_amp_fp16.pt": "eb25a9c89c7cd35a7917c58d303b75414c9b4014715371e952f622f85287b1ea",
+    "official_native_half.pt": "3e1bc339a8854ecd6ed9f23a547816ca3d3accd31fcee67949c3efbce7b42f79",
+    "precision-recheck.json": "e44217884693f1826dd9d624ca2ad344d8edee655a478d61e36499cb9d159cd1",
+    "random_amp_fp16.pt": "3c454ae62e64d2adc79de27538a1bccebcbb8c54dbe45c053ffc397418ef1170",
+    "random_native_half.pt": "08869832b341dbfddbd9ae66e5be6645610eb3fce0a6e504bfdbf5cdab8bc40d",
+    "regressions.log": "2c283521605f618cb5f1a57efde85c9c124fca2d87af772d0f5db5a62c37511c",
+    "regressions.xml": "ca3fcddddd8a9953cbe198ce9b73fd5c18428c1a625f62984ed13642fef425bd",
+    "requirements-freeze.txt": "c9ee260faf172c80cd9cf4a5e8bd5a0e80c75eb39cfe2f8120894a2a9b7dcd8a"
+  },
+  "submitted_job_sha256": "05944bbddb84f6e43b93a4b655a73363188342db8319446f50f23a9e94dd273d",
+  "local_artifacts": "/Users/so.uchida/clean-rtdetr/outputs/kaggle/20260911-t4-recheck/run-3",
+  "pytest": {
+    "tests": "48",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "24.391"
+  },
+  "scaler_cases": {
+    "test_cuda_amp_scaler_reaches_three_real_updates[65536.0]": {
+      "init_scale": "65536.0",
+      "attempts": "11",
+      "actual_updates": "3",
+      "final_scale": "256.0"
+    },
+    "test_cuda_amp_scaler_reaches_three_real_updates[128.0]": {
+      "init_scale": "128.0",
+      "attempts": "3",
+      "actual_updates": "3",
+      "final_scale": "128.0"
+    }
+  },
+  "upstream_comparison": {
+    "seed": 41,
+    "shape": [
+      1,
+      3,
+      640,
+      640
+    ],
+    "gpu": "Tesla T4",
+    "torch": "2.13.0+cu126",
+    "checkpoint_sha256": "dfaafa5a3d29958a360c35f1fad553a6f287bfae9967e8ee007e65cff21ddf45",
+    "clean_vs_upstream_fp32": {
+      "atol": 0.0001,
+      "rtol": 0.001,
+      "ordered_ids_equal": true,
+      "query_sets_equal": true,
+      "common_count": 300,
+      "query_count": 300,
+      "ordered": {
+        "logits": {
+          "max_abs": 0.0,
+          "close": true
+        },
+        "boxes": {
+          "max_abs": 0.0,
+          "close": true
+        }
+      },
+      "common_subset": {
+        "logits": {
+          "max_abs": 0.0,
+          "close": true
+        },
+        "boxes": {
+          "max_abs": 0.0,
+          "close": true
+        }
+      },
+      "full_query_aligned_parity": true,
+      "note": "Common-subset agreement is diagnostic only when query sets differ. Numerical parity remains separate from successful execution."
+    },
+    "clean_vs_upstream_amp": {
+      "atol": 0.0001,
+      "rtol": 0.001,
+      "ordered_ids_equal": true,
+      "query_sets_equal": true,
+      "common_count": 300,
+      "query_count": 300,
+      "ordered": {
+        "logits": {
+          "max_abs": 0.0,
+          "close": true
+        },
+        "boxes": {
+          "max_abs": 0.0,
+          "close": true
+        }
+      },
+      "common_subset": {
+        "logits": {
+          "max_abs": 0.0,
+          "close": true
+        },
+        "boxes": {
+          "max_abs": 0.0,
+          "close": true
+        }
+      },
+      "full_query_aligned_parity": true,
+      "note": "Common-subset agreement is diagnostic only when query sets differ. Numerical parity remains separate from successful execution."
+    },
+    "clean_fp32_vs_amp": {
+      "atol": 0.005,
+      "rtol": 0.05,
+      "ordered_ids_equal": false,
+      "query_sets_equal": true,
+      "common_count": 300,
+      "query_count": 300,
+      "ordered": {
+        "logits": {
+          "max_abs": 2.8802590370178223,
+          "close": false
+        },
+        "boxes": {
+          "max_abs": 0.9672734141349792,
+          "close": false
+        }
+      },
+      "common_subset": {
+        "logits": {
+          "max_abs": 0.2919783592224121,
+          "close": false
+        },
+        "boxes": {
+          "max_abs": 0.0442984402179718,
+          "close": false
+        }
+      },
+      "full_query_aligned_parity": false,
+      "note": "Common-subset agreement is diagnostic only when query sets differ. Numerical parity remains separate from successful execution."
+    },
+    "upstream_fp32_vs_amp": {
+      "atol": 0.005,
+      "rtol": 0.05,
+      "ordered_ids_equal": false,
+      "query_sets_equal": true,
+      "common_count": 300,
+      "query_count": 300,
+      "ordered": {
+        "logits": {
+          "max_abs": 2.8802590370178223,
+          "close": false
+        },
+        "boxes": {
+          "max_abs": 0.9672734141349792,
+          "close": false
+        }
+      },
+      "common_subset": {
+        "logits": {
+          "max_abs": 0.2919783592224121,
+          "close": false
+        },
+        "boxes": {
+          "max_abs": 0.0442984402179718,
+          "close": false
+        }
+      },
+      "full_query_aligned_parity": false,
+      "note": "Common-subset agreement is diagnostic only when query sets differ. Numerical parity remains separate from successful execution."
+    },
+    "stages_fp32": {
+      "backbone_0": {
+        "max_abs": 0.0,
+        "close_atol1e-4_rtol1e-3": true
+      },
+      "backbone_1": {
+        "max_abs": 0.0,
+        "close_atol1e-4_rtol1e-3": true
+      },
+      "backbone_2": {
+        "max_abs": 0.0,
+        "close_atol1e-4_rtol1e-3": true
+      },
+      "encoder_0": {
+        "max_abs": 0.0,
+        "close_atol1e-4_rtol1e-3": true
+      },
+      "encoder_1": {
+        "max_abs": 0.0,
+        "close_atol1e-4_rtol1e-3": true
+      },
+      "encoder_2": {
+        "max_abs": 0.0,
+        "close_atol1e-4_rtol1e-3": true
+      }
+    },
+    "stages_amp": {
+      "backbone_0": {
+        "max_abs": 0.0,
+        "close_atol1e-4_rtol1e-3": true
+      },
+      "backbone_1": {
+        "max_abs": 0.0,
+        "close_atol1e-4_rtol1e-3": true
+      },
+      "backbone_2": {
+        "max_abs": 0.0,
+        "close_atol1e-4_rtol1e-3": true
+      },
+      "encoder_0": {
+        "max_abs": 0.0,
+        "close_atol1e-4_rtol1e-3": true
+      },
+      "encoder_1": {
+        "max_abs": 0.0,
+        "close_atol1e-4_rtol1e-3": true
+      },
+      "encoder_2": {
+        "max_abs": 0.0,
+        "close_atol1e-4_rtol1e-3": true
+      }
+    },
+    "scope": "Same-precision upstream comparison and within-implementation cross-precision diagnostics; no tolerance relaxation or dataset AP",
+    "job_url": "https://www.kaggle.com/code/souuchida/clean-rtdetr-t4-oracle-20260911",
+    "job_version": 5,
+    "manifest": {
+      "source_commit": "4b23fdc92b1e327d1a54479c3f6fbff2a7147962",
+      "source_archive_sha256": "fef946162615db016d6ea9968094c022cea4c578354e676151bf33a510a84b92",
+      "probe_sha256": "8c8ca1e0a900124f31e6fe5cca5066768843c4180a20263e23e84c946498972a",
+      "source": "latest main plus AIFI/anchor precision fixes and CUDA regression tests; archive hash identifies snapshot",
+      "profile": "Python 3.13 / torch 2.13.0+cu126 / NvidiaTeslaT4",
+      "scope": "CUDA FP32 and AMP upstream stage and query-ID comparison"
+    },
+    "artifact_sha256": {
+      "bootstrap.log": "a6d369e88afb1ec6c9e72e6aacbd7305851d893cdf67ab41ca68b80f43cfbf7a",
+      "clean-rtdetr-t4-oracle-20260911.log": "4de5b5550e5afbc34aefe6e5f535083c7c803c7a62962e719ef99c739b7930a3",
+      "job-manifest.json": "14facf9df64e41a80303766a2eab443bc5c316a0594a628971a2239ed7a4a732",
+      "oracle-comparison.json": "1da849d94aedee25173259e847e7b36529d57782b8c5774cbdad624d0ee0adc0",
+      "oracle-predictions.pt": "689f6ec282e3b099ca30d61303e0028a667c7ba718dcd39ec114b13c0d7250d7",
+      "requirements-freeze.txt": "fc3cdce6e993ca875c830f903bf452ad8730c9d3868dd868b9841d75c434346b"
+    },
+    "submitted_job_sha256": "bfeda2f46050b2f4428c24aa08838385056187f82948c42b1184986189e2baf7",
+    "local_artifacts": "/Users/so.uchida/clean-rtdetr/outputs/kaggle/20260911-t4-oracle/run-5"
+  },
+  "diagnosis": {
+    "aifi": "Retain FP32 positional arithmetic under autocast; cast positions only for explicitly converted weights.",
+    "anchors": "Match upstream fixed-size evaluation CPU anchor logarithms; training keeps dynamic device anchors.",
+    "grad_scaler": "Initial overflow calibration skips are not failed optimizer updates; require three actual finite updates.",
+    "before_aifi_fix": {
+      "atol": 0.0001,
+      "rtol": 0.001,
+      "ordered_ids_equal": false,
+      "query_sets_equal": true,
+      "common_count": 300,
+      "query_count": 300,
+      "ordered": {
+        "logits": {
+          "max_abs": 2.66015625,
+          "close": false
+        },
+        "boxes": {
+          "max_abs": 0.9046698212623596,
+          "close": false
+        }
+      },
+      "common_subset": {
+        "logits": {
+          "max_abs": 0.087890625,
+          "close": false
+        },
+        "boxes": {
+          "max_abs": 0.0070174336433410645,
+          "close": false
+        }
+      },
+      "full_query_aligned_parity": false,
+      "note": "Common-subset agreement is diagnostic only when query sets differ. Numerical parity remains separate from successful execution."
+    },
+    "after_aifi_before_anchor_fix": {
+      "atol": 0.0001,
+      "rtol": 0.001,
+      "ordered_ids_equal": true,
+      "query_sets_equal": true,
+      "common_count": 300,
+      "query_count": 300,
+      "ordered": {
+        "logits": {
+          "max_abs": 0.017578125,
+          "close": false
+        },
+        "boxes": {
+          "max_abs": 0.0025681257247924805,
+          "close": false
+        }
+      },
+      "common_subset": {
+        "logits": {
+          "max_abs": 0.017578125,
+          "close": false
+        },
+        "boxes": {
+          "max_abs": 0.0025681257247924805,
+          "close": false
+        }
+      },
+      "full_query_aligned_parity": false,
+      "note": "Common-subset agreement is diagnostic only when query sets differ. Numerical parity remains separate from successful execution."
+    },
+    "anchor_control_experiments": {
+      "cached_cpu_anchors": {
+        "atol": 0.0001,
+        "rtol": 0.001,
+        "ordered_ids_equal": true,
+        "query_sets_equal": true,
+        "common_count": 300,
+        "query_count": 300,
+        "ordered": {
+          "logits": {
+            "max_abs": 0.0,
+            "close": true
+          },
+          "boxes": {
+            "max_abs": 0.0,
+            "close": true
+          }
+        },
+        "common_subset": {
+          "logits": {
+            "max_abs": 0.0,
+            "close": true
+          },
+          "boxes": {
+            "max_abs": 0.0,
+            "close": true
+          }
+        },
+        "full_query_aligned_parity": true,
+        "note": "Common-subset agreement is diagnostic only when query sets differ. Numerical parity remains separate from successful execution."
+      },
+      "oracle_dynamic_anchors": {
+        "atol": 0.0001,
+        "rtol": 0.001,
+        "ordered_ids_equal": true,
+        "query_sets_equal": true,
+        "common_count": 300,
+        "query_count": 300,
+        "ordered": {
+          "logits": {
+            "max_abs": 0.0,
+            "close": true
+          },
+          "boxes": {
+            "max_abs": 0.0,
+            "close": true
+          }
+        },
+        "common_subset": {
+          "logits": {
+            "max_abs": 0.0,
+            "close": true
+          },
+          "boxes": {
+            "max_abs": 0.0,
+            "close": true
+          }
+        },
+        "full_query_aligned_parity": true,
+        "note": "Common-subset agreement is diagnostic only when query sets differ. Numerical parity remains separate from successful execution."
+      }
+    }
+  },
+  "local_validation": {
+    "pytest": {
+      "passed": 482,
+      "skipped": 19
+    },
+    "coverage_percent": 90,
+    "ruff_check": "passed",
+    "ruff_format": "passed",
+    "ty": "passed",
+    "query_selection": "passed",
+    "package_builds": "all three passed",
+    "publish_dry_runs": "all three passed",
+    "gloo_interface": "lo0; local socket permission required"
+  },
+  "post_gpu_changes": [
+    {
+      "path": "packages/core/tests/test_stages.py",
+      "change": "Make training argument keyword-only for Ruff FBT001; no test assertions or model code changed.",
+      "sha256": "258606ba6ab251eaa38ccf2ce11099ff010c731a1a3d76d070c2163dd857de4d",
+      "validation": "test_stages: 17 passed, 2 CUDA skips; ruff check and format passed."
+    },
+    {
+      "change": "Update documentation and this result report from returned artifacts."
+    }
+  ],
+  "validated_model_file_sha256": {
+    "packages/core/src/clean_rtdetr/models/encoder.py": "fb03c2e42593f210cb7147524b29889cff4798db683ca1ee7365a4dce0f09a70",
+    "packages/core/src/clean_rtdetr/models/selector.py": "fe39c5aae0eaa7738cf59aa02d3f088972ba391afd6d1447d61f01745862cf0c"
+  }
+}

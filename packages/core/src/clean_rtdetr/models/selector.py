@@ -128,7 +128,13 @@ class QuerySelector(Selector):
             msg = "Memory sequence length must be at least num_queries"
             raise ValueError(msg)
         shapes = tuple(tuple(shape) for shape in features.spatial_shapes.tolist())
-        anchors, valid = generate_anchors(shapes, device=memory.device, eps=cfg.anchor_eps)
+        # Match upstream cached evaluation anchors, including CPU logarithms.
+        # Training uses upstream dynamic anchors on the feature device.
+        anchor_device = memory.device if self.training else torch.device("cpu")
+        anchors, valid = generate_anchors(shapes, device=anchor_device, eps=cfg.anchor_eps)
+        if anchors.device != memory.device:
+            anchors = anchors.to(memory.device)
+            valid = valid.to(memory.device)
         return self._select(memory, anchors, valid)
 
     def _select(
