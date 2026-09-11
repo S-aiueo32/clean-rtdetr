@@ -105,7 +105,15 @@ def _profile(path: str) -> dict[str, Any]:
     }
 
 
-def _ort(path: Path, images: torch.Tensor, eager: _Prediction, provider: str) -> dict[str, Any]:
+def _ort(
+    path: Path,
+    images: torch.Tensor,
+    eager: _Prediction,
+    provider: str,
+    *,
+    reference_precision: str = "fp32",
+    fp32_reference: _Prediction | None = None,
+) -> dict[str, Any]:
     try:
         np = importlib.import_module("numpy")
         ort = importlib.import_module("onnxruntime")
@@ -141,6 +149,17 @@ def _ort(path: Path, images: torch.Tensor, eager: _Prediction, provider: str) ->
                 ("logits", "boxes"), outputs, (eager.logits.cpu(), eager.boxes.cpu()), strict=True
             )
         }
+        fp32_diagnostic = None
+        if fp32_reference is not None:
+            fp32_diagnostic = {
+                name: _compare(torch.from_numpy(value), expected)
+                for name, value, expected in zip(
+                    ("logits", "boxes"),
+                    outputs,
+                    (fp32_reference.logits.cpu(), fp32_reference.boxes.cpu()),
+                    strict=True,
+                )
+            }
         finite = all(value["finite"] for value in checks.values())
         profile = _profile(profile_path)
         requested_events = profile["node_kernel_events_by_provider"].get(provider, 0)
@@ -158,6 +177,8 @@ def _ort(path: Path, images: torch.Tensor, eager: _Prediction, provider: str) ->
             "active_providers": session.get_providers(),
             "input_type": input_type,
             "checks": checks,
+            "reference_precision": reference_precision,
+            "fp32_reference_diagnostic": fp32_diagnostic,
             "query_identity_alignment": {
                 "status": "unverified",
                 "reason": "fixed-shape export does not expose selector source_indices",
@@ -268,12 +289,14 @@ def run(
                 model, images, source, reference, dtype, warmup, iterations
             )
             persist()
+        native_reference: _Prediction | None = None
         torch.cuda.empty_cache()
         model.half()
         try:
             report["results"]["native_fp16"] = _case(
                 model, images.half(), source, reference, None, warmup, iterations
             )
+            native_reference = model(images.half()).final
         except Exception as error:  # noqa: BLE001 - retain experimental failure and continue
             report["results"]["native_fp16"] = {
                 "status": "failed",
@@ -283,12 +306,27 @@ def run(
         persist()
         for path, suffix in ((onnx, "fp32"), (onnx_fp16, "fp16")):
             if path is not None:
+                graph_reference = (
+                    native_reference
+                    if suffix == "fp16" and native_reference is not None
+                    else reference
+                )
                 report[f"onnx_cuda_{suffix}"] = _ort(
-                    path, images, reference, "CUDAExecutionProvider"
+                    path,
+                    images,
+                    graph_reference,
+                    "CUDAExecutionProvider",
+                    reference_precision="native_fp16" if suffix == "fp16" else "fp32",
+                    fp32_reference=reference if suffix == "fp16" else None,
                 )
                 persist()
                 report[f"onnx_tensorrt_{suffix}"] = _ort(
-                    path, images, reference, "TensorrtExecutionProvider"
+                    path,
+                    images,
+                    graph_reference,
+                    "TensorrtExecutionProvider",
+                    reference_precision="native_fp16" if suffix == "fp16" else "fp32",
+                    fp32_reference=reference if suffix == "fp16" else None,
                 )
                 persist()
     return report

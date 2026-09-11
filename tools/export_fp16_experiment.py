@@ -47,7 +47,10 @@ def main() -> None:
         load_official_model_weights(
             args.checkpoint, model=model, source="ema", expected_sha256=CHECKPOINT_SHA256
         )
-        adapter = _ExperimentalCudaFP16(model).cuda().half().eval()
+        adapter = _ExperimentalCudaFP16(model)
+        fp32_anchors = adapter.anchors.clone()
+        adapter = adapter.cuda().half().eval()
+        adapter.anchors = fp32_anchors.cuda()
         sample = torch.rand(1, 3, 640, 640, device="cuda", dtype=torch.float16)
         with torch.inference_mode():
             program = torch.onnx.export(
@@ -69,6 +72,7 @@ def main() -> None:
             artifact_sha256=hashlib.sha256(args.output.read_bytes()).hexdigest(),
             input_dtype="float16",
             weights_dtype="float16",
+            anchors_dtype=str(adapter.anchors.dtype),
         )
     except Exception as error:  # noqa: BLE001 - experiment must retain unsupported outcome
         report.update(error=str(error), traceback=traceback.format_exc())
