@@ -131,11 +131,18 @@ def _ort(
     options.enable_profiling = True
     try:
         provider_options = (
-            {"trt_fp16_enable": "True"}
-            if (provider == "TensorrtExecutionProvider" and "fp16" in path.stem.lower())
+            {"trt_max_partition_iterations": "10"}
+            if provider == "TensorrtExecutionProvider"
             else {}
         )
-        requested = [(provider, provider_options), "CPUExecutionProvider"]
+        if provider == "TensorrtExecutionProvider" and "fp16" in path.stem.lower():
+            provider_options["trt_fp16_enable"] = "True"
+        fallbacks = (
+            ["CUDAExecutionProvider", "CPUExecutionProvider"]
+            if provider == "TensorrtExecutionProvider"
+            else ["CPUExecutionProvider"]
+        )
+        requested = [(provider, provider_options), *fallbacks]
         session = ort.InferenceSession(str(path), sess_options=options, providers=requested)
         input_type = session.get_inputs()[0].type
         input_dtype = np.float16 if input_type == "tensor(float16)" else np.float32
