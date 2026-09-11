@@ -1,0 +1,61 @@
+name: CI Export
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "pyproject.toml"
+      - "uv.lock"
+      - "packages/*/pyproject.toml"
+      - "packages/core/src/**"
+      - "packages/export/src/**"
+      - "packages/export/tests/**"
+      - ".github/workflows/ci-export.yml"
+  pull_request:
+    paths:
+      - "pyproject.toml"
+      - "uv.lock"
+      - "packages/*/pyproject.toml"
+      - "packages/core/src/**"
+      - "packages/export/src/**"
+      - "packages/export/tests/**"
+      - ".github/workflows/ci-export.yml"
+  workflow_dispatch:
+
+# Keep every main run; supersede older runs on other refs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.ref == 'refs/heads/main' && github.run_id || 'latest' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      OMP_NUM_THREADS: "4"
+      MKL_NUM_THREADS: "4"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: "0.12.10"
+          python-version: "3.13"
+          enable-cache: true
+      - run: uv sync --locked --package clean-rtdetr-export
+      - name: Check export dependency boundary
+        run: >-
+          uv run python -c
+          "import importlib.util;
+          forbidden = ('clean_rtdetr_training', 'lightning', 'scipy');
+          present = [name for name in forbidden if importlib.util.find_spec(name) is not None];
+          assert not present, f'unexpected export dependencies: {present}'"
+      - name: Test export
+        run: >-
+          uv run pytest
+          --cov=clean_rtdetr_export --cov-report=term-missing
+          packages/export/tests/test_export.py
+          packages/export/tests/test_export_cli.py
+          packages/export/tests/test_export_jaxtyping_coverage.py

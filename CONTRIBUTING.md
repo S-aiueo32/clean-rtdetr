@@ -121,8 +121,8 @@ When updating pinned upstream source, update its commit and SHA-256 in
 and attribution notices, and re-run all parity tests. Do not rewrite the oracle
 implementation into the package under test.
 
-CI runs the same checks on Python 3.13 and 3.14. Package-boundary jobs select
-members explicitly. CI passes `--locked` to verify that the committed `uv.lock`
+Core and training CI run on Python 3.13 and 3.14; export, evaluation, quality,
+and distribution CI use Python 3.13. Package-boundary jobs select members explicitly. CI passes `--locked` to verify that the committed `uv.lock`
 is current. For example, the export job uses:
 
 ```sh
@@ -131,13 +131,50 @@ uv run pytest \
   packages/export/tests/test_export.py packages/export/tests/test_export_cli.py
 ```
 
-To conserve GitHub Actions usage, automatic push runs are limited to `main`.
-Pull request checks remain enabled, and all five workflows can also be started
-manually with `workflow_dispatch` once the workflow exists on the default
-branch. Each workflow has its own concurrency group. On `main`, the group also
-includes the run ID, so pending and running `main` runs are never superseded.
-For pull requests the group includes the pull request number, and for other
-branches it includes the ref; those groups use `cancel-in-progress: true`.
+CI is split into `ci-core.yml`, `ci-training.yml`, `ci-export.yml`,
+`ci-evaluation.yml`, `ci-quality.yml`, and three `ci-dist-<member>.yml`
+workflows. Four independent `recipe-<name>.yml` workflows validate the recipes.
+Automatic runs use native path filters on pull requests and pushes to `main`.
+All workflows support `workflow_dispatch` once present on the default branch.
+Each workflow cancels superseded runs on the same non-main ref; `main` groups
+include the run ID so every main run is retained.
+
+The filters follow these dependencies; multiple changed paths select the union
+of the corresponding workflows:
+
+| Changed files | Automatic checks |
+| --- | --- |
+| Core source | Core, training, export, evaluation, quality, core distribution, all recipes |
+| Training source | Training, quality, training distribution, all recipes |
+| Export source | Export, quality, export distribution |
+| Package tests | Owning test workflow and quality; core COCO tests select evaluation |
+| Root `configs/**` | Training |
+| `tools/compatibility/**` | Relevant core/training tests and quality |
+| `tools/query_selection.py` | Core and quality |
+| Vendored `third_party/RT-DETR/**` | Core and training parity |
+| `benchmarks/baseline.json` | Core checkpoint provenance tests |
+| Package README/license/data | Owning distribution build |
+| Recipe files except Markdown | Owning recipe; Python/tool configuration also selects quality |
+| Root `pyproject.toml`, root `uv.lock`, or package `pyproject.toml` | All eight workspace workflows; core/training package metadata also selects recipes |
+| Workflow YAML | That workflow |
+| Root README, `docs/**` Markdown, CONTRIBUTING, AGENTS, other benchmark reports | None |
+
+Workspace metadata intentionally selects all workspace workflows because locked
+uv operations resolve the shared workspace. Recipes have their own locks and
+Ruff/ty settings, so changes to the root lock, unrelated package tests, or export
+do not start recipe runs. Core source selects dependent workflows conservatively;
+the evaluation tests also scan the entire core source for optional-import boundaries.
+Core tests are discovered from their directory, with COCO tests handled separately.
+Distribution builds run separately from tests and static checks; the core build
+also checks the installed conversion command outside the checkout.
+
+When adding dependencies or moving files, update both push and pull-request path
+filters, including any caller workflows. A renamed file affects both its old and
+new paths. Use manual dispatch for a full check of an individual workflow or when
+a very large diff may exceed GitHub's native path-filter limits. Workflows skipped
+by path filters cannot serve as unconditional required checks; if branch protection
+is introduced, use an always-running aggregate check with conditional jobs instead.
+See [GitHub's required-check guidance](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks).
 
 A local pass does not justify
 claiming complete-detector AP, latency, checkpoint, or export support; those

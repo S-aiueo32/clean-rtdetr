@@ -1,0 +1,53 @@
+name: CI Evaluation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "pyproject.toml"
+      - "uv.lock"
+      - "packages/*/pyproject.toml"
+      - "packages/core/src/**"
+      - "packages/core/tests/test_coco.py"
+      - "packages/core/tests/test_coco_cli.py"
+      - ".github/workflows/ci-evaluation.yml"
+  pull_request:
+    paths:
+      - "pyproject.toml"
+      - "uv.lock"
+      - "packages/*/pyproject.toml"
+      - "packages/core/src/**"
+      - "packages/core/tests/test_coco.py"
+      - "packages/core/tests/test_coco_cli.py"
+      - ".github/workflows/ci-evaluation.yml"
+  workflow_dispatch:
+
+# Keep every main run; supersede older runs on other refs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.ref == 'refs/heads/main' && github.run_id || 'latest' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  evaluation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      OMP_NUM_THREADS: "4"
+      MKL_NUM_THREADS: "4"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: "0.12.10"
+          python-version: "3.13"
+          enable-cache: true
+      - run: >-
+          uv sync --locked --package clean-rtdetr
+          --extra inference --extra evaluation
+      - run: >-
+          uv run pytest
+          packages/core/tests/test_coco.py
+          packages/core/tests/test_coco_cli.py

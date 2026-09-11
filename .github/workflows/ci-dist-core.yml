@@ -1,0 +1,49 @@
+name: CI Distribution Core
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "pyproject.toml"
+      - "uv.lock"
+      - "packages/*/pyproject.toml"
+      - "packages/core/**"
+      - "!packages/core/tests/**"
+      - ".github/workflows/ci-dist-core.yml"
+  pull_request:
+    paths:
+      - "pyproject.toml"
+      - "uv.lock"
+      - "packages/*/pyproject.toml"
+      - "packages/core/**"
+      - "!packages/core/tests/**"
+      - ".github/workflows/ci-dist-core.yml"
+
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.ref == 'refs/heads/main' && github.run_id || 'latest' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  distribution-core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: "0.12.10"
+          python-version: "3.13"
+          enable-cache: true
+      - run: uv build --package clean-rtdetr --no-sources --out-dir dist/core
+      - name: Check installed core conversion command outside the checkout
+        run: |
+          uv export --locked --package clean-rtdetr --no-dev --no-emit-workspace --no-hashes --output-file /tmp/clean-rtdetr-core-requirements.txt
+          uv venv /tmp/clean-rtdetr-core-smoke
+          uv pip install --python /tmp/clean-rtdetr-core-smoke/bin/python -r /tmp/clean-rtdetr-core-requirements.txt dist/core/*.whl
+          cd "$(mktemp -d)"
+          /tmp/clean-rtdetr-core-smoke/bin/clean-rtdetr-convert --help
