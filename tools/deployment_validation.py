@@ -1,5 +1,5 @@
 # Copyright 2026 Clean RT-DETR contributors
-# ruff: noqa: PLC0415, TRY003, EM101, EM102, PLR0913, PLR0917
+# ruff: noqa: C901, PLC0415, TRY003, EM101, EM102, PLR0913, PLR0917
 """Bounded CUDA deployment validation for the official R50vd checkpoint."""
 
 from __future__ import annotations
@@ -121,9 +121,13 @@ def _ort(path: Path, images: torch.Tensor, eager: _Prediction, provider: str) ->
     options = ort.SessionOptions()
     options.enable_profiling = True
     try:
-        session = ort.InferenceSession(
-            str(path), sess_options=options, providers=[provider, "CPUExecutionProvider"]
+        provider_options = (
+            {"trt_fp16_enable": "1"}
+            if (provider == "TensorrtExecutionProvider" and "fp16" in path.stem.lower())
+            else {}
         )
+        requested = [(provider, provider_options), "CPUExecutionProvider"]
+        session = ort.InferenceSession(str(path), sess_options=options, providers=requested)
         input_type = session.get_inputs()[0].type
         input_dtype = np.float16 if input_type == "tensor(float16)" else np.float32
         outputs = session.run(
@@ -148,6 +152,7 @@ def _ort(path: Path, images: torch.Tensor, eager: _Prediction, provider: str) ->
         return {
             "status": status,
             "requested_provider": provider,
+            "requested_provider_options": provider_options,
             "active_providers": session.get_providers(),
             "input_type": input_type,
             "checks": checks,
@@ -242,6 +247,12 @@ def run(
         ),
         "results": {},
     }
+    output.parent.mkdir(parents=True, exist_ok=True)
+
+    def persist() -> None:
+        output.write_text(json.dumps(report, indent=2, sort_keys=True, allow_nan=False) + "\n")
+
+    persist()
     with torch.inference_mode():
         reference = model(images).final
         for name, dtype in (("fp32", None), ("amp_fp16", torch.float16)):
@@ -249,20 +260,22 @@ def run(
             report["results"][name] = _case(
                 model, images, source, reference, dtype, warmup, iterations
             )
+            persist()
         model.half()
         report["results"]["native_fp16"] = _case(
             model, images.half(), source, reference, None, warmup, iterations
         )
+        persist()
         for path, suffix in ((onnx, "fp32"), (onnx_fp16, "fp16")):
             if path is not None:
                 report[f"onnx_cuda_{suffix}"] = _ort(
                     path, images, reference, "CUDAExecutionProvider"
                 )
+                persist()
                 report[f"onnx_tensorrt_{suffix}"] = _ort(
                     path, images, reference, "TensorrtExecutionProvider"
                 )
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(report, indent=2, sort_keys=True, allow_nan=False) + "\n")
+                persist()
     return report
 
 

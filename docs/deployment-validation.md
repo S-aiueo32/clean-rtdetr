@@ -30,3 +30,7 @@ The graph exposes logits and boxes but not selector source indices. The report
 therefore calls an in-order numerical comparison `ordered_rows_close` and marks
 query identity alignment `unverified`; it does not infer query identity from row
 position.
+
+`tools/export_fp16_experiment.py` attempts a native CUDA FP16 graph through a
+checkout-only adapter subclass and records unsupported failures. This experiment
+does not expand the public export adapter's CPU FP32 contract.
