@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "status": "bounded_deployment_validation_complete_with_limits",
+  "checkpoint_sha256": "dfaafa5a3d29958a360c35f1fad553a6f287bfae9967e8ee007e65cff21ddf45",
+  "shape": [1, 3, 640, 640],
+  "seed": 41,
+  "gpu": "Tesla T4",
+  "torch": "2.13.0+cu126",
+  "cuda": "12.6",
+  "onnxruntime": "1.23.2",
+  "tf32": false,
+  "kaggle_kernel_slug": "souuchida/clean-rtdetr-t4-deployment-20260911",
+  "ordered_comparison_tolerance": {"atol": 0.0001, "rtol": 0.001},
+  "public_export_gate_tolerance": {"atol": 0.00001, "rtol": 0.0001},
+  "timing_run": {
+    "kaggle_kernel_version": 7,
+    "source_commit": "c745bd908f377550d4d5aff0269b06831dd3f4f0",
+    "source_archive_sha256": "566f99d7d2413ac78f0552a22316724db218e7cd074f58b7f1797d15710ae98e",
+    "probe_sha256": "2a053eac54a3bfab04883b7174453b84eab0b64d8d3052b9a4d8ca42ea2862c4",
+    "report_sha256": "b43a0a0bb25d591b5810217a3652a8fb3c115b1a78048559d26a189b47ea33a5",
+    "warmup": 10,
+    "iterations": 50,
+    "fp32": {
+      "model_only": {"median_ms": 51.62868881225586, "p95_ms": 54.64457702636719, "mean_ms": 51.99470985412598, "peak_allocated_bytes": 336483840, "peak_reserved_bytes": 394264576},
+      "end_to_end": {"median_ms": 96.45967200000001, "p95_ms": 102.122869, "mean_ms": 96.85094914, "peak_allocated_bytes": 341136896, "peak_reserved_bytes": 394264576}
+    },
+    "amp_fp16": {
+      "model_only": {"median_ms": 44.416704177856445, "p95_ms": 45.5813102722168, "mean_ms": 44.49541213989258, "peak_allocated_bytes": 329928192, "peak_reserved_bytes": 390070272},
+      "end_to_end": {"median_ms": 92.4960245, "p95_ms": 124.868066, "mean_ms": 96.5959529, "peak_allocated_bytes": 334581248, "peak_reserved_bytes": 404750336}
+    },
+    "native_fp16": {
+      "model_only": {"median_ms": 32.00521659851074, "p95_ms": 34.8487663269043, "mean_ms": 32.503267250061036, "peak_allocated_bytes": 187159040, "peak_reserved_bytes": 260046848},
+      "end_to_end": {"median_ms": 82.07152450000001, "p95_ms": 93.604943, "mean_ms": 83.48513894, "peak_allocated_bytes": 189616640, "peak_reserved_bytes": 236978176}
+    }
+  },
+  "onnx_cuda": {
+    "fp32": {
+      "status": "executed_requested_provider",
+      "report_sha256": "0b994c3f35d1ec27b4e4761d0b723cb0ec17a31b35e9de87b7ce87a72c7678fc",
+      "finite": true,
+      "ordered_rows_close": true,
+      "max_abs_logits": 0.0003170967102050781,
+      "max_abs_boxes": 0.000015348196029663086,
+      "kernel_events": {"CUDAExecutionProvider": 1573, "CPUExecutionProvider": 20}
+    },
+    "experimental_fp16": {
+      "status": "executed_requested_provider_but_parity_failed",
+      "report_sha256": "0ea03d228a387a02addb64c8806eb4c69d4f4af57bd0d80a5f32845563d83f78",
+      "finite": true,
+      "ordered_rows_close_to_native_fp16": false,
+      "max_abs_logits": 5.1611328125,
+      "max_abs_boxes": 0.9760023355484009,
+      "kernel_events": {"CUDAExecutionProvider": 1954, "CPUExecutionProvider": 20}
+    },
+    "query_identity_alignment": "unverified_export_does_not_expose_selector_indices",
+    "cpu_fp32_export_gate": "failed_seeded_runtime_parity"
+  },
+  "tensorrt": {
+    "status": "not_validated",
+    "direct_fp32_attempt": "process_exit_minus_9_reason_unconfirmed",
+    "direct_fp16_attempt": "timed_out_after_300_seconds",
+    "prepared_graph_run": {
+      "kaggle_kernel_version": 8,
+      "source_commit": "3d4d3f8502401c29d06150884b12b29a6191d92a",
+      "source_archive_sha256": "ae938d17e05241e9cf8904e20c613a9f43a2b240688d32a337a27a72be73b4db",
+      "probe_sha256": "4553345612815326ad07c22be1baa72ae8f14e52a20212cea5467cb226a213bd",
+      "fp32_prepare_report_sha256": "61c521203bbf4b115d54e7a3ccbcee82230e5a83246331e6102f32891b95dfe2",
+      "fp32": {"nodes_before": 4822, "nodes_after": 1187, "sequence_ops_before": 80, "sequence_ops_after": 0, "onnx_checker": "passed", "cpu_graph_equivalence": "failed", "max_abs_logits": 2.849665641784668, "max_abs_boxes": 0.9653087258338928},
+      "fp16": {"status": "preparation_failed", "reason": "ORT CPU type error: InsertedPrecisionFreeCast_val_1781 tensor(float), expected tensor(float16)"}
+    }
+  },
+  "scope": "Official EMA synthetic inputs only. End-to-end starts from a decoded CPU uint8 tensor and ends with CUDA detections; image decode and device-to-host transfer are excluded. No AP, production FP16 export, or TensorRT support is claimed."
+}
