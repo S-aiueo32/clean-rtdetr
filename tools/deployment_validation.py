@@ -262,9 +262,16 @@ def run(
             )
             persist()
         model.half()
-        report["results"]["native_fp16"] = _case(
-            model, images.half(), source, reference, None, warmup, iterations
-        )
+        try:
+            report["results"]["native_fp16"] = _case(
+                model, images.half(), source, reference, None, warmup, iterations
+            )
+        except Exception as error:  # noqa: BLE001 - retain experimental failure and continue
+            report["results"]["native_fp16"] = {
+                "status": "failed",
+                "error": str(error),
+                "traceback": traceback.format_exc(),
+            }
         persist()
         for path, suffix in ((onnx, "fp32"), (onnx_fp16, "fp16")):
             if path is not None:
