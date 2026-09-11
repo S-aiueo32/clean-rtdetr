@@ -137,8 +137,16 @@ def _ort(path: Path, images: torch.Tensor, eager: _Prediction, provider: str) ->
             )
         }
         finite = all(value["finite"] for value in checks.values())
+        profile = _profile(profile_path)
+        requested_events = profile["node_kernel_events_by_provider"].get(provider, 0)
+        if not finite:
+            status = "failed_nonfinite_output"
+        elif requested_events == 0:
+            status = "provider_not_executed"
+        else:
+            status = "executed_requested_provider"
         return {
-            "status": "passed_execution" if finite else "failed_nonfinite_output",
+            "status": status,
             "requested_provider": provider,
             "active_providers": session.get_providers(),
             "input_type": input_type,
@@ -147,7 +155,7 @@ def _ort(path: Path, images: torch.Tensor, eager: _Prediction, provider: str) ->
                 "status": "unverified",
                 "reason": "fixed-shape export does not expose selector source_indices",
             },
-            "profile": _profile(profile_path),
+            "profile": profile,
             "profiling_artifact": profile_path,
         }
     except Exception as error:  # noqa: BLE001 - preserve optional provider build failure
@@ -172,10 +180,11 @@ def _case(
     def end_to_end() -> object:
         prepared = preprocess_images([source])
         with torch.autocast("cuda", dtype=dtype) if dtype else contextlib.nullcontext():
-            prediction = model(prepared.images.cuda()).final
+            prediction = model(prepared.images.cuda().to(dtype=images.dtype)).final
         return postprocess(prediction, prepared.original_sizes_wh.cuda())
 
     model_only = _timed(forward, warmup, iterations, wall=False)
+    torch.cuda.empty_cache()
     full = _timed(end_to_end, warmup, iterations, wall=True)
     output = cast("_Prediction", forward())
     finite = bool(torch.isfinite(output.logits).all() and torch.isfinite(output.boxes).all())
@@ -201,6 +210,8 @@ def run(
     """Run official-weight CUDA checks and write their JSON report."""
     if not torch.cuda.is_available():
         raise RuntimeError("CUDA is required for deployment validation")
+    if warmup < 0 or iterations <= 0:
+        raise ValueError("warmup must be nonnegative and iterations must be positive")
     from clean_rtdetr import rtdetr_r50vd
     from tools.compatibility import load_official_model_weights
 
@@ -234,9 +245,14 @@ def run(
     with torch.inference_mode():
         reference = model(images).final
         for name, dtype in (("fp32", None), ("amp_fp16", torch.float16)):
+            torch.cuda.empty_cache()
             report["results"][name] = _case(
                 model, images, source, reference, dtype, warmup, iterations
             )
+        model.half()
+        report["results"]["native_fp16"] = _case(
+            model, images.half(), source, reference, None, warmup, iterations
+        )
         for path, suffix in ((onnx, "fp32"), (onnx_fp16, "fp16")):
             if path is not None:
                 report[f"onnx_cuda_{suffix}"] = _ort(
