@@ -236,19 +236,21 @@ class HybridEncoder(Encoder):
         self, height: int, width: int, *, device: torch.device
     ) -> Float[Tensor, "1 sequence channels"]:
         """Preserve upstream FP32 construction and width-major sinusoidal ordering."""
-        dim = self.hidden_dim // 4
-        omega = torch.arange(dim, dtype=torch.float32) / dim
-        omega = 1.0 / (self.config.pe_temperature**omega)
-        # The reference deliberately constructs a width-major meshgrid; retain
-        # that ordering even though feature flattening itself is row-major.
-        x, y = torch.meshgrid(
-            torch.arange(width, dtype=torch.float32),
-            torch.arange(height, dtype=torch.float32),
-            indexing="ij",
-        )
-        x = x.flatten()[:, None] @ omega[None]
-        y = y.flatten()[:, None] @ omega[None]
-        return torch.cat((x.sin(), x.cos(), y.sin(), y.cos()), dim=1).unsqueeze(0).to(device)
+        # Frequencies are constructed on CPU, independently of feature autocast.
+        with torch.autocast("cpu", enabled=False):
+            dim = self.hidden_dim // 4
+            omega = torch.arange(dim, dtype=torch.float32) / dim
+            omega = 1.0 / (self.config.pe_temperature**omega)
+            # The reference deliberately constructs a width-major meshgrid; retain
+            # that ordering even though feature flattening itself is row-major.
+            x, y = torch.meshgrid(
+                torch.arange(width, dtype=torch.float32),
+                torch.arange(height, dtype=torch.float32),
+                indexing="ij",
+            )
+            x = x.flatten()[:, None] @ omega[None]
+            y = y.flatten()[:, None] @ omega[None]
+            return torch.cat((x.sin(), x.cos(), y.sin(), y.cos()), dim=1).unsqueeze(0).to(device)
 
     def forward(
         self, features: MultiScaleFeatures, *, collect_aifi: bool = False
@@ -318,7 +320,9 @@ class HybridEncoder(Encoder):
         for block in self.encoder:
             x = feature.flatten(2).transpose(1, 2)
             h, w = feature.shape[-2:]
-            position = self._position_embedding(h, w, device=x.device).to(dtype=x.dtype)
+            position = self._position_embedding(h, w, device=x.device)
+            if not torch.is_autocast_enabled(x.device.type):
+                position = position.to(dtype=x.dtype)
             x = block(x, position)
             feature = x.transpose(1, 2).reshape_as(feature).contiguous()
         return feature

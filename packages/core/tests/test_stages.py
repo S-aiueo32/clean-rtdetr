@@ -137,6 +137,54 @@ def test_selection_outputs_and_gradients_match_pinned_upstream(
         )
 
 
+@pytest.mark.parametrize("training", [False, True])
+@pytest.mark.parametrize(
+    "device",
+    [
+        "cpu",
+        pytest.param(
+            "cuda", marks=pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA")
+        ),
+    ],
+)
+def test_selector_anchor_generation_matches_upstream_eval_cache(
+    device: str, *, training: bool
+) -> None:
+    """Match cached eval references and dynamic training references exactly."""
+    torch.manual_seed(41)
+    shapes = ((7, 9), (3, 5), (2, 2))
+    config = QuerySelectorConfig(hidden_dim=8, num_classes=5, num_queries=82)
+    selector = QuerySelector(config).to(device).train(training)
+    oracle = stage_oracle()
+    for name, module in selector.named_children():
+        setattr(oracle, name, copy.deepcopy(module))
+    oracle.eps = config.anchor_eps
+    oracle.num_queries = config.num_queries
+    oracle.learnt_init_query = False
+    oracle.eval_spatial_size = (56, 72)
+    oracle.anchors, oracle.valid_mask = oracle._generate_anchors(shapes)
+    oracle.train(training)
+    features = encoded(shapes)
+    features = EncodedFeatures(
+        features.memory.to(device),
+        features.spatial_shapes.to(device),
+        features.level_start_index.to(device),
+    )
+    target, refs, boxes, logits = oracle._get_decoder_input(
+        features.memory, features.spatial_shapes.tolist()
+    )
+    actual = selector(features)
+    # The zero-initialized box head exposes every anchor without rounding by deltas.
+    # Selecting all positions includes CPU/CUDA logarithm differences on CUDA.
+    for ours, theirs in (
+        (actual.queries.content, target),
+        (actual.queries.ref_logits.detach(), refs),
+        (actual.encoder_boxes, boxes),
+        (actual.encoder_logits, logits),
+    ):
+        torch.testing.assert_close(ours, theirs, rtol=0, atol=0)
+
+
 def test_custom_heads_are_registered_receive_gradients_and_keep_initialization() -> None:
     """Keep injected heads' parameters, initialization, and gradient participation."""
     score = nn.Linear(8, 3)

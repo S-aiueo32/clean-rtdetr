@@ -204,6 +204,47 @@ def test_encoder_aifi_tap_matches_oracle_and_bn_state() -> None:
             torch.testing.assert_close(value, upstream_state[name])
 
 
+@pytest.mark.parametrize(
+    ("device", "dtype"),
+    [
+        ("cpu", torch.bfloat16),
+        pytest.param(
+            "cuda",
+            torch.float16,
+            marks=pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA"),
+        ),
+    ],
+)
+def test_encoder_autocast_matches_upstream_aifi(device: str, dtype: torch.dtype) -> None:
+    """Keep the AIFI positional embedding FP32 under low-precision autocast."""
+    torch.manual_seed(41)
+    specs = (FeatureSpec(4, 8), FeatureSpec(6, 16), FeatureSpec(8, 32))
+    config = HybridEncoderConfig(hidden_dim=8, num_heads=2, feedforward_dim=16)
+    clean = HybridEncoder(specs, config).eval().to(device)
+    oracle = (
+        hybrid_encoder_oracle(
+            in_channels=[4, 6, 8],
+            feat_strides=[8, 16, 32],
+            hidden_dim=8,
+            nhead=2,
+            dim_feedforward=16,
+            eval_spatial_size=[64, 96],
+        )
+        .eval()
+        .to(device)
+    )
+    clean.load_state_dict(oracle.state_dict())
+    levels = tuple(
+        torch.randn(2, channels, height, width, device=device)
+        for channels, height, width in ((4, 8, 12), (6, 4, 6), (8, 2, 3))
+    )
+    with torch.autocast(device_type=device, dtype=dtype):
+        actual = clean(MultiScaleFeatures(levels, specs), collect_aifi=True)
+        expected = oracle(levels)
+    for ours, theirs in zip(actual.features.levels, expected, strict=True):
+        torch.testing.assert_close(ours, theirs, rtol=1e-5, atol=1e-5)
+
+
 def test_encoder_tap_does_not_change_eval_predictions() -> None:
     """Feature collection is observational and leaves the forward values unchanged."""
     features, specs = _features()
