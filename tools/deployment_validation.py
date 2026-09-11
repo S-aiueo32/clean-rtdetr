@@ -117,12 +117,13 @@ def _ort(path: Path, images: torch.Tensor, eager: _Prediction, provider: str) ->
             "status": "unavailable",
             "reason": f"{provider} unavailable",
             "available": available,
+            "onnxruntime": ort.__version__,
         }
     options = ort.SessionOptions()
     options.enable_profiling = True
     try:
         provider_options = (
-            {"trt_fp16_enable": "1"}
+            {"trt_fp16_enable": "True"}
             if (provider == "TensorrtExecutionProvider" and "fp16" in path.stem.lower())
             else {}
         )
@@ -153,6 +154,7 @@ def _ort(path: Path, images: torch.Tensor, eager: _Prediction, provider: str) ->
             "status": status,
             "requested_provider": provider,
             "requested_provider_options": provider_options,
+            "onnxruntime": ort.__version__,
             "active_providers": session.get_providers(),
             "input_type": input_type,
             "checks": checks,
@@ -164,7 +166,12 @@ def _ort(path: Path, images: torch.Tensor, eager: _Prediction, provider: str) ->
             "profiling_artifact": profile_path,
         }
     except Exception as error:  # noqa: BLE001 - preserve optional provider build failure
-        return {"status": "failed", "error": str(error), "traceback": traceback.format_exc()}
+        return {
+            "status": "failed",
+            "onnxruntime": ort.__version__,
+            "error": str(error),
+            "traceback": traceback.format_exc(),
+        }
 
 
 def _case(
@@ -261,6 +268,7 @@ def run(
                 model, images, source, reference, dtype, warmup, iterations
             )
             persist()
+        torch.cuda.empty_cache()
         model.half()
         try:
             report["results"]["native_fp16"] = _case(
