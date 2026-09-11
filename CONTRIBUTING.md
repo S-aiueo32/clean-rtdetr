@@ -131,6 +131,14 @@ uv run pytest \
   packages/export/tests/test_export.py packages/export/tests/test_export_cli.py
 ```
 
+To conserve GitHub Actions usage, automatic push runs are limited to `main`.
+Pull request checks remain enabled, and all five workflows can also be started
+manually with `workflow_dispatch` once the workflow exists on the default
+branch. Each workflow has its own concurrency group. On `main`, the group also
+includes the run ID, so pending and running `main` runs are never superseded.
+For pull requests the group includes the pull request number, and for other
+branches it includes the ref; those groups use `cancel-in-progress: true`.
+
 A local pass does not justify
 claiming complete-detector AP, latency, checkpoint, or export support; those
 claims require the corresponding implementation and fixtures.

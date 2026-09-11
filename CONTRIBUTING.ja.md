@@ -114,6 +114,8 @@ uv run pytest \
   packages/export/tests/test_export.py packages/export/tests/test_export_cli.py
 ```
 
+GitHub Actions の利用を節約するため、自動的な push の実行は `main` に限定します。プルリクエストのチェックは引き続き有効で、デフォルトブランチにワークフローが存在すれば、5 つすべてのワークフローを `workflow_dispatch` で手動実行できます。各ワークフローには固有の concurrency グループを設定します。`main` ではグループに run ID も含めるため、保留中および実行中の `main` の実行は置き換えられません。プルリクエストではグループにプルリクエスト番号を含め、それ以外のブランチでは ref を含めます。これらのグループでは `cancel-in-progress: true` を使います。
+
 ローカルでの合格だけでは、完全な検出器の AP、レイテンシ、チェックポイント、export のサポートを主張できません。これらの主張には対応する実装とフィクスチャが必要です。
 
 Ruff は `ALL` を選択し、formatter/docstring の競合、pytest のアサーションと upstream の private メソッドへのアクセス、サンプル出力について文書化された例外を設けています。ハッシュ検証済み oracle ローダーには、固定したメソッドを実行するためのローカルな `S102` 例外が一つあります。jaxtyping の形状文字列を持つモジュールでは、これらの文字列が Python の forward reference ではないため `F722` を除外します。`F821` は有効なままです。ty は、ルールの抑制なしに、パッケージ内の `src` と `tests` ツリー、および `tools` をチェックします。変更していない vendored upstream ソースは、両方のツールのチェック対象外です。

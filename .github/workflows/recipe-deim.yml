@@ -2,6 +2,7 @@ name: Recipe DEIM
 
 on:
   push:
+    branches: [main]
     paths:
       - "packages/**"
       - "recipes/deim/**"
@@ -15,6 +16,13 @@ on:
       - ".github/workflows/recipe-deim.yml"
       - "pyproject.toml"
       - "uv.lock"
+
+  workflow_dispatch:
+
+# Keep every main run; supersede older runs on other refs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.ref == 'refs/heads/main' && github.run_id || 'latest' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: read
