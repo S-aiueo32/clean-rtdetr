@@ -14,11 +14,28 @@ from clean_rtdetr_training import (
     SetCriterion,
 )
 
-CUDA = pytest.param("cuda", marks=pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA"))
 
-
-@pytest.mark.parametrize("device", ["cpu", CUDA])
-def test_autocast_denoising_updates_parameters(device: str) -> None:
+@pytest.mark.parametrize(
+    ("device", "dtype"),
+    [
+        ("cpu", torch.bfloat16),
+        pytest.param(
+            "cuda",
+            torch.float16,
+            marks=pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA"),
+        ),
+        pytest.param(
+            "cuda",
+            torch.bfloat16,
+            marks=pytest.mark.skipif(
+                not torch.cuda.is_available()
+                or not torch.cuda.is_bf16_supported(including_emulation=False),
+                reason="Native CUDA BF16 is required",
+            ),
+        ),
+    ],
+)
+def test_autocast_denoising_updates_parameters(device: str, dtype: torch.dtype) -> None:
     """Full matching, auxiliary and DN losses work without an external dtype adapter."""
     torch.manual_seed(1729)
     model = (
@@ -30,7 +47,9 @@ def test_autocast_denoising_updates_parameters(device: str) -> None:
     )
     criterion = SetCriterion(matcher=HungarianMatcher())
     optimizer = torch.optim.SGD(model.parameters(), lr=1e-3)
-    scaler = torch.amp.GradScaler("cuda", enabled=device == "cuda", init_scale=128)
+    scaler = torch.amp.GradScaler(
+        "cuda", enabled=device == "cuda" and dtype == torch.float16, init_scale=128
+    )
     images = torch.rand(2, 3, 64, 64, device=device)
     targets = [
         DetectionTarget(
@@ -44,7 +63,6 @@ def test_autocast_denoising_updates_parameters(device: str) -> None:
     successful_steps = 0
     for _ in range(30):
         optimizer.zero_grad(set_to_none=True)
-        dtype = torch.float16 if device == "cuda" else torch.bfloat16
         with torch.autocast(device, dtype=dtype):
             output = model(images, targets=targets)
             losses = criterion(output, targets)
@@ -61,6 +79,7 @@ def test_autocast_denoising_updates_parameters(device: str) -> None:
             successful_steps += 1
         else:
             assert device == "cuda"
+            assert dtype == torch.float16
         previous_scale = scaler.get_scale()
         scaler.step(optimizer)
         scaler.update()

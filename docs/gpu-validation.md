@@ -132,10 +132,15 @@ original ordered comparison as a diagnostic. Keep numerical comparison outcomes
 separate from finite-output execution checks, and do not loosen tolerances to
 hide selection changes. Official-weight AMP accuracy requires dataset evaluation.
 
-CPU BF16 autocast is covered for core inference and native DN training. CUDA
-BF16 has not been validated: the T4 reports
-`torch.cuda.is_bf16_supported(including_emulation=False) == False`. The Lightning
-adapter does not accept `bf16-mixed`.
+CPU BF16 autocast is covered for core inference and native DN training. Native
+CUDA BF16 was rechecked on an NVIDIA L4 in Lightning Studio: all 13 selected
+precision tests executed and passed, including learned/selected query inference
+and three compact DN optimizer updates without GradScaler. Official-weight full
+R50vd 640×640 BF16 autocast inference produced finite FP32 predictions. See the
+[BF16 Studio record](../benchmarks/bf16-studio.json) and [reproduction guide](bf16-validation.md).
+The T4 reports `torch.cuda.is_bf16_supported(including_emulation=False) == False`
+and skips native BF16 tests. The Lightning training adapter does not accept
+`bf16-mixed`; using Lightning Studio as compute does not change that adapter contract.
 
 These checks use synthetic inputs and short training runs. They do not validate
 full training convergence, mixed-precision COCO AP, parity across arbitrary
