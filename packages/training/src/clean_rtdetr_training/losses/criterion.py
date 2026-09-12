@@ -31,7 +31,7 @@ from clean_rtdetr_training.losses.supervision import (
 
 @dataclass(frozen=True)
 class CriterionConfig:
-    """Use the pinned R50vd weights and Varifocal parameters by default."""
+    """Default Varifocal and box-loss coefficients for the pinned R50vd criterion."""
 
     weight_vfl: float = 1.0
     weight_bbox: float = 5.0
@@ -61,8 +61,8 @@ class SetCriterion(TrainingCriterion[TrainingOutput]):
     on its own. Sum returned scalar values before ``backward``.
     Recipes with another classification equation
     implement their own criterion and may reuse the set-supervision helpers.
-    Distributed normalization averages target counts across ranks and clamps the
-    result to one, matching the reference objective's bounded normalization.
+    In initialized distributed execution, target counts are summed across ranks,
+    divided by world size, and clamped to one before DDP averages gradients.
     """
 
     def __init__(
@@ -81,7 +81,7 @@ class SetCriterion(TrainingCriterion[TrainingOutput]):
         output: TrainingOutput,
         targets: Sequence[DetectionTarget],
     ) -> dict[str, Float[Tensor, ""]]:
-        """Apply the reference objective to ordinary and canonical DN stages."""
+        """Apply the objective to ordinary stages and, when present, known DN stages."""
         losses = {}
         for stage in iter_matched_stages(output, targets, self.matcher):
             losses.update(self._matched_losses(stage, targets))

@@ -34,7 +34,11 @@ class DenoisingGenerator(nn.Module, ABC):
     def forward(
         self, targets: Sequence[DetectionTarget], *, num_queries: int
     ) -> DenoisingBatch | None:
-        """Return prepared queries and assignments, or disable DN for this batch."""
+        """Return prepared queries and assignments, or ``None`` when DN is disabled.
+
+        ``num_queries`` is the matching-query count; it excludes any generated
+        denoising prefix.
+        """
 
     @abstractmethod
     def checkpoint_config(self) -> dict[str, object]:

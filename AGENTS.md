@@ -10,10 +10,14 @@ ONNX export with CPU FP32 runtime parity. Separate COCO prediction JSON and
 optional bbox metric evaluation are implemented. Hungarian
 matching and Varifocal/L1/GIoU training losses are implemented with CPU parity.
 Contrastive denoising queries, a training wrapper, and DN losses have CPU parity.
-An optional Lightning adapter supports single-process CPU FP32 and CUDA FP32/AMP
+An optional Lightning adapter supports single-process CPU FP32/bf16-mixed and CUDA FP32/AMP
 training and epoch-boundary resume. Native DDP losses use global target-count
 normalization. See docs/gpu-validation.md for the bounded GPU validation scope.
-Full training and measured full-dataset COCO AP remain outside the validated scope.
+Historical official pretrained R50vd EMA inference records COCO val2017 bbox AP 53.05
+on all 5,000 images in CPU FP32; see benchmarks/coco-val2017.*. Full training and
+official research-method reproduction remain outside the validated scope. A historical
+bounded native L4 bf16 probe is recorded in benchmarks/bf16-l4.*; current CUDA scope is
+documented in docs/gpu-validation.md.
 
 ## Repository guidance
 

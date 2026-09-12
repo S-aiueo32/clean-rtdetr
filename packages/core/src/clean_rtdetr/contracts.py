@@ -18,7 +18,11 @@ SPATIAL_DIMENSIONS = 2
 
 @dataclass(frozen=True)
 class DecoderPlan:
-    """Choose the executed prefix and whether to retain intermediate predictions."""
+    """Choose a decoder prefix and whether to retain its intermediate predictions.
+
+    ``num_layers=None`` leaves depth resolution to the decoder. All selected layers
+    execute; ``collect_intermediate=False`` retains only the final prediction.
+    """
 
     num_layers: int | None = None
     collect_intermediate: bool = True
@@ -166,8 +170,11 @@ class EncodedFeatures:
 class QuerySet:
     """RT-DETR query state, not a mandatory internal format for every research variant.
 
-    Feature-initialized content is detached by QuerySelector. Reference logits
-    retain gradients here; query assembly owns their eventual detach before decoding.
+    ``source_indices`` address positions in flattened projected memory.
+    QuerySelector detaches feature-initialized content but retains learned content's
+    gradient path.
+    References are logit-space cxcywh values and retain gradients here. Query
+    assembly owns their eventual detach before decoding.
     """
 
     content: Float[Tensor, "batch queries channels"]
@@ -177,7 +184,11 @@ class QuerySet:
 
 @dataclass(frozen=True)
 class SelectionOutput:
-    """Keep initialized queries and differentiable encoder auxiliary predictions."""
+    """Keep selected queries and aligned differentiable encoder auxiliary predictions.
+
+    The auxiliary logits and boxes correspond to ``queries.source_indices`` and
+    retain their gradient path independently of decoder-reference detachment.
+    """
 
     queries: QuerySet
     encoder_logits: Float[Tensor, "batch queries classes"]  # retains auxiliary loss gradient
@@ -186,7 +197,12 @@ class SelectionOutput:
 
 @dataclass(frozen=True)
 class DenoisingQueries:
-    """Prepared training queries; their construction belongs to the training package."""
+    """Prepared DN-query prefix supplied by the training package.
+
+    DN slots precede matching slots after assembly. ``attention_mask=True`` blocks
+    the corresponding self-attention edge; the training package owns target
+    assignments and DN-loss metadata.
+    """
 
     content: Float[Tensor, "batch denoising channels"]
     ref_logits: Float[Tensor, "batch denoising 4"]
@@ -195,7 +211,10 @@ class DenoisingQueries:
 
 @dataclass(frozen=True)
 class DecoderInput:
-    """Combined matching/DN queries with references detached at this boundary."""
+    """Combined matching/DN queries with detached decoder references.
+
+    ``matching_queries`` counts the matching slots after any DN prefix.
+    """
 
     content: Float[Tensor, "batch total_queries channels"]
     ref_logits: Float[Tensor, "batch total_queries 4"]

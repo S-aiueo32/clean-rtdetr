@@ -23,6 +23,8 @@ def alignment_loss(
 
     Reference: RT-DETRs/RT-DETRv4 at 55fefaa, RTv4Criterion.loss_distillation.
     The teacher is detached here as well as at the training model boundary.
+    Different spatial sizes are aligned by bilinear resizing the teacher to
+    the student grid. Batch size, channels, floating dtype, and device must match.
     """
     if student.ndim != 4 or teacher.ndim != 4:  # noqa: PLR2004
         msg = "Alignment features must be NCHW tensors"

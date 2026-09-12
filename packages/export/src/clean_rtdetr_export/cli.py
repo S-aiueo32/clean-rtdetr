@@ -92,7 +92,11 @@ def export(
     ] = None,
     report: Annotated[Path | None, typer.Option(help="Optional report path.")] = None,
 ) -> None:
-    """Load weights, export ONNX, verify runtime parity, and write a report."""
+    """Export a local native checkpoint and write a verified ONNX report.
+
+    The report defaults to ``output`` with a ``.json`` suffix. A parity failure
+    still writes the report before the command exits unsuccessfully.
+    """
     report_path = report or output.with_suffix(".json")
     if report_path.exists():
         message = f"Report already exists: {report_path}"

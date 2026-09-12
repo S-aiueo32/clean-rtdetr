@@ -1,90 +1,92 @@
 # マッチングと学習損失
 
-[English version](../training.md)
+[English](../training.md) | 日本語
 
-`clean_rtdetr_training` は、FP32/FP64 PyTorch 予測に対する固定 R50vd criterion を実装します。内容は Hungarian 割り当て、Varifocal 分類、正規化 cxcywh L1 損失、GIoU 損失、contrastive denoising の構築と損失です。別の [Lightning アダプター](lightning.md) はベースラインの optimizer 設定と単一プロセス CPU FP32 または CUDA FP32/AMP 学習、epoch 境界での再開を実装します。Hydra の config group はベースライン部品と optimizer/scheduler factory を注入します。組み込みモデルは autocast 中も予測値を FP32 に保つため、loss 前の外部キャストは不要です。PyTorch DDP では全 rank の target 数を合計し、world size で割って最小 1 に clamp して正規化します。学習 augmentation は対象外です。研究手法の組み合わせは checkout 専用の [recipe](../../recipes/README.md) に置きます。収束や学習済み精度は保証しません。
+`clean_rtdetr_training` は、固定した R50vd の学習 criterion を提供する。
+Hungarian マッチング、Varifocal 分類、正規化 cxcywh の L1・GIoU 損失、
+contrastive denoising（DN）の query と損失を含む。
+PyTorch の学習ループや recipe 固有の criterion を組み立てる際に使う。
+予測とターゲットは FP32/FP64 で検証し、画像拡張と学習データの変換は呼び出し側が担当する。
+
+criterion は native PyTorch の分散実行に対応する。
+全 rank のターゲット数を合計し、world size で割り、下限を 1 として損失を正規化する。
+これは DDP の勾配平均と整合する。全 rank で同じ criterion 呼び出しが必要である。
+別の [Lightning アダプター](lightning.md)は複数 rank に対応しない。
+収束や学習後の精度は実証していない。
 
 <a id="installation-and-cpu-example"></a>
 
-## インストールと CPU 例
+## インストールして動作を確認する
+
+Python 3.13 または 3.14 と uv を使い、リポジトリのルートから実行する。
 
 ```sh
 uv sync --package clean-rtdetr-training
 uv run python tools/training_losses.py
 ```
 
-SciPy は上流で使われる `scipy.optimize.linear_sum_assignment` を提供します。これは空でない target のマッチング時だけ import され、推論とパッケージ import には不要です。PyTorch が損失と勾配を計算します。例はデータセットやチェックポイントなしで、CPU の合成 backward pass を実行します。
+このコマンドは合成入力で CPU の逆伝播を実行し、データセットやチェックポイントは不要である。
+SciPy の `scipy.optimize.linear_sum_assignment` は、空でないターゲットのマッチング時に使う。
+パッケージの import と推論では SciPy を import しない。
 
 <a id="api-and-targets"></a>
 
-## API と target
+## 入力・出力・損失
 
-実装モジュールは責務ごとに分かれています。
-
-```text
-packages/training/src/clean_rtdetr_training/
-  contracts.py          # shared targets, assignments, and validation
-  interfaces.py         # shared model, criterion, matcher, and DN interfaces
-  losses/
-    criterion.py
-    supervision.py       # standard matched stages, pairs, and box losses
-    matcher.py
-    geometry.py
-  models/
-    denoising.py
-    rtdetr.py
-  data/
-    contracts.py
-    synthetic.py
-    collate.py
-  lightning/
-    data.py
-    module.py
-    optim.py
-    ema.py
-    state.py
-```
-
-`clean_rtdetr_training` の公開 export が組み合わせの入口です。`clean_rtdetr_training.data` と `clean_rtdetr_training.models` も initializer から公開型を提供するため、Hydra target は実装ファイル名に依存しません。Lightning 固有のライフサイクルコードは `clean_rtdetr_training.lightning` にあります。
-
-学習用モデル部品は `models/` に置き、`denoising.py` が DN query を生成し、`rtdetr.py` が detector と generator を組み合わせます。DN の契約 `DenoisingMetadata`、`DenoisingBatch`、`DenoisingOutput` は `clean_rtdetr_training.contracts`、分割 helper は `clean_rtdetr_training.models.rtdetr` に置き、いずれもパッケージ直下から公開します。これらの移動は source API の変更ですが、tensor の state dict key は変えません。
+構成に使う公開型は `clean_rtdetr_training` から import できる。
+`clean_rtdetr_training.data`、`.models`、`.lightning` も、直接利用や Hydra による構築に使える公開型を提供する。
 
 ```python
+import torch
+
+from clean_rtdetr import rtdetr_r50vd
 from clean_rtdetr_training import DetectionTarget, HungarianMatcher, SetCriterion, TrainingOutput
 
-# model is an RTDETR instance; images and targets share its device and dtype.
-model.train()
-output = model(images)  # Default DecoderPlan retains all decoder layers.
-targets = [DetectionTarget(labels=labels, boxes=boxes)]  # One target per image.
+model = rtdetr_r50vd().train()
+images = torch.rand(1, 3, 128, 128)
+labels = torch.tensor([0])
+boxes = torch.tensor([[0.5, 0.5, 0.2, 0.2]])
+output = model(images)  # 既定の DecoderPlan はすべての decoder layer を保持する。
+targets = [DetectionTarget(labels=labels, boxes=boxes)]
 losses = SetCriterion(matcher=HungarianMatcher())(TrainingOutput(output), targets)
-total_loss = sum(losses.values())  # Values are already weighted.
-total_loss.backward()
+sum(losses.values()).backward()  # 返却値にはすでに weight が適用されている。
 ```
 
-各 target は int64 labels `[N]` と浮動小数点 boxes `[N,4]` を持ちます。ラベルは `[0,C)` の連続した 0 始まりクラスインデックスで、**COCO category ID ではありません**。明示的な background class はありません。ボックスは正規化された `(center_x, center_y, width, height)` で `[0,1]`、幅と高さは正です。予測のゼロ面積ボックスは許可され、角座標が画像外に出ても criterion は clip しません。ラベル、ボックス、予測は同じ device を共有し、target box は予測 dtype も共有する必要があります。予測と target は有限値でなければなりません。空画像は labels `[0]`、boxes `[0,4]` です。ignore/crowd 処理と座標変換は学習入力パイプラインの責務です。
+画像ごとに 1 つの `DetectionTarget` を渡す。`labels` は int64 `[N]` で、
+クラス ID は `[0, C)` の連続した 0 始まりの値である。COCO の category ID ではなく、背景クラスもない。
+`boxes` は FP32 または FP64 の `[N, 4]` である。
+正規化した `(center_x, center_y, width, height)` は `[0, 1]` 内、幅と高さは正とする。
+ターゲットと予測は有限値で同じ device 上に置き、ターゲットの box は予測と dtype も揃える。
+物体のない画像は labels `[0]`、boxes `[0, 4]` で表す。
+予測の box は面積 0 を許可し、角座標が画像の外に出ても clip しない。
+座標変換と crowd/ignore アノテーションの処理は、この API を呼ぶ前に行う。
 
-`HungarianMatcher()(detection_output, targets)` は画像ごとに 1 つの `MatchIndices` を返します。`prediction_indices` と `target_indices` は int64 で予測 device 上にあります。割り当ては微分不能です。矩形割り当ては `(query 数, target 数)` の小さい方の組数を対応付けます。
+`HungarianMatcher()(detection_output, targets)` は、画像ごとに 1 つの `MatchIndices` を返す。
+予測・ターゲットの index は int64 で、予測と同じ device にある。
+割り当ては微分不能で、最大 `min(queries, targets)` 組を対応付ける。
 
-`SetCriterion` は `TrainingCriterion[TrainingOutput]` を実装し、module 呼び出しでは
-final・auxiliary・任意の DN supervision を持つ `TrainingOutput` を受け取ります。
-DN なしで core の `ModelOutput` を学習する場合は `TrainingOutput(model_output)` で包みます。
-単一段の `DetectionOutput` の損失は `criterion.stage_losses(detection_output, targets)` で計算します。
+`SetCriterion` は、最終・補助予測と任意の DN 教師情報を持つ `TrainingOutput` を受け取る。
+DN がない core の `ModelOutput` は `TrainingOutput(output)` で包む。
+単一の `DetectionOutput` には `criterion.stage_losses(output, targets)` を使う。
 
-core の `ModelOutput` の field は `decoder`、`encoder_aux`、`after_aifi` だけです。decoder と `final` は供給された全 query slot を保持し、準備済み DN query を core に渡した場合は DN prefix も含みます。training wrapper がその prefix を分割して `TrainingOutput(predictions, denoising)` を返します。この `predictions` と `final` は matching query だけを含み、`denoising` が DN slot と割り当てを保持します。
-
-| 項目 | matcher cost weight | 返却損失 weight |
+| 項目 | マッチングのコスト係数 | 返却損失の重み |
 | --- | --- | --- |
-| 分類 | 2 (focal cost, alpha 0.25, gamma 2) | 1 (Varifocal, alpha 0.75, gamma 2) |
-| L1 ボックス | 5 | 5 |
+| 分類 | 2、focal: alpha 0.25, gamma 2 | 1、Varifocal: alpha 0.75, gamma 2 |
+| L1 box | 5 | 5 |
 | GIoU | 2 | 2 |
 
-`MatcherConfig` と `CriterionConfig` はこれらの重みと focal パラメータを公開します。`SetCriterion` は割り当て用の抽象 `Matcher` module interface を必要とし、呼び出し元または Hydra 設定が matcher を構築します。custom matcher は Hungarian 固有設定なしに `forward` と `checkpoint_config` を実装できます。基本キーは `loss_vfl`、`loss_bbox`、`loss_giou` です。auxiliary key には `_aux_0`、`_aux_1` などを付け、encoder は上流順序に合わせて最後の auxiliary index を使います。各項は batch 内の総 target 数を `max(..., 1)` で割ります（query より target が多い場合も同じです）。完全に空の batch でも負例の分類損失と微分可能なゼロの box 損失を保持します。Varifocal IoU target と確率重みは detach され、上流の勾配を維持します。local target normalization が不正になるため、複数 rank の分散実行は拒否されます。
+`MatcherConfig` と `CriterionConfig` で、これらの重みと focal パラメータを設定できる。
+基本キーは `loss_vfl`、`loss_bbox`、`loss_giou` である。
+decoder の補助損失には `_aux_0`、`_aux_1` などを付け、encoder は最後の補助 index を使う。
+各項は冒頭で説明した全 rank の平均ターゲット数で正規化する。
+全画像のターゲットが空でも、負例の分類損失と微分可能なゼロの box 損失を保持する。
+Varifocal の IoU ターゲットと確率による重みは detach する。
 
-`SetCriterion` は標準の VFL、L1、GIoU だけを所有し、分類損失の注入 API は持ちません。既定の設定値と state dict key は維持します。別の分類目的は recipe の criterion で定義し、必要なら `clean_rtdetr_training.losses` の `iter_matched_stages`、`gather_matched_pairs`、`matched_iou_targets`、`matched_box_losses` を再利用します。式と重みは recipe が所有します。stage helper は標準 RT-DETR の matching と DN supervision を保持するため、その方針も変える recipe は stage supervision 自体を実装します。
-
-`iter_matched_stages` は `TrainingOutput` を受け取ります。単一段には
-`match_stage(detection_output, targets, matcher)` を使い、返された `MatchedStage` に
-同じ損失 helper を適用できます。
+標準 criterion は VFL・L1・GIoU を所有する。
+分類式、マッチング方針、DN の教師情報を変更する recipe は、その方針を自ら定義する。
+必要に応じて `clean_rtdetr_training.losses` の `iter_matched_stages`、
+`gather_matched_pairs`、`matched_iou_targets`、`matched_box_losses` を再利用できる。
+独自の matcher は `forward` と `checkpoint_config` を実装する。
 
 <a id="contrastive-denoising"></a>
 
@@ -101,35 +103,45 @@ from clean_rtdetr_training import (
 )
 
 training_model = DenoisingTrainingModel(
-    rtdetr_r50vd(),
-    DenoisingQueryGenerator(80, 256, DenoisingConfig()),
+    rtdetr_r50vd(), DenoisingQueryGenerator(80, 256, DenoisingConfig())
 ).train()
+# 前の例で作った images と targets を再利用する。
 training_output = training_model(images, targets=targets)
 losses = SetCriterion(matcher=HungarianMatcher())(training_output, targets)
 sum(losses.values()).backward()
 ```
 
-wrapper は detector と学習可能な `denoising.class_embed` を一緒に所有し、`TrainingModel[TrainingOutput]` を実装します。matching と DN の両方を学習するには、`TrainingOutput` 全体を `SetCriterion` に渡します。明示的に DN 損失を省く場合は `TrainingOutput(training_output.predictions)` を渡します。任意の統合 interface は [Lightning training](lightning.md#model-and-criterion-interfaces) に記載しています。optimizer 構築には `training_model.parameters()`、重みには `state_dict()` を使います。core detector は dataset target を受け取りません。評価モードで target なしに呼ぶと inference model に委譲し DN noise を生成しません。wrapper の `training_output.final` は matching query だけを含みます。
+`DenoisingTrainingModel` は検出器と学習可能な `denoising.class_embed` を所有する。
+optimizer には wrapper の `parameters()`、重みには `state_dict()` を使う。
+core の検出器には、データセットのターゲットを直接渡さず、準備済み query テンソルを渡す。
+wrapper が先頭の DN 部分を分離し、`TrainingOutput.predictions` と `.final` には
+matching query の予測、`.denoising` には DN 予測と metadata を保持する。
+両方を学習する場合は出力全体を渡し、DN 損失を省く場合は
+`TrainingOutput(training_output.predictions)` を渡す。
+評価モードでターゲットなしに呼ぶと、通常の推論に委譲する。
 
-既定値は上流に合わせて `num_denoising=100`、`label_noise_ratio=0.5`、`box_noise_scale=1.0` です。batch 最大 target 数を `M` とすると、builder は `G=max(1, num_denoising // M)` group、`D=2*M*G` query（positive/negative slot と padding を含む）を使います。要求数は hard cap ではありません。matching query は DN slot に attend できず、DN group 同士も attend できません。ラベル置換確率は `label_noise_ratio / 2` です。box perturbation、clip、RNG 順序、初期 reference の detach は固定された実装に従います。特に `box_noise_scale=0` では上流が inverse sigmoid を省略し、この edge case も保持します。
+既定値は `num_denoising=100`、`label_noise_ratio=0.5`、`box_noise_scale=1.0` である。
+バッチ内の最大ターゲット数を `M` とすると、DN は `G = max(1, num_denoising // M)` 個の
+group と `2 * M * G` 個の slot を作る。要求数は上限ではない。
+`num_denoising=0` または全ターゲットが空の場合は DN batch を返さない。
+保持した各 decoder 層の DN 損失キーは `loss_vfl_dn_i`、`loss_bbox_dn_i`、`loss_giou_dn_i` である。
+Hungarian マッチングは行わず既知の正例割り当てを使い、下限を 1 とした全 rank の平均ターゲット数に
+`G` を掛けて正規化する。単一プロセスでは `max(total targets, 1) * G` である。
 
-`generator(targets, num_queries=Q)` は準備済み query と metadata の `DenoisingBatch` を返します。`Detector.forward(..., denoising=prepared.queries)` は `DenoisingQueries` の tensor だけを受け取り、metadata や raw target は受け取らず、noise も生成しません。core は全 decoder slot を分割せずに返し、training wrapper が準備済み query 数を検証して出力を分割します。`num_denoising=0` または全 target が空なら noise を生成せず `None` を返し、wrapper は通常経路を使います。DN 無効時でも batch は空であってはいけません。target と image は embedding の FP32/FP64 dtype と device を共有します。無効・空の処理の前にも既存の target validation が適用されます。
-
-DN 損失キーは保持された各 layer（final を含む）の `loss_vfl_dn_i`、`loss_bbox_dn_i`、`loss_giou_dn_i` です。既知の positive target slot を使い、`max(total targets, 1) * G` で正規化し、Hungarian matching は行いません。negative と padding slot には negative classification supervision を与えます。全 layer の supervision には既定 decoder plan を使います。構築が `None` のとき DN key は返しません。
-
-公式学習重みの互換ローダーは checkout 専用です。元の公式 envelope に明示的な
-`source="model"` または `source="ema"` と期待 SHA-256 を指定して、
-`tools.compatibility.training.load_official_training_weights(...,
-model=training_model, ...)` を使います。パッケージで使う場合は初期化済み
-wrapper の native state dict を `torch.save(training_model.state_dict(), path)`
-で保存し、`clean_rtdetr.checkpoint.load_model_weights(path,
-model=training_model, expected_sha256=...)` でロードします。converter は
-推論専用で、training wrapper の checkpoint は作りません。これは重みの
-ロードだけなので、再開可能な学習には [Lightning アダプター](lightning.md)
-を使います。
+`tools.compatibility.training.load_official_training_weights` は checkout 専用で、
+公式形式の重みから wrapper 全体を初期化する。パッケージを使う場合は
+`torch.save(training_model.state_dict(), path)` で初期化済み wrapper を保存し、再構築した wrapper に
+`clean_rtdetr.checkpoint.load_model_weights(path, model=training_model)` で読み込む。
+推論用の変換コマンドは学習チェックポイントを生成しない。
+optimizer・scheduler・EMA・エポック境界からの再開状態が必要なら
+[Lightning による学習](lightning.md#state-and-resume)を使う。
 
 <a id="validation-scope"></a>
 
 ## 検証範囲
 
-CPU テストは、SHA-256 で固定した上流 matcher/criterion と assignment index、重み付き損失、予測勾配、box geometry を比較します。空・混在 batch、矩形割り当て、auxiliary supervision、不正入力を対象とし、小型モデルの backward で既存モデルとの接続も確認します。これらは完全な学習再現を示しません。DN テストは seed 付き構築、attention mask、metadata、embedding 勾配、各 layer の重み付き損失・予測勾配を固定上流コードと比較します。wrapper テストは登録、空 batch、query 分離、推論動作、合成 backward を確認します。
+CPU の一致検証では、固定した上流 matcher/criterion と、割り当て・重み付き損失・予測の勾配を比較する。
+空・混在バッチ、予測数とターゲット数が異なる割り当て、補助損失、DN の構築と損失、
+wrapper の query 分離、合成入力の逆伝播を対象とする。
+2-rank の損失テストでは、ターゲット数が異なる場合と空の場合を確認する。
+これらは学習全体、画像拡張、学習後の精度の再現を示すものではない。

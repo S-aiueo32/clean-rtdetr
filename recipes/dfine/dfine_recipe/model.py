@@ -73,7 +73,7 @@ def create_training_model(
     reg_scale: float = 4.0,
     up: float = 0.5,
 ) -> DFINETrainingModel:
-    """Build an uninitialized RT-DETR + D-FINE FDR hybrid.
+    """Build a randomly initialized RT-DETR + D-FINE FDR hybrid.
 
     This is a recipe composition, not a full D-FINE architecture or a
     checkpoint-compatible implementation of the upstream D-FINE repository.

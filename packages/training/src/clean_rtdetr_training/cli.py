@@ -1,5 +1,5 @@
 # Copyright 2026 Clean RT-DETR contributors
-"""Run a small Lightning training job and optionally resume its checkpoint."""
+"""Compose and run a Lightning training recipe, optionally resuming a checkpoint."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 
 def run(config: DictConfig) -> None:
-    """Instantiate and train the detector from the dependency-injection graph."""
+    """Instantiate the configured module, data module, callbacks, and Trainer, then fit."""
     torch.set_num_threads(1)
     seed_everything(int(config.seed), workers=False)
     Path(config.output_dir).mkdir(parents=True, exist_ok=True)

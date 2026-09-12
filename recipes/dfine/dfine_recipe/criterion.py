@@ -114,7 +114,12 @@ def gather_pairs(
 
 
 class DFINECriterion(TrainingCriterion[ModelOutput]):
-    """Supervise refined distributions through the public training interface."""
+    """Supervise FDR predictions with classification, localization, and distillation.
+
+    The decoder must return ``DistributionOutput`` with matching distribution
+    settings. This recipe uses local loss normalization and rejects multi-rank
+    execution.
+    """
 
     def __init__(self, matcher: Matcher, config: DFINECriterionConfig | None = None) -> None:
         """Inject assignment and immutable loss settings."""
@@ -133,7 +138,7 @@ class DFINECriterion(TrainingCriterion[ModelOutput]):
     def forward(
         self, output: ModelOutput, targets: Sequence[DetectionTarget]
     ) -> dict[str, Float[Tensor, ""]]:
-        """Match stages once, then apply independent VFL and union localization."""
+        """Return weighted losses using per-stage VFL and union localization matches."""
         decoded = self._validate(output)
         count = decoded.logits.shape[0]
         stages = [

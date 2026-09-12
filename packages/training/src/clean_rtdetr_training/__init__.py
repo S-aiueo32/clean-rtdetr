@@ -1,5 +1,9 @@
 # Copyright 2026 Clean RT-DETR contributors
-"""Single-process matching and baseline losses; SciPy is loaded only for assignment."""
+"""RT-DETR matching, denoising, and baseline losses; SciPy loads only for assignment.
+
+The criterion supports native PyTorch distributed target-count normalization.
+The optional Lightning adapter separately supports only single-process execution.
+"""
 
 from clean_rtdetr_training.configuration import compose_training_config
 from clean_rtdetr_training.contracts import (

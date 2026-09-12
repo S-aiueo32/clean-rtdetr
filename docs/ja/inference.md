@@ -2,45 +2,27 @@
 
 [English version](../inference.md)
 
-core パッケージには checkpoint converter が含まれます。次でインストールします。
+このガイドでは、対応する公式 R50vd 推論チェックポイントの変換、画像の予測、テンソルの
+解釈、検証済み ONNX プロファイルのエクスポートを扱う。例では CPU FP32 の R50vd を
+使用する。CUDA と AMP の検証済み範囲は [GPU 実行と検証](gpu-validation.md) を参照する。
+ツールが画像や重みを自動ダウンロードすることはない。
 
-```sh
-python -m pip install clean-rtdetr
-```
+## インストールとチェックポイントの準備
 
-Pillow はオプション依存関係です。画像サポートをインストールするには、次を実行します。
+Python 3.13 以降と PyTorch が必要である。画像ファイルには Pillow、ONNX には別パッケージを
+インストールする。
 
 ```sh
 python -m pip install "clean-rtdetr[inference]"
+python -m pip install clean-rtdetr-export  # 任意: ONNX export
 ```
 
-checkout の開発環境では `uv sync --package clean-rtdetr --extra inference` を使い、
-以下のコマンドに `uv run` を付けます。
+ソースのチェックアウトでは `uv sync --package clean-rtdetr --extra inference` を使う。
+エクスポートには `uv sync --package clean-rtdetr-export` を使う。以下の Python とパッケージ CLI の
+コマンドには `uv run` を付けるが、`curl` には付けない。
 
-ONNX エクスポートと CPU ONNX Runtime 検証器を使う場合は、別の
-`clean-rtdetr-export` パッケージを `python -m pip install clean-rtdetr-export`
-でインストールします。checkout の開発環境では `uv sync --package
-clean-rtdetr-export` を使います。
-
-<a id="model-tensors"></a>
-
-## モデルのテンソル
-
-`RTDETR` は、`[B,3,H,W]` 配置の前処理済み浮動小数点 RGB テンソルを受け取ります。
-高さと幅は 32 の倍数でなければならず、生成されるメモリには設定されたクエリ位置数以上が必要です。
-モデルは入力のリサイズも正規化も行いません。
-
-`ModelOutput.final` は最後に実行したデコーダ層を選択し、生のクラスロジット `[B,Q,K]` と
-正規化済み cxcywh ボックス `[B,Q,4]` を含みます。完全な出力には勾配可能なエンコーダ予測と、
-オプションの AIFI 特徴も含まれます。`DecoderPlan()` はデフォルトで 6 層すべてを実行・収集します。
-
-<a id="python-api"></a>
-
-## Python API
-
-画像サポートをインストールした後、`image.jpg` と変換済み native state dict
-checkpoint を用意します。任意のディレクトリで公式 checkpoint をダウンロードし、
-インストール済みのコマンドで変換します。
+同梱の変換コマンドは固定された公式 R50vd チェックポイント形式を受け取り、native plain
+`state_dict` を書き出す。元のチェックポイントは自分でダウンロードしてから変換する。
 
 ```sh
 curl --fail --location --create-dirs \
@@ -49,15 +31,40 @@ curl --fail --location --create-dirs \
 clean-rtdetr-convert --checkpoint official.pth --output native.pth
 ```
 
-checkout の開発環境では、インストール済みコマンドの代わりに
-`uv run clean-rtdetr-convert` を使います。
+既定では固定された EMA 重みを使い、変換コマンドが固定された SHA-256 を検証する。
+JSON 出力には native ファイルのハッシュと公式読み込みレポートが含まれる。異なる検証要件の
+対応チェックポイントを変換する場合だけ、`--source` と `--expected-sha256` を使う。
+native loader の `expected_sha256` は任意である。画像予測 CLI にハッシュのオプションはない。
 
-converter は変換先パス、変換後ファイルの SHA-256、公式 load report を
-含む JSON を出力します。既定ではベースラインに固定した EMA source と公式 SHA-256 を
-検証します。別の対応 checkpoint を検証する場合は `--source` と
-`--expected-sha256` で上書きできます。パッケージの loader では
-`expected_sha256` キーワードを変換後ファイルの検証用に任意で指定できます。
-画像推論 CLI は変換後の checkpoint を読み込み、ハッシュ指定のオプションは持たない。
+<a id="command-line-example"></a>
+
+## 画像を予測する
+
+`image.jpg` とローカルの `native.pth` を用意して、次を実行する。
+
+```sh
+clean-rtdetr-predict image.jpg \
+  --checkpoint native.pth --conf-thresh 0.5 --visualize-dir outputs
+```
+
+このコマンドは 1 個以上の画像パスを受け取り、6 個の decoder layer をすべて実行し、入力ごとに
+1 個の JSON レコードを標準出力へ書き出す。`--device` の既定値は `cpu` である。まず
+query/class の組を上位 300 件選び、`--conf-thresh` は有限の `[0, 1]` 値（既定値 `0`）以上の
+スコアを残す。候補が残らない入力では配列が空になる。
+
+`--visualize-dir` は `outputs/0001-image.png` のような PNG を書き出す。標準出力と同じ
+候補に COCO の名前とスコアを表示し、元画像の寸法を保つ。ディレクトリは作成されるが、
+入力画像と同じ保存先は拒否される。再実行では可視化ファイルを置き換える。描画時の枠は
+画像の範囲に切り詰めるが、JSON には後処理後の座標をそのまま保持する。
+
+<a id="python-api"></a>
+
+## Python API を使う
+
+`preprocess_images` には Pillow が必要で、Pillow 画像または CPU 上の `uint8` RGB テンソル
+`[3,H,W]` からなる空でないシーケンスを受け取る。すべて Pillow で RGB に変換し、640×640 へ
+バイリニアリサイズして、`[0,1]` の CPU FP32 値を返す。レターボックス、平均/標準偏差による
+正規化、EXIF 回転は行わない。
 
 ```python
 import torch
@@ -68,10 +75,8 @@ from clean_rtdetr.checkpoint import load_model_weights
 from clean_rtdetr.inference import postprocess, preprocess_images
 
 model = rtdetr_r50vd().eval()
-load_model_weights(
-    "native.pth",
-    model=model,
-)
+load_model_weights("native.pth", model=model)
+
 with Image.open("image.jpg") as image:
     batch = preprocess_images([image])
 with torch.inference_mode():
@@ -79,66 +84,49 @@ with torch.inference_mode():
 detections = postprocess(output.final, batch.original_sizes_wh)
 ```
 
-`preprocess_images` は Pillow 画像および CPU RGB `uint8 [3,H,W]` テンソルの空でないシーケンスを受け付け、
-サイズの異なる画像も扱えます。どちらの経路も Pillow の RGB 変換と 640×640 へのバイリニアリサイズを行い、
-その後 CPU FP32 の `[0,1]` に変換します。レターボックス、平均・標準偏差による正規化、EXIF 回転はありません。
+モデルを呼ぶ前に `batch.images` をモデルのデバイスへ移動する。返り値
+`PreprocessedImages.images` は `[B,3,640,640]`、`original_sizes_wh` は `(width, height)` 順の
+CPU int64 `[B,2]` である。`postprocess` は必要に応じてサイズテンソルを予測テンソルのデバイスへ移す。
 
-`PreprocessedImages.images` の形状は `[B,3,640,640]` です。`original_sizes_wh` は W,H 順の CPU int64
-`[B,2]` です。`images` はモデルデバイスへ明示的に移動してください。後処理は必要に応じてサイズテンソルを移動します。
+<a id="model-tensors"></a>
+
+## モデルと後処理の契約
+
+`RTDETR` は前処理済みの浮動小数点 RGB テンソル `[B,3,H,W]` を受け取る。高さと幅は
+32 の倍数で、投影後のメモリには設定した query position 数以上が必要である。モデル側で
+リサイズや正規化は行わない。
+
+`ModelOutput.final` は最後に実行した decoder layer の未処理 class logits `[B,Q,K]` と、正規化済み
+`cxcywh` box `[B,Q,4]` である。`DecoderPlan()` は既定で 6 layer をすべて実行して収集する。
+最終出力だけが必要なら `DecoderPlan(collect_intermediate=False)` を使う。
 
 <a id="postprocessing"></a>
 
-## 後処理
-
-`postprocess(predictions, original_sizes_wh, top_k=300)` は、0 始まりの `labels[B,T]`、sigmoid 済み
-`scores[B,T]`、元画像ピクセル座標の `boxes_xyxy[B,T,4]` を返します。すべてのクエリ・クラス組を順位付けするため、
-1 クエリが複数のラベルを生成することがあります。同点の順序は PyTorch に従います。
-
-上流互換経路では NMS、スコア閾値、ボックスのクリップを行いません。ラベルはモデルのクラスインデックスであり、
-COCO カテゴリ ID ではありません。`top_k` は 1 以上、クエリ・クラス組数以下でなければなりません。
-
-<a id="command-line-example"></a>
-
-## コマンドライン例
-
-`clean-rtdetr-predict` は 1 つ以上の画像パスとローカルの native state dict を受け取ります。
-画像ごとの検出候補を JSON で標準出力に表示し、6 つのデコーダ層をすべて実行します。既定では全 300 候補を保持します。この例は画像や重みをダウンロードせず、
-`--device` の既定値は `cpu` です。
-
-```sh
-clean-rtdetr-predict image.jpg \
-  --checkpoint native.pth --conf-thresh 0.5 --visualize-dir outputs
-```
-
-`--conf-thresh` は指定したスコア以上の候補を残す。指定できる値は `[0, 1]` の有限値で、
-既定値は `0`。top-k 選択後に絞り込み、スコア順を保持する。該当する候補がなければ、
-その画像の `labels`、`scores`、`boxes_xyxy` は空配列となる。
-
-`--visualize-dir` を指定すると、標準出力と同じ候補のボックス・COCO クラス名・スコアを
-描画した PNG 画像を保存する。保存先ディレクトリは自動で作成し、元画像のサイズを保持する。
-ファイル名は入力順の 1 始まりの番号と画像名を組み合わせた
-`outputs/0001-image.png`、`outputs/0002-image.png` などとなる。
-再実行時には既存の可視化ファイルを上書きするが、保存先がいずれかの入力画像と一致する場合は推論前にエラーとなる。
-候補がなければ描画せずに画像を保存する。描画時の座標は画像内に収めるが、JSON の座標は
-後処理の値をそのまま保持する。これらの CLI オプションは Python の `postprocess` API や COCO 評価経路には影響しない。
+`postprocess(predictions, original_sizes_wh, top_k=300)` は、ゼロ始まりの
+`labels[B,T]`、sigmoid 後の `scores[B,T]`、元画像のピクセル座標による `boxes_xyxy[B,T,4]` を返す。
+query/class の組をすべて順位付けするため、1 個の query から複数の label が出ることがある。
+NMS、スコアしきい値、切り詰めは意図的に適用しない。label は COCO category ID ではなく
+モデルの class index である。`top_k` は 1 から `Q*K` の整数にする。同順位の順序は PyTorch に従う。
 
 <a id="fixed-shape-onnx-export"></a>
 
-## 固定形状 ONNX エクスポート
+## 固定形状 ONNX を export する
 
-`clean_rtdetr_export` はテンソル専用ラッパー `FixedShapeRTDETR` と、
-`export_onnx(model, destination, *, input_shape=(1, 3, 640, 640))` API を提供します。既定プロファイルは
-バッチ 1、640×640、CPU FP32、ONNX opset 18 です。生のクラスロジット `[1,300,80]` と正規化 cxcywh ボックス `[1,300,4]` を出力し、
-seed 41 と 42 について eager PyTorch と ONNX Runtime の一致を `atol=1e-5`、`rtol=1e-4` で検証します。
-検証済みプロファイルではエクスポート時に `optimize=False`、ONNX Runtime のグラフ最適化無効を使用します。
-既定の自動最適化は同じ入力で数値ゲートに失敗しました。このプロファイルは最適化実行を検証しません。
+`clean_rtdetr_export.export_onnx(model, destination, *,
+input_shape=(1, 3, 640, 640))` はテンソル専用 `FixedShapeRTDETR` グラフを書き出す。
+検証済みプロファイルは、batch 1、CPU FP32 RGB 入力 `[1,3,640,640]`、opset 18、未処理 logits
+`[1,300,80]`、正規化 `cxcywh` box `[1,300,4]` である。CLI はローカル native checkpoint を
+読み込む。`--checkpoint` と `--output` は必須、`--expected-sha256` は任意で、`--report` の
+既定値は出力パスの `.json` 接尾辞である。
 
-ラッパーは eval 状態の CPU FP32 コピーを保持し、元モデルの重みと学習状態を変更しません。`Float32` の jaxtyping 注釈は
-入出力テンソルを記述し、明示的なチェックは不正な形状、dtype、学習モードも拒否します。組み込みの selector と decoder 型が必要なため、
-forward メソッドを上書きしてもエクスポート動作を暗黙に変更できません。小さい固定形状は回帰テスト用に受け付けますが、記録済み R50vd
-プロファイルは 640×640 です。
+```sh
+clean-rtdetr-export --checkpoint native.pth --output outputs/rtdetr.onnx
+```
 
-検証済み設定で成果物を実行するには、次を使います。
+エクスポートはシード 41 と 42 の合成入力で eager PyTorch と ONNX Runtime を検証する
+（`atol=1e-5`、`rtol=1e-4`）。これが検証済みの数値プロファイルなので、`optimize=False` と
+無効化した ONNX Runtime のグラフ最適化を使う。まず上の Python API の例を実行し、前処理済みの
+画像を持つ `batch.images` を用意してから、同じ設定でグラフを実行する。
 
 ```python
 import onnxruntime as ort
@@ -150,35 +138,28 @@ options.inter_op_num_threads = 1
 session = ort.InferenceSession(
     "outputs/rtdetr.onnx", sess_options=options, providers=["CPUExecutionProvider"]
 )
-# images: CPU float32 [1,3,640,640], RGB in [0,1].
-logits, boxes = session.run(["logits", "boxes"], {"images": images.numpy()})
+# batch.images は [0,1] の CPU float32 RGB テンソル [1,3,640,640]。
+logits, boxes = session.run(["logits", "boxes"], {"images": batch.images.numpy()})
 ```
 
-インストール済み CLI は `clean-rtdetr-export` で実行します。`--checkpoint` と `--output` は必須です。
-`--expected-sha256` は native checkpoint の検証用に任意で指定できます。`--report` で JSON レポートのパスを指定できます（既定は output に `.json` を付けたパス）。
-ローカルにある native checkpoint だけを読み込み、指定された場合は SHA-256 を検証します。重みはダウンロードしません。可変・動的形状、TensorRT、AP、
-レイテンシは対象外です。
+ラッパーは source model を CPU FP32 の評価モードにコピーするため、元の model は変わらない。
+テンソルの形状、dtype、評価モードを検証する。より小さい固定形状は回帰テスト向けに使える。
+記録済み R50vd プロファイルは 640×640 である。動的形状、TensorRT、AP、レイテンシは
+この検証範囲外である。
 
 <a id="official-weights-and-parity"></a>
 
-## 公式重みとパリティ
+## 公式重みとの互換性
 
-converter は core の内部 CLI 実装であり、公開 compatibility API はありません。公式互換ローダー `tools.compatibility.load_official_model_weights` と
-`tools.compatibility.load_official_stage_weights` は checkout 専用です。元の
-official envelope に `model` または `ema` の source と期待 SHA-256 を指定して使います。
-パッケージの `clean_rtdetr.checkpoint.load_model_weights(path,
-model=model, expected_sha256=...)` は converter が作成した plain native
-state dict を受け取ります。
+`clean-rtdetr-convert` は公開コマンドラインインターフェースである。ただし、公式重みを変換する
+実装は private であり、公開 compatibility API ではない。チェックアウトでは
+`tools.compatibility.load_official_model_weights` と
+`tools.compatibility.load_official_stage_weights` が、明示した `model` または `ema` source で
+元の公式チェックポイント形式を読み込む。パッケージコードは
+`clean_rtdetr.checkpoint.load_model_weights` で native ファイルを読み込む。
 
-チェックポイント URL、ハッシュ、ソースは `benchmarks/baseline.json` に記録されています。実装済み推論ステージをすべて比較するには、次を実行します。
-
-```sh
-uv run python tools/checkpoint_parity.py \
-  checkpoints/rtdetr_r50vd_6x_coco_from_paddle.pth \
-  --source ema \
-  --expected-sha256 dfaafa5a3d29958a360c35f1fad553a6f287bfae9967e8ee007e65cff21ddf45 \
-  --full-model --report outputs/full-model-parity.json
-```
-
-先にレポートの親ディレクトリを作成してください。このコマンドは CPU FP32 の seed 付き合成 640×640 入力を比較し、データセット精度は測定しません。
-`--full-model` を省略すると、合成特徴によるステージ比較になります。記録済み結果は `benchmarks/full-model-parity.json` にあります。
+固定 URL、ハッシュ、source は
+[`benchmarks/baseline.json`](../../benchmarks/baseline.json) にある。合成 CPU FP32 の parity 比較には
+`tools/checkpoint_parity.py` を使う。`--full-model` はシード固定の 640×640 入力を比較するだけで、
+データセットの精度は測定しない。full-model の記録結果は
+[`benchmarks/full-model-parity.json`](../../benchmarks/full-model-parity.json) である。

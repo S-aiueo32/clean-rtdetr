@@ -17,8 +17,9 @@ for these contracts and the algorithms, data and state owned by the caller.
 python -m pip install clean-rtdetr-training
 ```
 
-The validated scope is CPU FP32/FP64 loss and gradient parity, plus a small
-single-process Lightning integration with epoch-boundary resume. CUDA FP32 and
+The validated scope is CPU FP32/FP64 loss and gradient parity, plus small
+single-process CPU FP32 and `bf16-mixed` Lightning runs with epoch-boundary resume.
+CUDA FP32 and
 FP16 AMP are supported by the adapter; native PyTorch DDP uses world-average
 target normalization. See [GPU execution](../../docs/gpu-validation.md) for the
 measured smoke scope and remaining limits. This does not claim full-dataset

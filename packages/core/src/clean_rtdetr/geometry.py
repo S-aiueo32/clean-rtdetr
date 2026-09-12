@@ -13,7 +13,10 @@ MAX_PROBABILITY_EPS = 0.5
 
 
 def inverse_sigmoid(values: Float[Tensor, "*shape"], eps: float = 1e-5) -> Float[Tensor, "*shape"]:
-    """Preserve upstream's separate numerator/denominator clamp at the endpoints."""
+    """Clamp values to the unit interval, then apply upstream endpoint stabilization.
+
+    The numerator and denominator use separate ``eps`` clamps before the log-ratio.
+    """
     if not 0 < eps < MAX_PROBABILITY_EPS:
         msg = "eps must be between 0 and 0.5"
         raise ValueError(msg)
@@ -31,9 +34,9 @@ def generate_anchors(
 ) -> tuple[Float[Tensor, "1 sequence 4"], Bool[Tensor, "1 sequence 1"]]:
     """Return logit cxcywh [1,S,4] and True=valid bool [1,S,1].
 
-    Reference anchors are generated on CPU then moved, matching upstream's
-    arithmetic. Shape specialization and lower precision are later deployment work.
-    Invalid anchor logits intentionally contain +inf.
+    Reference anchors are generated on CPU at ``dtype`` and then moved to
+    ``device``, matching upstream arithmetic. Invalid anchor logits intentionally
+    contain +inf.
     """
     if not spatial_shapes or not 0 < eps < MAX_PROBABILITY_EPS or not 0 < grid_size < 1:
         msg = "Expected nonempty shapes, 0 < eps < .5 and 0 < grid_size < 1"

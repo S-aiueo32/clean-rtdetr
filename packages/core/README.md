@@ -44,8 +44,12 @@ denoising, and the Lightning adapter belong to `clean-rtdetr-training`.
 The converter is bundled as an internal core CLI implementation and exposes no
 public compatibility API. Full, stage, and training compatibility helpers remain
 checkout-only; see the [inference guide](../../docs/inference.md).
-Full-dataset training, GPU/DDP/AMP validation, COCO AP measurement, and latency
-benchmarks are outside the validated scope.
+Official pretrained R50vd EMA weights achieve 53.05 AP on all 5,000 COCO
+val2017 images in CPU FP32; see the [evaluation result](../../benchmarks/coco-val2017.md).
+Full-dataset training, independent upstream full-dataset comparison, and latency
+benchmarks remain outside the validated scope. See [GPU execution](../../docs/gpu-validation.md)
+for bounded GPU/DDP/AMP checks and [the historical L4 probe](../../benchmarks/bf16-l4.md)
+for native bf16 results on its recorded source snapshot.
 
 Use the named factory to construct any of the ten upstream PResNet presets with
 randomly initialized weights. `get_model_preset()` exposes the matching upstream
@@ -79,3 +83,16 @@ print(output.final.logits.shape, output.final.boxes.shape)  # [1, 300, 80], [1, 
 The package is Apache-2.0 licensed and is based on pinned revisions of
 `lyuwenyu/RT-DETR`. The source repository retains the upstream source, license,
 detailed provenance, and parity tests under `third_party/RT-DETR`.
+
+CPU bf16 mixed precision is supported through PyTorch autocast. Keep the model
+weights and input images in FP32:
+
+```python
+with torch.inference_mode(), torch.autocast("cpu", dtype=torch.bfloat16):
+    predictions = model(images)
+```
+
+Projection layers use bf16; query references, sampling, and public prediction
+tensors retain FP32 geometry. Close scores may change top-k query selection.
+Tests cover small-model inference and training, not bf16 COCO AP or speed.
+Pure bf16 model weights and bf16 ONNX export are outside this supported profile.

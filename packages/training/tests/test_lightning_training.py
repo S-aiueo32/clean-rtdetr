@@ -120,13 +120,14 @@ def _seed_all(seed: int) -> None:
     torch.manual_seed(seed)
 
 
-def _trainer(
+def _trainer(  # noqa: PLR0913 - test helper exposes Trainer controls.
     root: Path,
     *,
     epochs: int,
     generator: torch.Generator,
     checkpoint: ModelCheckpoint | None = None,
     ema: RTDETREMA | None = None,
+    precision: str = "32-true",
     **kwargs: object,
 ) -> lightning.Trainer:
     callbacks = [EpochBoundaryState(generator)]
@@ -137,7 +138,7 @@ def _trainer(
     return lightning.Trainer(
         accelerator="cpu",
         devices=1,
-        precision="32-true",
+        precision=precision,
         max_epochs=epochs,
         default_root_dir=root,
         callbacks=callbacks,
@@ -176,7 +177,7 @@ def _assert_nested_equal(left: Any, right: Any) -> None:  # noqa: ANN401
         assert left == right
 
 
-def _run_resume_acceptance(root: Path) -> None:
+def _run_resume_acceptance(root: Path, precision: str = "32-true") -> None:
     """Resume a fresh Trainer with exact optimizer, EMA, and RNG state."""
     _seed_all(101)
     initial = {name: value.clone() for name, value in _module().state_dict().items()}
@@ -187,7 +188,9 @@ def _run_resume_acceptance(root: Path) -> None:
     full_module.load_state_dict(initial)
     _seed_all(202)
     full_ema = RTDETREMA()
-    full_trainer = _trainer(root / "full", epochs=2, generator=full_generator, ema=full_ema)
+    full_trainer = _trainer(
+        root / "full", epochs=2, generator=full_generator, ema=full_ema, precision=precision
+    )
     full_trainer.fit(full_module, datamodule=_datamodule(full_generator))
     full_python_state = random.getstate()
     full_numpy_state = np.random.get_state()  # noqa: NPY002
@@ -209,6 +212,7 @@ def _run_resume_acceptance(root: Path) -> None:
         generator=first_generator,
         checkpoint=checkpoint,
         ema=RTDETREMA(),
+        precision=precision,
     )
     first_trainer.fit(first_module, datamodule=_datamodule(first_generator))
     assert checkpoint.last_model_path
@@ -219,7 +223,11 @@ def _run_resume_acceptance(root: Path) -> None:
     resumed_module = _module()
     resumed_ema = RTDETREMA()
     resumed_trainer = _trainer(
-        root / "resumed", epochs=2, generator=resumed_generator, ema=resumed_ema
+        root / "resumed",
+        epochs=2,
+        generator=resumed_generator,
+        ema=resumed_ema,
+        precision=precision,
     )
     resumed_trainer.fit(
         resumed_module,
@@ -253,7 +261,11 @@ def _run_resume_acceptance(root: Path) -> None:
     changed_generator = torch.Generator().manual_seed(303)
     changed_module = _module(optimizer_lr=2e-4)
     changed_trainer = _trainer(
-        root / "changed", epochs=2, generator=changed_generator, ema=RTDETREMA()
+        root / "changed",
+        epochs=2,
+        generator=changed_generator,
+        ema=RTDETREMA(),
+        precision=precision,
     )
     with pytest.raises(ValueError, match="recipe"):
         changed_trainer.fit(
@@ -263,22 +275,55 @@ def _run_resume_acceptance(root: Path) -> None:
         )
 
 
-def test_epoch_checkpoint_resume_matches_uninterrupted_training(tmp_path: Path) -> None:
+@pytest.mark.parametrize("precision", ["32-true", "bf16-mixed"])
+def test_epoch_checkpoint_resume_matches_uninterrupted_training(
+    tmp_path: Path, precision: str
+) -> None:
     """Verify exact restart outside pytest's RNG-consuming runtime type instrumentation."""
     code = """
 import sys
 from pathlib import Path
 sys.path.insert(0, sys.argv[2])
 from test_lightning_training import _run_resume_acceptance
-_run_resume_acceptance(Path(sys.argv[1]))
+_run_resume_acceptance(Path(sys.argv[1]), sys.argv[3])
 """
     result = subprocess.run(  # noqa: S603 -- fixed current Python executable and script.
-        [sys.executable, "-c", code, str(tmp_path), str(Path(__file__).parent)],
+        [sys.executable, "-c", code, str(tmp_path), str(Path(__file__).parent), precision],
         check=False,
         capture_output=True,
         text=True,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_bf16_mixed_cpu_training_step_completes(tmp_path: Path) -> None:
+    """CPU bf16 autocast runs through matching, denoising, and optimizer update."""
+    _seed_all(404)
+    generator = torch.Generator().manual_seed(405)
+    trainer = _trainer(
+        tmp_path,
+        epochs=1,
+        generator=generator,
+        precision="bf16-mixed",
+    )
+    module = _module()
+    initial = {name: value.detach().clone() for name, value in module.named_parameters()}
+    trainer.fit(module, datamodule=_datamodule(generator))
+    assert trainer.global_step == 1
+    assert torch.isfinite(trainer.callback_metrics["train/loss"])
+    gradients = [parameter.grad for parameter in module.parameters() if parameter.grad is not None]
+    assert gradients
+    assert all(bool(torch.isfinite(gradient).all()) for gradient in gradients)
+    assert any(
+        value.dtype == torch.float32 and not torch.equal(value, initial[name])
+        for name, value in module.named_parameters()
+        if value.requires_grad
+    )
+    assert all(
+        value.dtype == torch.float32
+        for value in module.state_dict().values()
+        if value.is_floating_point()
+    )
 
 
 def test_forward_and_target_transfer_preserve_typed_contract() -> None:
@@ -353,6 +398,7 @@ def test_optimizer_groups_cover_each_trainable_parameter_once() -> None:
     [
         ({"accumulate_grad_batches": 2}, 0, "accumul"),
         ({}, 1, "num_workers"),
+        ({"precision": "64-true"}, 0, "precision"),
     ],
 )
 def test_unsupported_trainer_modes_fail_before_training(

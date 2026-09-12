@@ -43,9 +43,11 @@ class _FixedAttention(MultiScaleDeformableAttention):
 class FixedShapeRTDETR(nn.Module):
     """Own an eval CPU FP32 copy returning schema-v1 ``(logits, boxes)`` tensors.
 
-    The deployment profile is batch one at 640x640. Smaller fixed multiples of
-    32 are accepted for component regression tests, not advertised AP profiles.
-    All configured decoder layers execute; boxes are normalized cxcywh.
+    The deployment profile is batch one at 640x640. Other positive fixed
+    multiples of 32 are accepted for component regression tests, not advertised
+    AP profiles. Construction copies the source model and requires the built-in
+    ``RTDETR`` selector and decoder types. All configured decoder layers execute;
+    boxes are normalized ``cxcywh``.
     """
 
     anchors: Float32[Tensor, "1 sequence 4"]
@@ -106,10 +108,10 @@ class FixedShapeRTDETR(nn.Module):
                                                                          |
                                                            final (logits, boxes)
 
-        Results have shapes ``[1, Q, classes]`` and ``[1, Q, 4]``. Boxes are
+        Results have shapes ``[1,Q,classes]`` and ``[1,Q,4]``. Boxes are
         normalized cxcywh; score filtering and conversion to pixel coordinates
         belong to postprocessing. Both this wrapper and its model must be in eval
-        mode, and the input must match the construction-time shape exactly.
+        mode; the input must be CPU float32 and match the construction-time shape.
         """
         self._validate_input(images)
         features = self.model.backbone(images)
