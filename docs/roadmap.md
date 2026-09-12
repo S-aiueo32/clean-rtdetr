@@ -18,15 +18,15 @@ projected memory → selected queries → iterative decoder predictions.
 | Decoder and gradients | Explicit execution/output plans, self-attention, multi-scale deformable cross-attention, iterative refinement, content/reference detach boundaries, differentiable encoder auxiliary predictions | [Gradient ownership](extensions.md#gradient-ownership) |
 | Composition | Component-injected `RTDETR`, named architecture factories for ten official RT-DETR/RT-DETRv2 PResNet presets, optional AIFI features, and hierarchical Hydra configs for model and training components | [Extension guide](extensions.md#named-model-presets) |
 | Checkpoints and inference | Strict official inference-weight loading, CPU FP32 full-model parity, Pillow/uint8 preprocessing, and upstream-compatible top-k postprocessing | [Inference I/O](inference.md) |
-| COCO evaluation | Prediction JSON and an optional bbox metric adapter, tested on synthetic annotations; pycocotools is loaded only for metrics | [COCO evaluation](evaluation.md) |
+| COCO evaluation | Prediction JSON and optional bbox metrics; official R50vd EMA measured on all COCO val2017 images in T4 FP32/AMP; pycocotools is loaded only for metrics | [COCO evaluation](evaluation.md) |
 | ONNX export | `FixedShapeRTDETR` and CPU FP32 ONNX Runtime parity for fixed batch-1 640×640, with graph optimizations disabled | [Export profile](inference.md#fixed-shape-onnx-export) |
 | Matching and losses | Hungarian matching and Varifocal/L1/GIoU losses with distributed target-count normalization, including decoder/encoder auxiliary supervision and CPU loss/gradient parity | [Training losses](training.md) |
 | Denoising | Contrastive queries, registered class embeddings in the training wrapper, and per-layer DN losses with CPU upstream parity | [Contrastive denoising](training.md#contrastive-denoising) |
 | Training loop | Lightning adapter with baseline AdamW groups, EMA, and CPU FP32 / CUDA FP32 or AMP synthetic epoch-boundary resume | [Lightning training](lightning.md) |
 
 Forward and gradient parity tests use SHA-256-pinned upstream methods.
-Full-dataset training, research-method composition,
-measured full-dataset COCO AP, and latency remain pending. Dynamic-shape ONNX
+Full-dataset training, research-method composition, and latency remain pending.
+See [T4 COCO precision evaluation](coco-precision.md) for measured full-dataset AP. Dynamic-shape ONNX
 and TensorRT are outside the validated export scope.
 
 ## First increment
@@ -46,9 +46,9 @@ and TensorRT are outside the validated export scope.
 2. [x] Connect image-to-prediction R50vd and extend strict checkpoint loading to all inference stages.
 3. [x] Validate CPU FP32 complete-model checkpoint/stage parity with the pinned official artifact.
 4. [x] Add Pillow/uint8 preprocessing, top-k postprocessing, and an image inference example.
-5. [ ] Capture COCO AP in a fixed evaluation environment, including category-ID mapping.
-   The prediction JSON and optional metric adapter are implemented and tested
-   on synthetic annotations; full-dataset accuracy measurement remains pending.
+5. [x] Capture COCO AP in a fixed evaluation environment, including category-ID mapping.
+   Official R50vd EMA: FP32 AP 53.053617 and AMP AP 53.073743 on all 5,000
+   val2017 images; see [COCO precision evaluation](coco-precision.md).
 6. [x] Add fixed-shape ONNX export and CPU FP32 runtime parity.
 7. [x] Add DN queries, criterion, and CPU loss/gradient parity.
 8. [x] Add synthetic CPU FP32 Lightning training and epoch-boundary resume.
