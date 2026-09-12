@@ -2,62 +2,91 @@
 
 English | [日本語](ja/roadmap.md)
 
-Use this page to distinguish implemented features from measured results and
-planned work. The [design proposal](design-proposal.md) describes the broader
-architecture target.
+The design proposal is an architectural target. This file records implemented
+scope separately so a passing small-stage test cannot imply complete reproduction.
+The uv workspace publishes core, fixed-shape export, and training as separate
+distributions with one-way dependencies on `clean-rtdetr`.
 
 ## Current implementation
 
-The inference path connects images → backbone → HybridEncoder → projected
-memory → selected queries → iterative decoder predictions. Core, export, and
-training are separate distributions; export and training each depend on core.
+The PyTorch inference path connects images → R50vd backbone → HybridEncoder →
+projected memory → selected queries → iterative decoder predictions.
 
-| Area | Implemented scope | Details |
+| Area | Implemented and validated scope | Details |
 | --- | --- | --- |
-| Model composition | Component-injected `RTDETR`, ten RT-DETR/RT-DETRv2 PResNet presets, explicit decoder execution/output plans, optional AIFI features | [Extensions](extensions.md) |
-| Inference | Official R50vd inference-weight conversion, native state-dict loading, Pillow/uint8 preprocessing, top-k postprocessing | [Inference](inference.md) |
-| Evaluation | COCO prediction JSON, category-ID mapping, optional bbox metrics | [COCO evaluation](evaluation.md) |
-| Export | `FixedShapeRTDETR`, fixed batch-1 640×640 CPU FP32 ONNX Runtime execution with graph optimizations disabled | [Export profile](inference.md#fixed-shape-onnx-export) |
-| Training losses | Hungarian matching, Varifocal/L1/GIoU, decoder/encoder auxiliary supervision, global target-count normalization under native DDP | [Training losses](training.md) |
-| Denoising | Contrastive queries, registered class embeddings, query separation, per-layer DN losses | [Denoising](training.md#contrastive-denoising) |
-| Training loop | Lightning, AdamW parameter groups, EMA, CPU FP32/`bf16-mixed` and CUDA FP32/AMP, epoch-boundary resume | [Lightning](lightning.md) and [GPU scope](gpu-validation.md) |
-| Research examples | DEIM MAL, D-FINE FDR, RT-DETRv3 training branches, RT-DETRv4 DSI/GAM compositions | [Recipes](../recipes/README.md) |
+| Model stages | Frozen tensor contracts with jaxtyping annotations and eager validation; row-major memory projection and level offsets; anchors and top-k selection preserving upstream masks | [Extension guide](extensions.md) |
+| Decoder and gradients | Explicit execution/output plans, self-attention, multi-scale deformable cross-attention, iterative refinement, content/reference detach boundaries, differentiable encoder auxiliary predictions | [Gradient ownership](extensions.md#gradient-ownership) |
+| Composition | Component-injected `RTDETR`, named architecture factories for ten official RT-DETR/RT-DETRv2 PResNet presets, optional AIFI features, and hierarchical Hydra configs for model and training components | [Extension guide](extensions.md#named-model-presets) |
+| Checkpoints and inference | Strict official inference-weight loading, CPU FP32 full-model parity, Pillow/uint8 preprocessing, and upstream-compatible top-k postprocessing | [Inference I/O](inference.md) |
+| COCO evaluation | Prediction JSON and optional bbox metrics; official R50vd EMA measured on all COCO val2017 images in T4 FP32/AMP; pycocotools is loaded only for metrics | [COCO evaluation](evaluation.md) |
+| ONNX export | `FixedShapeRTDETR` and CPU FP32 ONNX Runtime parity for fixed batch-1 640×640, with graph optimizations disabled | [Export profile](inference.md#fixed-shape-onnx-export) |
+| Matching and losses | Hungarian matching and Varifocal/L1/GIoU losses with distributed target-count normalization, including decoder/encoder auxiliary supervision and CPU loss/gradient parity | [Training losses](training.md) |
+| Denoising | Contrastive queries, registered class embeddings in the training wrapper, and per-layer DN losses with CPU upstream parity | [Contrastive denoising](training.md#contrastive-denoising) |
+| Training loop | Lightning adapter with baseline AdamW groups, EMA, synthetic resume tests, and bounded real-image R50vd CUDA FP32/AMP epoch-boundary resume | [Lightning training](lightning.md), [real-image GPU validation](full-r50vd-training.md) |
+
+Forward and gradient parity tests use SHA-256-pinned upstream methods.
+Full-dataset training, research-method composition, and latency remain pending.
+See [T4 COCO precision evaluation](coco-precision.md) for measured full-dataset AP. Dynamic-shape ONNX
+and TensorRT are outside the validated export scope.
+
+## First increment
+
+- [x] Private repository, Python package, isolated development environment.
+- [x] Preserve the design proposal and pin upstream source provenance.
+- [x] Feature contracts, memory projection, anchors, and query selection.
+- [x] Score/box head injection with real parameter registration and gradients.
+- [x] Compare stage outputs and gradients against unchanged upstream methods.
+- [x] Query assembly and decoder with iterative refinement and explicit layer selection.
+- [x] Capture an official checkpoint, its hash, and the model/EMA selection for implemented stages.
+- [ ] Capture full R50vd stage fixtures, COCO AP, and latency in a fixed GPU environment.
+
+## Next increment
+
+1. [x] Add PResNet and HybridEncoder, including an explicit AIFI feature boundary.
+2. [x] Connect image-to-prediction R50vd and extend strict checkpoint loading to all inference stages.
+3. [x] Validate CPU FP32 complete-model checkpoint/stage parity with the pinned official artifact.
+4. [x] Add Pillow/uint8 preprocessing, top-k postprocessing, and an image inference example.
+5. [x] Capture COCO AP in a fixed evaluation environment, including category-ID mapping.
+   Official R50vd EMA: FP32 AP 53.053617 and AMP AP 53.073743 on all 5,000
+   val2017 images; see [COCO precision evaluation](coco-precision.md).
+6. [x] Add fixed-shape ONNX export and CPU FP32 runtime parity.
+7. [x] Add DN queries, criterion, and CPU loss/gradient parity.
+8. [x] Add synthetic CPU FP32 Lightning training and epoch-boundary resume.
+9. [ ] Validate full-dataset training. [Real-image R50vd short training and resume](full-r50vd-training.md) passed on T4; a resumable full-data session recipe is prepared. Full-data convergence remains pending. Short synthetic GPU/DDP/AMP checks are described in [GPU execution](gpu-validation.md).
+10. [ ] Implement research-method composition.
 
 ## Validation evidence
 
-Reports apply to their recorded source revision, inputs, and environment.
-Passing a synthetic check does not establish full-dataset training or accuracy.
+The FP32/FP64 matching criterion is implemented with Hungarian
+assignment and Varifocal/L1/GIoU losses, including decoder and encoder auxiliary
+supervision. Contrastive DN construction, registered training-wrapper embeddings,
+and per-layer DN losses are implemented. CPU upstream query/loss/gradient parity
+is covered by offline tests; see [training losses](training.md). The optional
+[Lightning adapter](lightning.md) adds a CPU FP32 / CUDA FP32 or AMP training loop and epoch-boundary
+resume, including optimizer, scheduler, EMA, and application RNG state. Hierarchical
+Hydra configs inject baseline model stages and optimizer/scheduler factories. Full
+dataset training and research-method composition remain pending. See [GPU execution](gpu-validation.md) for bounded GPU checks.
 
-| Evidence | What it establishes |
-| --- | --- |
-| [CPU full-model parity](../benchmarks/full-model-parity.json) | Official R50vd weights compared on a seeded synthetic 640×640 input, with checkpoint and source hashes and per-stage errors |
-| [CPU ONNX parity](../benchmarks/onnx-parity.json) | Fixed batch-1 640×640 FP32 execution for seeds 41 and 42, with exporter and runtime graph optimizations disabled |
-| [Training tests](training.md#validation-scope) and [resume tests](lightning.md#validation) | CPU assignment, loss, gradient, and DN parity against pinned upstream code; synthetic checkpoint/resume checks |
-| [COCO val2017 evaluation](../benchmarks/coco-val2017.md) | Historical official pretrained R50vd EMA inference: CPU FP32 bbox AP 53.05 on all 5,000 images; this is pretrained-weight evaluation |
-| [GPU validation](gpu-validation.md) | Bounded CUDA precision, training, resume, and native DDP checks with their recorded limits |
-| [Historical L4 bf16 probe](../benchmarks/bf16-l4.md) | Random-weight R50 backbone with small encoder/decoder at 64×64, plus raw DN training on that snapshot; it does not validate later Lightning GPU support |
-
-## Remaining work
-
-- Capture full R50vd stage fixtures, COCO AP, and latency in a fixed GPU environment.
-- Compare full-dataset COCO results with the upstream implementation under
-  identical conditions.
-- Validate full-dataset training, convergence, and training-derived COCO AP.
-- Reproduce official research methods, checkpoints, and training schedules.
-- Validate deployment beyond the fixed CPU ONNX profile, including dynamic
-  shapes, split export, and TensorRT.
-
-Short GPU/DDP/AMP runs do not complete full training validation. Historical
-pretrained COCO results do not complete independent training reproduction.
+The image-to-prediction API returns raw class logits and normalized cxcywh boxes.
+Separate image I/O accepts Pillow images or CPU uint8 RGB tensors using the same
+640×640 Pillow resize path. Postprocessing returns scores, class indices, and
+unclipped original-image xyxy boxes. Offline tests cover image I/O contracts and
+pinned upstream postprocessor parity; they do not measure dataset accuracy.
+Small offline tests cover component integration, gradients, and checkpoint
+validation; `tools/checkpoint_parity.py --full-model` checks the official
+weights on a seeded synthetic 640×640 input. That comparison is separate from
+dataset evaluation, GPU fixture capture, and latency measurement.
+The [recorded parity result](../benchmarks/full-model-parity.json) includes source
+hashes, checkpoint provenance, input hash, environment, and per-stage errors.
+The [fixed-shape export result](../benchmarks/onnx-parity.json) records a separate
+CPU FP32 ONNX Runtime gate for seeds 41 and 42, with exporter and runtime graph
+optimizations disabled. This does not complete the broader deployment phase or establish AP,
+latency, dynamic-shape, or TensorRT support.
 
 ## Research acceptance
 
-Each extension progresses independently through contract tests, reproduction,
-export verification, and backend verification. The current recipes demonstrate
-composition and bounded numerical or integration checks; they do not establish
-official DEIM + D-FINE or RT-DETRv3/v4 reproduction.
-
-Before claiming a new stage of support, record its configuration, seed, source
-revision, artifacts, and comparison results. Use the
-[recipe responsibilities](recipe-boundaries.md) to decide which contracts,
-losses, data transformations, and state belong to the extension.
+Exercise training-only branches with shared decoder weights, feature distillation
+and controller state, distribution regression, and recipe/loss composition. Each
+extension progresses independently through contract tests, reproduction, export,
+and backend verification. Start official DEIM + D-FINE and RT-DETRv3/v4 integrations
+once their required boundaries have passed these smaller checks.

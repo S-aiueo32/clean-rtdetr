@@ -1,0 +1,187 @@
+{
+  "job_url": "https://www.kaggle.com/code/souuchida/clean-rtdetr-t4-coco-upstream-comparison",
+  "job_manifest_sha256": "6a5527bcc123f0f5e65348c92f8b4ef78e8a1f0ec987f1803074f4f71b9b01e4",
+  "requirements_freeze_sha256": "2b2ed24e3252c1b236fb7c26d8b0248b08fd3f9940fdf85c5155602a38073998",
+  "source_archive_sha256": "6e8253ee06b3ab792a6756ca89a29baba8e198763014a22c0117f6bffc16df88",
+  "probe_sha256": "bbc1225bd01bef1887924dc6b055439b67d2af66fdf735f00ac64d519be5483e",
+  "source_commit": "cc2d7831381c992a931aaba562ea43d717fe453a",
+  "annotations_sha256": "e8c7f7908f1d7278341fae127d0da654f102f11bd7b21d8aeefa635b8c810b6f",
+  "checkpoint_sha256": "dfaafa5a3d29958a360c35f1fad553a6f287bfae9967e8ee007e65cff21ddf45",
+  "gpu": "Tesla T4",
+  "image_count": 5000,
+  "postprocessing": {
+    "category_map": "clean_rtdetr.evaluation.COCO_CATEGORY_IDS",
+    "clipping": false,
+    "nms": false,
+    "top_k": 300
+  },
+  "preprocessing": {
+    "implementation": "clean_rtdetr.inference.preprocess_images",
+    "resize": "640x640",
+    "uint8_rgb": true
+  },
+  "results": {
+    "amp_fp16": {
+      "clean_metrics": {
+        "AP": 53.07374255337203,
+        "AP50": 71.21662820139505,
+        "AP75": 57.68231955457309,
+        "AP_large": 70.10888666962889,
+        "AP_medium": 57.73906836764582,
+        "AP_small": 34.73844778550477,
+        "AR1": 39.04093610314892,
+        "AR10": 65.54419403541576,
+        "AR100": 72.14444894110582,
+        "AR_large": 88.04186742741635,
+        "AR_medium": 76.42136958508107,
+        "AR_small": 54.680539330977936
+      },
+      "clean_minus_upstream_metric_deltas": {
+        "AP": 0.00010183948876374416,
+        "AP50": 0.00011673494194042178,
+        "AP75": 9.506598320996318e-05,
+        "AP_large": 3.503321821085592e-06,
+        "AP_medium": -1.268224387729333e-06,
+        "AP_small": 7.879889949435892e-07,
+        "AR1": 0.0,
+        "AR10": 0.0,
+        "AR100": 0.0,
+        "AR_large": 0.0,
+        "AR_medium": 0.0,
+        "AR_small": 0.0
+      },
+      "image_count": 5000,
+      "image_sha256_digest": "930c9debbafc7909da82aead999952d32872fb5d6fe6e91aafafe98c39080b4e",
+      "input_order_digest": "930c9debbafc7909da82aead999952d32872fb5d6fe6e91aafafe98c39080b4e",
+      "prediction_artifacts": {
+        "clean": {
+          "count": 1500000,
+          "path": "/kaggle/working/clean-rtdetr-t4-coco-upstream/clean-amp_fp16-predictions.json",
+          "sha256": "91e4f12d209258e2d0e671a0c9e48bb13b22ce64ccb1d5d4946bb831ef7e0992"
+        },
+        "upstream": {
+          "count": 1500000,
+          "path": "/kaggle/working/clean-rtdetr-t4-coco-upstream/upstream-amp_fp16-predictions.json",
+          "sha256": "3afc0667ba2c56b24da387cb2e62d20e984997e4c439624c689c9a228d11b5a7"
+        }
+      },
+      "query_alignment": {
+        "all_ordered_ids_equal": true,
+        "clean_ordered_ids_digest": "848df0a073283314ecd09d31dec6293c82f9ca73a7cec66add3d4deee1bb8b3d",
+        "common_query_count_max": 300,
+        "common_query_count_min": 300,
+        "image_count": 5000,
+        "ordered_ids_equal_images": 5000,
+        "query_count": 300,
+        "same_query_set_images": 5000,
+        "subset_diagnostic": "No subset inference or subset AP was run; this report contains full-scope query alignment only.",
+        "upstream_ordered_ids_digest": "848df0a073283314ecd09d31dec6293c82f9ca73a7cec66add3d4deee1bb8b3d"
+      },
+      "raw_output_diff_summary": {
+        "max_abs_boxes_ordered": 0.004773974418640137,
+        "max_abs_boxes_query_aligned": 0.004773974418640137,
+        "max_abs_logits_ordered": 0.0546875,
+        "max_abs_logits_query_aligned": 0.0546875
+      },
+      "scope": "all_annotation_images",
+      "subset_metrics": null,
+      "upstream_metrics": {
+        "AP": 53.073640713883265,
+        "AP50": 71.21651146645311,
+        "AP75": 57.68222448858988,
+        "AP_large": 70.10888316630707,
+        "AP_medium": 57.73906963587021,
+        "AP_small": 34.73844699751577,
+        "AR1": 39.04093610314892,
+        "AR10": 65.54419403541576,
+        "AR100": 72.14444894110582,
+        "AR_large": 88.04186742741635,
+        "AR_medium": 76.42136958508107,
+        "AR_small": 54.680539330977936
+      }
+    },
+    "fp32": {
+      "clean_metrics": {
+        "AP": 53.05360432395509,
+        "AP50": 71.21809737339106,
+        "AP75": 57.6707840709032,
+        "AP_large": 70.09766975110927,
+        "AP_medium": 57.72569828465935,
+        "AP_small": 34.729815829476614,
+        "AR1": 39.04489924971413,
+        "AR10": 65.50471171727749,
+        "AR100": 72.14356992530313,
+        "AR_large": 88.03636819817282,
+        "AR_medium": 76.46010027509732,
+        "AR_small": 54.68561173089535
+      },
+      "clean_minus_upstream_metric_deltas": {
+        "AP": 0.0,
+        "AP50": 0.0,
+        "AP75": 0.0,
+        "AP_large": 0.0,
+        "AP_medium": 0.0,
+        "AP_small": 0.0,
+        "AR1": 0.0,
+        "AR10": 0.0,
+        "AR100": 0.0,
+        "AR_large": 0.0,
+        "AR_medium": 0.0,
+        "AR_small": 0.0
+      },
+      "image_count": 5000,
+      "image_sha256_digest": "930c9debbafc7909da82aead999952d32872fb5d6fe6e91aafafe98c39080b4e",
+      "input_order_digest": "930c9debbafc7909da82aead999952d32872fb5d6fe6e91aafafe98c39080b4e",
+      "prediction_artifacts": {
+        "clean": {
+          "count": 1500000,
+          "path": "/kaggle/working/clean-rtdetr-t4-coco-upstream/clean-fp32-predictions.json",
+          "sha256": "deb7cf86d24c3861d537db095a8e2e83280d534cea2ba2d23e54243838753292"
+        },
+        "upstream": {
+          "count": 1500000,
+          "path": "/kaggle/working/clean-rtdetr-t4-coco-upstream/upstream-fp32-predictions.json",
+          "sha256": "deb7cf86d24c3861d537db095a8e2e83280d534cea2ba2d23e54243838753292"
+        }
+      },
+      "query_alignment": {
+        "all_ordered_ids_equal": true,
+        "clean_ordered_ids_digest": "a9fa2dd75aeea13c3b7a3617ce7cc55df67bfdff1e5459ba8ffdd7c5f859f4c8",
+        "common_query_count_max": 300,
+        "common_query_count_min": 300,
+        "image_count": 5000,
+        "ordered_ids_equal_images": 5000,
+        "query_count": 300,
+        "same_query_set_images": 5000,
+        "subset_diagnostic": "No subset inference or subset AP was run; this report contains full-scope query alignment only.",
+        "upstream_ordered_ids_digest": "a9fa2dd75aeea13c3b7a3617ce7cc55df67bfdff1e5459ba8ffdd7c5f859f4c8"
+      },
+      "raw_output_diff_summary": {
+        "max_abs_boxes_ordered": 0.0,
+        "max_abs_boxes_query_aligned": 0.0,
+        "max_abs_logits_ordered": 0.0,
+        "max_abs_logits_query_aligned": 0.0
+      },
+      "scope": "all_annotation_images",
+      "subset_metrics": null,
+      "upstream_metrics": {
+        "AP": 53.05360432395509,
+        "AP50": 71.21809737339106,
+        "AP75": 57.6707840709032,
+        "AP_large": 70.09766975110927,
+        "AP_medium": 57.72569828465935,
+        "AP_small": 34.729815829476614,
+        "AR1": 39.04489924971413,
+        "AR10": 65.50471171727749,
+        "AR100": 72.14356992530313,
+        "AR_large": 88.03636819817282,
+        "AR_medium": 76.46010027509732,
+        "AR_small": 54.68561173089535
+      }
+    }
+  },
+  "schema_version": 1,
+  "scope": "all_annotation_images",
+  "status": "completed",
+  "torch": "2.13.0+cu126"
+}

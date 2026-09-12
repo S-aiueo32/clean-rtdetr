@@ -1,0 +1,108 @@
+{
+  "amp_minus_fp32_percentage_points": {
+    "AP": 0.02012526233514933,
+    "AP50": -0.0014997794968394373,
+    "AP75": 0.01156788157840083,
+    "AP_large": 0.011176222212881726,
+    "AP_medium": 0.013636114692012313,
+    "AP_small": 0.008629887079450782,
+    "AR1": -0.003963146565205022,
+    "AR10": 0.03948231813826908,
+    "AR100": 0.0008906145778837526,
+    "AR_large": 0.0054992292435258605,
+    "AR_medium": -0.0387306900162514,
+    "AR_small": -0.005043384132846995
+  },
+  "artifact_sha256": {
+    "amp_fp16/metrics.json": "9357031e76c65f616a268ef5f061ab0574ebf7328626622c2bba40ad974a58da",
+    "amp_fp16/predictions.json": "6a4eb76007c6ef111a046be5194421ecca48001df1474dacb7aa0997c367dbd3",
+    "amp_fp16/predictions.report.json": "9fecd1163351aa961d703c81906e3f336ef0746fd5b7f0c52c274b60e8c24ab5",
+    "fp32/metrics.json": "ddb7ba98ff79d9294e8c38236c2250aee344e9519b50355ebb130c5f6b285e20",
+    "fp32/predictions.json": "a11d6c366b99984bd9a6aafdb726b927914ba321d376390c610a97f7f9bcede4",
+    "fp32/predictions.report.json": "7648c2dddb1e902cb11203151a77a672b4bc6d3a243fdf7e11306d71ad67db7d"
+  },
+  "checkpoint_sha256": "426cb992fb7afbc9b88bce59058f4e1c0c1bf6d88aef3ca8d9b690a15d252dca",
+  "environment": {
+    "cuda": "12.6",
+    "gpu": "Tesla T4",
+    "python": "3.13.13",
+    "tf32": false,
+    "torch": "2.13.0+cu126"
+  },
+  "image_count": 5000,
+  "metrics": {
+    "amp_fp16": {
+      "AP": 53.07374255337203,
+      "AP50": 71.21662820139505,
+      "AP75": 57.68231955457309,
+      "AP_large": 70.10888666962889,
+      "AP_medium": 57.73906836764582,
+      "AP_small": 34.73844778550477,
+      "AR1": 39.04093610314892,
+      "AR10": 65.54419403541576,
+      "AR100": 72.14444894110582,
+      "AR_large": 88.04186742741635,
+      "AR_medium": 76.42136958508107,
+      "AR_small": 54.680539330977936
+    },
+    "fp32": {
+      "AP": 53.05361729103688,
+      "AP50": 71.2181279808919,
+      "AP75": 57.67075167299469,
+      "AP_large": 70.097710447416,
+      "AP_medium": 57.72543225295381,
+      "AP_small": 34.72981789842532,
+      "AR1": 39.04489924971413,
+      "AR10": 65.50471171727749,
+      "AR100": 72.14355832652794,
+      "AR_large": 88.03636819817282,
+      "AR_medium": 76.46010027509732,
+      "AR_small": 54.68558271511078
+    }
+  },
+  "note": "Measured precision differences; no universal AP degradation threshold assumed.",
+  "ordered_image_digest": "930c9debbafc7909da82aead999952d32872fb5d6fe6e91aafafe98c39080b4e",
+  "scope": "all_annotation_images",
+  "seed": 41,
+  "status": "completed",
+  "manifest": {
+    "source_commit": "cc2d7831381c992a931aaba562ea43d717fe453a",
+    "source_archive_sha256": "1c175263d85ebe553dac8ea1826c5279e0e1dd1abeba3406e0fccdb503843a02",
+    "probe_sha256": "9fa6b35d36f113c688f120b1b019e598c165d4309301224e9c24cba4faaef0c1",
+    "source": "PR36 plus COCO precision evaluation tool; archive hash identifies snapshot",
+    "profile": "Python 3.13 / torch 2.13.0+cu126 / NvidiaTeslaT4",
+    "scope": "Full COCO val2017 CUDA FP32 and AMP FP16 evaluation"
+  },
+  "inputs": {
+    "checkpoint": {
+      "name": "checkpoint",
+      "url": "https://github.com/lyuwenyu/storage/releases/download/v0.1/rtdetr_r50vd_6x_coco_from_paddle.pth",
+      "path": "/kaggle/temp/clean-rtdetr-t4-coco/rtdetr_r50vd_6x_coco_from_paddle.pth",
+      "sha256": "dfaafa5a3d29958a360c35f1fad553a6f287bfae9967e8ee007e65cff21ddf45",
+      "size_bytes": 172373587
+    },
+    "images": {
+      "name": "images",
+      "url": "https://s3.amazonaws.com/images.cocodataset.org/zips/val2017.zip",
+      "path": "/kaggle/temp/clean-rtdetr-t4-coco/val2017.zip",
+      "sha256": "4f7e2ccb2866ec5041993c9cf2a952bbed69647b115d0f74da7ce8f4bef82f05",
+      "size_bytes": 815585330
+    },
+    "annotations": {
+      "name": "annotations",
+      "url": "https://s3.amazonaws.com/images.cocodataset.org/annotations/annotations_trainval2017.zip",
+      "path": "/kaggle/temp/clean-rtdetr-t4-coco/annotations_trainval2017.zip",
+      "sha256": "113a836d90195ee1f884e704da6304dfaaecff1f023f49b6ca93c4aaae470268",
+      "size_bytes": 252907541
+    }
+  },
+  "job_url": "https://www.kaggle.com/code/souuchida/clean-rtdetr-coco-precision-20260911",
+  "job_version": 2,
+  "requirements_freeze_sha256": "5424a891d19751a1723bc5ff5afc5b513c0ec0ca08a92ec59c483dfea2f58286",
+  "local_validation": {
+    "pytest_passed": 482,
+    "pytest_skipped": 19,
+    "coverage_percent": 90,
+    "quality_build_publish_dry_run": "passed"
+  }
+}

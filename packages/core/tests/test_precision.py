@@ -5,6 +5,7 @@ import pytest
 import torch
 from core_model_fixtures import small_model
 
+from clean_rtdetr import QuerySelector, QuerySelectorConfig
 from clean_rtdetr.models.attention import deformable_attention_core
 
 CUDA = pytest.param("cuda", marks=pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA"))
@@ -23,12 +24,39 @@ def test_half_model_retains_valid_prediction_contract(device: str) -> None:
         assert torch.isfinite(tensor).all()
 
 
-@pytest.mark.parametrize("device", ["cpu", CUDA])
-def test_autocast_prediction_contract(device: str) -> None:
+@pytest.mark.parametrize(
+    ("device", "dtype"),
+    [
+        ("cpu", torch.bfloat16),
+        pytest.param(
+            "cuda",
+            torch.float16,
+            marks=pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA"),
+        ),
+        pytest.param(
+            "cuda",
+            torch.bfloat16,
+            marks=pytest.mark.skipif(
+                not torch.cuda.is_available()
+                or not torch.cuda.is_bf16_supported(including_emulation=False),
+                reason="Native CUDA BF16 is required",
+            ),
+        ),
+    ],
+)
+@pytest.mark.parametrize("learned_content", [False, True])
+def test_autocast_prediction_contract(
+    device: str, dtype: torch.dtype, *, learned_content: bool
+) -> None:
     """Autocast features must not leak mixed logits/box dtypes into the public output."""
     torch.manual_seed(1729)
-    model = small_model().to(device).eval()
-    dtype = torch.float16 if device == "cuda" else torch.bfloat16
+    model = small_model()
+    model.selector = QuerySelector(
+        QuerySelectorConfig(
+            hidden_dim=8, num_classes=3, num_queries=2, learned_content=learned_content
+        )
+    )
+    model.to(device).eval()
     with torch.inference_mode(), torch.autocast(device, dtype=dtype):
         output = model(torch.rand(1, 3, 64, 64, device=device))
     output.decoder.validate()
