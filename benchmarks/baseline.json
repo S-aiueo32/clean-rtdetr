@@ -22,9 +22,18 @@
     "source": "ema",
     "artifact": "checkpoints/rtdetr_r50vd_6x_coco_from_paddle.pth"
   },
-  "evaluation": null,
+  "evaluation": {
+    "report": "benchmarks/coco-val2017.json",
+    "dataset": "COCO val2017",
+    "image_count": 5000,
+    "device": "cpu",
+    "dtype": "float32",
+    "source": "ema",
+    "metric_scale": "0_to_100",
+    "AP": 53.053590326662004
+  },
   "latency": null,
-  "status": "full-model-cpu-fp32-checkpoint-parity; dataset evaluation and GPU baseline capture pending",
+  "status": "full-model-cpu-fp32-checkpoint-parity; full-coco-val2017-cpu-fp32-evaluation; upstream dataset comparison and GPU baseline capture pending",
   "stage_parity": {
     "report": "benchmarks/full-model-parity.json",
     "device": "cpu",

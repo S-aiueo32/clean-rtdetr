@@ -1,0 +1,278 @@
+{
+  "schema_version": 1,
+  "recorded_date": "2026-09-11",
+  "run_timestamp_as_logged": "Thu Sep 10 23:30:50 2026",
+  "run_timestamp_timezone": "not specified by nvidia-smi log",
+  "evidence_origin": "User-supplied result ZIP from the single-cell Colab-compatible validation launcher",
+  "status": "passed_native_bf16",
+  "hardware": {
+    "device": "NVIDIA L4",
+    "device_count": 1,
+    "compute_capability": [
+      8,
+      9
+    ],
+    "driver_version": "580.173.02",
+    "nvidia_smi_memory_mib": 23034,
+    "native_bf16_supported": true
+  },
+  "model": {
+    "factory": "packages/core/tests/core_model_fixtures.py:small_model",
+    "backbone": "PResNet R50vd",
+    "weights": "random initialization; no pretrained checkpoint",
+    "hidden_dim": 8,
+    "num_classes": 3,
+    "num_queries": 2,
+    "decoder_layers": 2,
+    "attention_heads": 2,
+    "feature_levels": 3,
+    "decoder_num_points": 1,
+    "feedforward_dim": 16,
+    "input_shape": [
+      1,
+      3,
+      64,
+      64
+    ],
+    "denoising_num_queries_config": 4,
+    "training_steps": 2,
+    "optimizer": "AdamW",
+    "learning_rate": 1e-05
+  },
+  "scope": {
+    "device": "single CUDA GPU",
+    "precision": "bf16 autocast with FP32 parameters, input images, targets and public predictions",
+    "verified": [
+      "bf16 projected memory with FP32 prediction contracts",
+      "inference and top-2 postprocessing",
+      "DN supervision and all allocated parameter gradients finite",
+      "nonempty and empty target optimizer updates",
+      "deformable attention forward and query/value backward comparison against FP32"
+    ],
+    "not_verified": [
+      "full R50vd preset at 640x640",
+      "pretrained weights or COCO AP",
+      "training convergence or full-dataset training",
+      "latency or throughput",
+      "Lightning GPU execution or GPU checkpoint resume",
+      "DDP or multi-GPU training",
+      "bf16 ONNX export",
+      "all-bf16 model weights"
+    ]
+  },
+  "source_manifest": {
+    "source_commit": "db0b025d04d970bf8266b9c142de16884a384ca2",
+    "source_description": "Recorded working-tree snapshot including then-uncommitted bf16 changes; source_commit is the base, not the complete version identifier.",
+    "source_archive_sha256": "ff0068a7f4c8d7f9a721eae7b71374a25647318a4e1f02458eb2a8724e15d1ba",
+    "probe_sha256": "df849fedc987c01babba1871d68462f69430829e3754ac890ad95ac0ec8d90f4",
+    "seed": 41,
+    "profile": "Python 3.13 / torch 2.13.0+cu126 in an isolated environment",
+    "file_sha256": {
+      "LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "packages/core/LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "packages/core/README.ja.md": "7d185e6c1ab1dc1ea2ebf083a97922e5bde0e58c9f2faba9f8836f7d5397a95b",
+      "packages/core/README.md": "0af7492cb6b733dcdad16b10c00162289e29d4d56d07335fe08babe2af667643",
+      "packages/core/pyproject.toml": "27e0a8b795468449773dbd7eef1dd41d77c26fb897cd4ad98e968966ba8f2e46",
+      "packages/core/src/clean_rtdetr/__init__.py": "df3ef1a0c0ad81a98c1b1ebc0964505dd671a622b4af2f6466a8670ffb5ebf8e",
+      "packages/core/src/clean_rtdetr/checkpoint.py": "5a047a06c0d53901b350f49d9a2ae2d5e9ff0ef4ec8f8f891783728835f9d6f4",
+      "packages/core/src/clean_rtdetr/cli/__init__.py": "e83da3298d54342846ca92caca1a2dcf514d6acd35dfb556933ca1623538fad4",
+      "packages/core/src/clean_rtdetr/cli/_official_checkpoint.py": "55ec2f529f1ba9767f35c36a518e6dc59558ccd505b345059fba216b8bb3f54b",
+      "packages/core/src/clean_rtdetr/cli/_visualize.py": "55334768a812d1d449879d934b1648ab58a9e3098dc9707892bacae299f3d191",
+      "packages/core/src/clean_rtdetr/cli/coco_evaluate.py": "c99a2cc892d3bc6baf626bbf9c340d7074e9e28905531545cebb266f6bdc2964",
+      "packages/core/src/clean_rtdetr/cli/coco_predict.py": "b242989fbfc73e6dbaae1dc2d19efe2f7995e868042119ad6acff50bb1bf0c88",
+      "packages/core/src/clean_rtdetr/cli/convert.py": "1c9bd6bddb5bc85942d655b8ae3482f0af721e798ca031a1aa6eb05a12c8b71b",
+      "packages/core/src/clean_rtdetr/cli/predict.py": "a3b6e85791018ccc5dbe02805de887d0eae6ec583787ec9f5d3ea4832864fbbf",
+      "packages/core/src/clean_rtdetr/contracts.py": "abc22ba06e84335debff900a9ade18f66dae73089fbd7c4aa83533bb0fcd328a",
+      "packages/core/src/clean_rtdetr/evaluation/__init__.py": "1c70d3e29794fa9699cd36ed255e33977247e4dd31c28d2880a407693a935a9b",
+      "packages/core/src/clean_rtdetr/evaluation/_pycocotools.py": "95e798a6b6f0ebaf0cce71f790b78e56a934a36bbff2137bce41a4cee5820dfb",
+      "packages/core/src/clean_rtdetr/evaluation/coco.py": "d003ee28055aa6ccd2afcf0f19e2f86c851b630d227e52bb8121dd57ae204a02",
+      "packages/core/src/clean_rtdetr/geometry.py": "6f215bf030177f75f6dfb3bdd0e67678a526a65160756937e0bb8d02c188b3e7",
+      "packages/core/src/clean_rtdetr/inference/__init__.py": "1eb60d52ce68a2756c6e2425a25dba4bb05b20dfe345f70afb45861e7d46960d",
+      "packages/core/src/clean_rtdetr/inference/postprocessing.py": "66a25a812806ca7facb3c2e1b7a97a04766284196dbc7f77f14c763cd5193a7f",
+      "packages/core/src/clean_rtdetr/inference/preprocessing.py": "93f41009664c26abbe1c72dcf1c9a44a481cf807c6727ccfe0a9fc5db249d278",
+      "packages/core/src/clean_rtdetr/models/__init__.py": "f2e94c872bde618786cf86da7d632a859e0f66d9346fb3eee4ed834b75cc7626",
+      "packages/core/src/clean_rtdetr/models/_checkpoint.py": "e2e95ff056e86fa4959038e1ec78685dbbc1a05ddec4204061ff2cf780693357",
+      "packages/core/src/clean_rtdetr/models/attention.py": "d12ab6c9fde0f27410c853970687318dd8f1fd55166bb4e6f4fd93627a82682d",
+      "packages/core/src/clean_rtdetr/models/backbone.py": "a260455236131d9cfbf01de5335025e380cbfb597ab73751027576a240ec6db2",
+      "packages/core/src/clean_rtdetr/models/decoder.py": "890ae6274feb3b8f6009c4e43e8a266ccddcd3fe4ec2b2a0e833df1a76c7f6c2",
+      "packages/core/src/clean_rtdetr/models/encoder.py": "8fd067331d5c44ca2f4f04fe5cad7645b2bf543be26eafba0e264dded7928b3c",
+      "packages/core/src/clean_rtdetr/models/factory.py": "185d0e19e35a93f17a4a7e5a5c7654c801fc847c437531f3767a962226894c1a",
+      "packages/core/src/clean_rtdetr/models/interfaces.py": "896145bcf5751f2454a17d7dd70f3202d89c7926b7ee9700860187dd1a5ef7fc",
+      "packages/core/src/clean_rtdetr/models/memory.py": "68ca32a1e569461f604f0141fb88a006782e8a6ee16714c03b6060962996694c",
+      "packages/core/src/clean_rtdetr/models/queries.py": "436ffbe15445bba694a2d181c9f496261fa8c2cf9ade5ea2e570fc1596f1ff3d",
+      "packages/core/src/clean_rtdetr/models/rtdetr.py": "5d68dfb5a19729978167be2850011cc62a451359bfe11f71693d2fb6506d4b37",
+      "packages/core/src/clean_rtdetr/models/selector.py": "5c50b0e31193d676b544bac5fe3653f61c33f574fa7f541cff1accea6843ffda",
+      "packages/core/tests/core_model_fixtures.py": "395826a307bf577c4dce21bb4dccf519900b91113278ea468f38b1e82874610f",
+      "packages/training/LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "packages/training/README.ja.md": "c793a4d633cce28240828bc4aba2a482184e8a894738b523411ee4f1c920024b",
+      "packages/training/README.md": "f52848e532b08b304112f47ffb4288a7f637a472009cca09a3ae191f81281fbd",
+      "packages/training/pyproject.toml": "92974b5f481c9e0aeaab60ff111d1e7e69fa1ce37859e5dac827230103268c97",
+      "packages/training/src/clean_rtdetr_training/__init__.py": "c8f509f881b5fe6cba8afe1b6e1c5a22434595ff86e2e80a99596ed3adb1d93e",
+      "packages/training/src/clean_rtdetr_training/cli.py": "cc65d7d0258e2c9bef05ab074e20a7d67e2fc23caf10b249d6a6d67e8dcbefe0",
+      "packages/training/src/clean_rtdetr_training/configuration.py": "61e23821127b697f927e22f48ce5a6f3fb9008831f7a96f0c8aa292a4dffe0af",
+      "packages/training/src/clean_rtdetr_training/contracts.py": "0cbfbb8cb4945d957fecdedc27141940d8dba0e23caa286963fbd6ebd3b729ad",
+      "packages/training/src/clean_rtdetr_training/data/__init__.py": "bebfd01c1573a7e741055201c27890b6721093c1c545cb42419a711cc50f7344",
+      "packages/training/src/clean_rtdetr_training/data/collate.py": "104bb22ac53f3071aabf2005b89d31837c360803cbc556df358a0326ab79061c",
+      "packages/training/src/clean_rtdetr_training/data/contracts.py": "3a7a2e2a6538f47d8e0aeb451294ab36869fc649ce513400e9b0ee25adf6b23a",
+      "packages/training/src/clean_rtdetr_training/data/penn_fudan.py": "ffe79d26ab820295deab7bc9df137ee80d53bc23b10dd648fc8c95ae5e93db75",
+      "packages/training/src/clean_rtdetr_training/data/synthetic.py": "fd133f1706bfc9dff9cda56e786c211b9eafea0635813a002c97ef9594d94c8e",
+      "packages/training/src/clean_rtdetr_training/interfaces.py": "8c13bd21f040e5ba853d1dfbf09ad745cd102be44be47bfbd857b7f34cb3cebf",
+      "packages/training/src/clean_rtdetr_training/lightning/__init__.py": "bc016eb14a52c9f638b6af02363e49c39b943e1e79259713c78eebf9efb991f7",
+      "packages/training/src/clean_rtdetr_training/lightning/data.py": "9b122123ac630cafb7838251be2a661daac8e188c8ad1acb46a07d73c5b67544",
+      "packages/training/src/clean_rtdetr_training/lightning/ema.py": "4b2ced623d102fbb8f208bdf73b516cda8c33da5b480e4d45c886a6cccdbc9ff",
+      "packages/training/src/clean_rtdetr_training/lightning/module.py": "cd763f23a4e62fe10bb117dd9d7a44aeb72b7c305251b37ae484de57b596d286",
+      "packages/training/src/clean_rtdetr_training/lightning/optim.py": "b865d9598f1ce9f3a880a0e227b07737a534f98fdcfecee07efd38b5bb4dbc3a",
+      "packages/training/src/clean_rtdetr_training/lightning/state.py": "f71d9212e1519d328461566bd9a0ded6d87cd588f1078ac654d615b659be5e77",
+      "packages/training/src/clean_rtdetr_training/losses/__init__.py": "eb868764cb76f724a2145f7388ca632291336fa559dc4359757d172510dc3f71",
+      "packages/training/src/clean_rtdetr_training/losses/criterion.py": "2f817f02d7b3cea1fe393d411608d705d265c69673dce512408c160dfc62811a",
+      "packages/training/src/clean_rtdetr_training/losses/geometry.py": "43d9556b9c0db9f34a9160711b70c522dd085dfec5d004db7d0d606c556de744",
+      "packages/training/src/clean_rtdetr_training/losses/matcher.py": "6116078d124474ff967c79e61e7b71648c535f3c2b776c730320d1d94d0e76a6",
+      "packages/training/src/clean_rtdetr_training/losses/supervision.py": "91b4443f34d1d4704ac96f27e69d1d0fdbc62ee004632d7b1304ad0e1f36206d",
+      "packages/training/src/clean_rtdetr_training/models/__init__.py": "63870d59c446549c5b7c4f0d4ee6bfb51e16072895b1ed38d014b80f21dd33b1",
+      "packages/training/src/clean_rtdetr_training/models/denoising.py": "d7207c5682a14de5c74e1bcab16837e12ea0a972d6868a15dc47b0c513e1a252",
+      "packages/training/src/clean_rtdetr_training/models/rtdetr.py": "25776102b2aea3715b22609468b449f6f806fb1d4c5c137585b4a9ffb10013b3",
+      "pyproject.toml": "d2e3eb5a3c930b19aa6d6f4c20877ebdabb97147bbaad7d7ea6b1e540b22dbf5"
+    }
+  },
+  "integrity_checks": {
+    "probe_matches_manifest": true,
+    "source_archive_matches_manifest": true,
+    "worktree_files_checked": 64,
+    "worktree_file_mismatches_at_report_creation": []
+  },
+  "artifacts": {
+    "bf16-gpu.json": {
+      "path": "outputs/bf16-l4/bf16-gpu.json",
+      "sha256": "ba5216d778fa9f335054de755a7c51769e849b232b345942501207ffe8226829"
+    },
+    "requirements-freeze.txt": {
+      "path": "outputs/bf16-l4/requirements-freeze.txt",
+      "sha256": "25b4713284ca6794a37083f36f0c19bdc01bfc6b881458017a418fd8bb4f817e"
+    },
+    "nvidia-smi.txt": {
+      "path": "outputs/bf16-l4/nvidia-smi.txt",
+      "sha256": "a14fe1993ccc2bfa3f1a893de9a20c76be84100a76aa2a3e81cace129d325b4b"
+    },
+    "probe.py": {
+      "path": "outputs/bf16-l4/probe.py",
+      "sha256": "df849fedc987c01babba1871d68462f69430829e3754ac890ad95ac0ec8d90f4"
+    },
+    "source-manifest.json": {
+      "path": "outputs/bf16-l4/source-manifest.json",
+      "sha256": "b4e0f765a86a81ae06c8f53d6b0ac970772f5f6f151dee95434277cfb43b9f43"
+    },
+    "setup.log": {
+      "path": "outputs/bf16-l4/setup.log",
+      "sha256": "8da640112432e1f0724c83bf4aed44ce5043edb0b0e1d7ab5e6230bcb501c38c"
+    },
+    "validation.log": {
+      "path": "outputs/bf16-l4/validation.log",
+      "sha256": "e04482f8ebe7b0085ba9a354ebaf1ae99a23c77ff0a9b9d1e6f19fdeb0cfee2c"
+    },
+    "clean-rtdetr-bf16-results.zip": {
+      "path": "outputs/bf16-l4/clean-rtdetr-bf16-results.zip",
+      "sha256": "30bb77cb0c21f1663d1926a39e14b25932fbcc78a9ea1893c1e643e33c2ccfd0"
+    },
+    "source.tar.gz": {
+      "path": "outputs/bf16-l4/source.tar.gz",
+      "sha256": "ff0068a7f4c8d7f9a721eae7b71374a25647318a4e1f02458eb2a8724e15d1ba"
+    },
+    "clean-rtdetr-bf16-colab.ipynb": {
+      "path": "outputs/bf16-l4/clean-rtdetr-bf16-colab.ipynb",
+      "sha256": "aa80f785276a0f84f8af4f0734669fa0b84c50b1bbb6dd0e988e07186095a7dd"
+    }
+  },
+  "result": {
+    "bf16_supported_default": true,
+    "bf16_supported_no_emulation": true,
+    "checks": {
+      "attention": {
+        "finite": true,
+        "output_dtype": "bfloat16",
+        "output_max_abs": 0.002556145191192627,
+        "query_grad_max_abs": 0.0006519109010696411,
+        "status": "passed",
+        "value_grad_max_abs": 0.004088461399078369
+      },
+      "inference": {
+        "finite": true,
+        "logits_max_abs": 0.008959293365478516,
+        "logits_max_rel": 0.0019076697062700987,
+        "output_dtypes": {
+          "decoder.boxes": "float32",
+          "decoder.logits": "float32",
+          "encoder_aux.boxes": "float32",
+          "encoder_aux.logits": "float32",
+          "final.boxes": "float32",
+          "final.logits": "float32"
+        },
+        "postprocess_topk": 2,
+        "projector_dtypes": [
+          "torch.float32",
+          "torch.bfloat16"
+        ],
+        "status": "passed"
+      },
+      "lightning_cpu_gate": {
+        "execution": "GPU",
+        "reason": "RTDETRLightningModule.on_fit_start explicitly requires world_size=1 and device.type == 'cpu'; GPU training was not bypassed.",
+        "status": "unsupported"
+      },
+      "training": {
+        "status": "passed",
+        "steps": [
+          {
+            "bad_gradients": [],
+            "empty_target": false,
+            "finite_grad_parameters": 267,
+            "grad_parameters": 267,
+            "loss": 25.640727996826172,
+            "loss_finite": true,
+            "output_dtypes": {
+              "decoder.boxes": "float32",
+              "decoder.logits": "float32",
+              "encoder_aux.boxes": "float32",
+              "encoder_aux.logits": "float32",
+              "final.boxes": "float32",
+              "final.logits": "float32"
+            }
+          },
+          {
+            "bad_gradients": [],
+            "empty_target": true,
+            "finite_grad_parameters": 266,
+            "grad_parameters": 267,
+            "loss": 3.268551154178567e-05,
+            "loss_finite": true,
+            "output_dtypes": {
+              "decoder.boxes": "float32",
+              "decoder.logits": "float32",
+              "encoder_aux.boxes": "float32",
+              "encoder_aux.logits": "float32",
+              "final.boxes": "float32",
+              "final.logits": "float32"
+            }
+          }
+        ]
+      }
+    },
+    "cuda_available": true,
+    "cuda_capability": [
+      8,
+      9
+    ],
+    "cuda_device": "NVIDIA L4",
+    "cuda_device_count": 1,
+    "cuda_runtime": "12.6",
+    "failures": [],
+    "overall_status": "passed_native_bf16",
+    "profile": "bf16 mixed precision; FP32 weights, inputs and targets",
+    "python": "3.13.15",
+    "repo": "/content/clean-rtdetr-bf16-u69y7nxq/repo",
+    "require_native_bf16": true,
+    "scope": "Random-weight R50 backbone with small encoder/decoder; 64x64 synthetic inputs; no AP or throughput benchmark",
+    "seed": 41,
+    "source_commit": "db0b025d04d970bf8266b9c142de16884a384ca2",
+    "torch": "2.13.0+cu126"
+  }
+}

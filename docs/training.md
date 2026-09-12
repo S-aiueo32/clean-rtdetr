@@ -6,7 +6,7 @@ English | [日本語](ja/training.md)
 FP32/FP64 PyTorch predictions: Hungarian assignment, Varifocal classification,
 normalized cxcywh L1 loss, GIoU loss, and contrastive denoising construction/losses.
 A separate [Lightning adapter](lightning.md) implements the baseline optimizer
-settings and single-process CPU FP32 or CUDA FP32/AMP training with epoch-boundary resume.
+settings and single-process CPU FP32/`bf16-mixed` or CUDA FP32/AMP training with epoch-boundary resume.
 Hydra config groups inject baseline components and optimizer/scheduler factories.
 The built-in model retains FP32 predictions under autocast, so matching and losses
 need no external cast adapter. Under PyTorch DDP, target counts are summed across

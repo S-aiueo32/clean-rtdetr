@@ -27,7 +27,7 @@ uv sync --all-packages
 uv run pytest packages/core/tests
 ```
 
-core パッケージは、Pillow/uint8 前処理と COCO 形式の予測 JSON を含む CPU/PyTorch の画像から予測までの R50vd 推論に対応します。画像ファイルには `inference` extra を使います。パッケージの `clean_rtdetr.checkpoint.load_model_weights` は native plain `state_dict` を受け取り、SHA-256 は任意で検証できます。`clean-rtdetr-convert` は固定された公式 R50vd EMA source と hash を既定値にし、`--source` と `--expected-sha256` で上書きできます。converter は core の内部 CLI 実装であり、公開 compatibility API は提供しません。全体・stage・training の互換性ヘルパーは checkout 専用です。詳しくは [推論ガイド](../../docs/ja/inference.md) を参照してください。パッケージが重みをダウンロードすることはありません。固定形状 ONNX export は `clean-rtdetr-export` に、matching、loss、denoising、Lightning アダプターは `clean-rtdetr-training` に属します。データセット全体の学習、GPU/DDP/AMP 検証、COCO AP の測定、レイテンシベンチマークは検証済み範囲外です。
+core パッケージは、Pillow/uint8 前処理と COCO 形式の予測 JSON を含む CPU/PyTorch の画像から予測までの R50vd 推論に対応します。画像ファイルには `inference` extra を使います。パッケージの `clean_rtdetr.checkpoint.load_model_weights` は native plain `state_dict` を受け取り、SHA-256 は任意で検証できます。`clean-rtdetr-convert` は固定された公式 R50vd EMA source と hash を既定値にし、`--source` と `--expected-sha256` で上書きできます。converter は core の内部 CLI 実装であり、公開 compatibility API は提供しません。全体・stage・training の互換性ヘルパーは checkout 専用です。詳しくは [推論ガイド](../../docs/ja/inference.md) を参照してください。パッケージが重みをダウンロードすることはありません。固定形状 ONNX export は `clean-rtdetr-export` に、matching、loss、denoising、Lightning アダプターは `clean-rtdetr-training` に属します。公式学習済み R50vd EMA 重みの CPU FP32 推論で、COCO val2017 全 5,000 枚の AP 53.05 を測定しました。[評価結果](../../benchmarks/coco-val2017.md)を参照してください。データセット全体の学習、同一条件での上流実装との全データセット比較、レイテンシベンチマークは検証済み範囲外です。
 
 名前付きファクトリから、upstream の PResNet プリセット 10 種をランダム初期値で構築できます。`get_model_preset()` は対応する upstream YAML と checkpoint URL を来歴情報として返します。モデル構築時にダウンロードは行いません。
 
@@ -54,3 +54,12 @@ print(output.final.logits.shape, output.final.boxes.shape)  # [1, 300, 80], [1, 
 ```
 
 このパッケージは Apache-2.0 ライセンスで、固定した `lyuwenyu/RT-DETR` の revision を基にしています。ソースリポジトリの `third_party/RT-DETR` に upstream のソース、ライセンス、詳細な来歴、パリティテストを保持しています。
+
+CPU の bf16 混合精度は PyTorch autocast で利用できます。モデル重みと入力画像は FP32 のままにします。
+
+```python
+with torch.inference_mode(), torch.autocast("cpu", dtype=torch.bfloat16):
+    predictions = model(images)
+```
+
+射影層は bf16、クエリ参照座標・サンプリング・公開予測テンソルは FP32 で計算します。スコアが近い場合には top-k の選択が変わることがあります。小規模モデルの推論・学習をテストしており、bf16 での COCO AP と速度は未測定です。モデル重み全体の bf16 化と bf16 ONNX export は対応範囲外です。範囲を限定した GPU/DDP/AMP の検証は [GPU 実行](../../docs/gpu-validation.md)、過去のソース snapshot に対する native bf16 の結果は [L4 レポート](../../benchmarks/bf16-l4.md)を参照してください。

@@ -84,6 +84,9 @@ lists are supported, and the evaluator cannot mutate the caller's records.
 Offline tests use tiny synthetic annotations to check category conversion,
 perfect/missing/empty predictions, image subsets, ignored crowd annotations,
 and optional-dependency isolation. They establish the evaluation path, not the
-model's COCO accuracy. Full COCO val2017 AP, comparison against upstream under
-identical conditions, and GPU/latency measurements remain pending. A smoke
-subset must not be reported as full COCO AP.
+model's COCO accuracy. The separate [full COCO val2017 evaluation](../benchmarks/coco-val2017.md)
+measured 53.05 AP, 71.22 AP50, and 57.67 AP75 for official pretrained R50vd EMA
+weights on all 5,000 images in CPU FP32. The [provenance report](../benchmarks/coco-val2017.json)
+records the environment, source and input hashes, and full-image coverage.
+Comparison against upstream under identical conditions and GPU/latency
+measurements remain pending. A smoke subset must not be reported as full COCO AP.

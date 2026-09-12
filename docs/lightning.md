@@ -8,9 +8,10 @@ clipping, epoch scheduling, logging, and checkpoint serialization/restoration.
 This project supplies the RT-DETR loss step, optimizer parameter groups, EMA,
 and application RNG callback state.
 
-The adapter supports **single-process CPU FP32 and CUDA FP32/FP16 AMP**,
+The adapter supports **single-process CPU FP32/bf16-mixed and CUDA FP32/FP16 AMP**,
 with one optimizer step attempt per batch, one DataLoader, a dedicated CPU
-generator, and `num_workers=0`. EMA advances only after successful optimizer
+generator, and `num_workers=0`. CPU `bf16-mixed` keeps model and optimizer state
+in FP32 while using CPU autocast. EMA advances only after successful optimizer
 updates; GradScaler overflow skips do not update EMA. Tests use synthetic data.
 COCO training augmentation, full training convergence, Lightning multi-rank DDP,
 and arbitrary mid-epoch resume remain outside this scope. Native PyTorch DDP
@@ -32,6 +33,11 @@ uv run clean-rtdetr-train \
   --config-dir configs --config-name lightning_training \
   trainer.max_epochs=2 output_dir=outputs/lightning \
   resume=outputs/lightning/last.ckpt
+
+# CPU bf16 mixed precision
+uv run clean-rtdetr-train \
+  --config-dir configs --config-name lightning_training \
+  trainer.precision=bf16-mixed trainer.max_epochs=1 output_dir=outputs/lightning-bf16
 ```
 
 `trainer.max_epochs` is the total target epoch count, including restored epochs.

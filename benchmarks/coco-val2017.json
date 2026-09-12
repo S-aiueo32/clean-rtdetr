@@ -1,0 +1,164 @@
+{
+  "artifacts": {
+    "conversion_report": {
+      "path": "outputs/coco-conversion.json",
+      "sha256": "abd17501e34fbe7b65b85c1590a63b53cf93607d81f77d0baa2b9543f9988113"
+    },
+    "metric_report": {
+      "path": "outputs/coco-val2017-metrics.json",
+      "sha256": "96812e85490c1ff406470d8c9fe605b7713823cd7b4deb2f523dd6c1787c0e60"
+    },
+    "prediction_report": {
+      "path": "outputs/coco-val2017-predictions.report.json",
+      "sha256": "625b1842daf99a031f4191de487d51702cebdad5195ad59e88944f1efa74a294"
+    },
+    "predictions": {
+      "count": 1500000,
+      "path": "outputs/coco-val2017-predictions.json",
+      "sha256": "38f37accf6c141a58dff4c0f516ed7106d7c74103c59324702e8b6a52418560f"
+    }
+  },
+  "dataset": {
+    "all_annotation_image_ids_verified": true,
+    "annotation_count": 36781,
+    "annotations_sha256": "e8c7f7908f1d7278341fae127d0da654f102f11bd7b21d8aeefa635b8c810b6f",
+    "archives": {
+      "annotations": {
+        "path": "datasets/coco/annotations_trainval2017.zip",
+        "sha256": "113a836d90195ee1f884e704da6304dfaaecff1f023f49b6ca93c4aaae470268",
+        "size_bytes": 252907541,
+        "url": "https://s3.amazonaws.com/images.cocodataset.org/annotations/annotations_trainval2017.zip"
+      },
+      "images": {
+        "path": "datasets/coco/val2017.zip",
+        "sha256": "4f7e2ccb2866ec5041993c9cf2a952bbed69647b115d0f74da7ce8f4bef82f05",
+        "size_bytes": 815585330,
+        "url": "https://s3.amazonaws.com/images.cocodataset.org/zips/val2017.zip"
+      }
+    },
+    "category_count": 80,
+    "image_count": 5000,
+    "name": "COCO val2017",
+    "ordered_image_digest": "930c9debbafc7909da82aead999952d32872fb5d6fe6e91aafafe98c39080b4e",
+    "scope": "all_annotation_images"
+  },
+  "date": "2026-09-10",
+  "evaluation": {
+    "category_mapping": "Pinned RT-DETR contiguous labels 0-79 to the 80 COCO category IDs.",
+    "iou_type": "bbox",
+    "max_detections": [
+      1,
+      10,
+      100
+    ],
+    "metric_scale": "0_to_100",
+    "metrics": {
+      "AP": 53.053590326662004,
+      "AP50": 71.21797181841809,
+      "AP75": 57.67078757207542,
+      "AP_large": 70.0973457328423,
+      "AP_medium": 57.725747072644914,
+      "AP_small": 34.72981693675336,
+      "AR1": 39.04489924971413,
+      "AR10": 65.50471171727749,
+      "AR100": 72.14356992530313,
+      "AR_large": 88.03636819817282,
+      "AR_medium": 76.46010027509732,
+      "AR_small": 54.68561173089535
+    }
+  },
+  "execution": {
+    "dependencies": {
+      "numpy": "2.5.2",
+      "pillow": "12.3.0",
+      "pycocotools": "2.0.11",
+      "torch": "2.14.0"
+    },
+    "device": "cpu",
+    "dtype": "float32",
+    "git_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "git_revision": "556de56fd7eb27b7f56b03515baaef36afb63e05",
+    "implementation_sha256": {
+      "packages/core/src/clean_rtdetr/__init__.py": "df3ef1a0c0ad81a98c1b1ebc0964505dd671a622b4af2f6466a8670ffb5ebf8e",
+      "packages/core/src/clean_rtdetr/checkpoint.py": "5a047a06c0d53901b350f49d9a2ae2d5e9ff0ef4ec8f8f891783728835f9d6f4",
+      "packages/core/src/clean_rtdetr/cli/__init__.py": "e83da3298d54342846ca92caca1a2dcf514d6acd35dfb556933ca1623538fad4",
+      "packages/core/src/clean_rtdetr/cli/_official_checkpoint.py": "55ec2f529f1ba9767f35c36a518e6dc59558ccd505b345059fba216b8bb3f54b",
+      "packages/core/src/clean_rtdetr/cli/_visualize.py": "55334768a812d1d449879d934b1648ab58a9e3098dc9707892bacae299f3d191",
+      "packages/core/src/clean_rtdetr/cli/coco_evaluate.py": "c99a2cc892d3bc6baf626bbf9c340d7074e9e28905531545cebb266f6bdc2964",
+      "packages/core/src/clean_rtdetr/cli/coco_predict.py": "b242989fbfc73e6dbaae1dc2d19efe2f7995e868042119ad6acff50bb1bf0c88",
+      "packages/core/src/clean_rtdetr/cli/convert.py": "1c9bd6bddb5bc85942d655b8ae3482f0af721e798ca031a1aa6eb05a12c8b71b",
+      "packages/core/src/clean_rtdetr/cli/predict.py": "a3b6e85791018ccc5dbe02805de887d0eae6ec583787ec9f5d3ea4832864fbbf",
+      "packages/core/src/clean_rtdetr/contracts.py": "5f2f3a827dd2ea08202fabc31bc4765003a12f6174b18a9a41c010959b711eb6",
+      "packages/core/src/clean_rtdetr/evaluation/__init__.py": "1c70d3e29794fa9699cd36ed255e33977247e4dd31c28d2880a407693a935a9b",
+      "packages/core/src/clean_rtdetr/evaluation/_pycocotools.py": "95e798a6b6f0ebaf0cce71f790b78e56a934a36bbff2137bce41a4cee5820dfb",
+      "packages/core/src/clean_rtdetr/evaluation/coco.py": "d003ee28055aa6ccd2afcf0f19e2f86c851b630d227e52bb8121dd57ae204a02",
+      "packages/core/src/clean_rtdetr/geometry.py": "6f215bf030177f75f6dfb3bdd0e67678a526a65160756937e0bb8d02c188b3e7",
+      "packages/core/src/clean_rtdetr/inference/__init__.py": "1eb60d52ce68a2756c6e2425a25dba4bb05b20dfe345f70afb45861e7d46960d",
+      "packages/core/src/clean_rtdetr/inference/postprocessing.py": "66a25a812806ca7facb3c2e1b7a97a04766284196dbc7f77f14c763cd5193a7f",
+      "packages/core/src/clean_rtdetr/inference/preprocessing.py": "93f41009664c26abbe1c72dcf1c9a44a481cf807c6727ccfe0a9fc5db249d278",
+      "packages/core/src/clean_rtdetr/models/__init__.py": "f2e94c872bde618786cf86da7d632a859e0f66d9346fb3eee4ed834b75cc7626",
+      "packages/core/src/clean_rtdetr/models/_checkpoint.py": "e2e95ff056e86fa4959038e1ec78685dbbc1a05ddec4204061ff2cf780693357",
+      "packages/core/src/clean_rtdetr/models/attention.py": "99969cec48b0f9fbcfabb400f2b1d393b4b4da5773171b668bd3bd94f6140ed9",
+      "packages/core/src/clean_rtdetr/models/backbone.py": "d175f91d04c0bd2381eb1827e07e5fe9621f14c75942da597eb7d88a7f1892fa",
+      "packages/core/src/clean_rtdetr/models/decoder.py": "f5a30ddbf2efb1ec2810890391452215879aacaec8e31fd5e2a0f50017ff2f76",
+      "packages/core/src/clean_rtdetr/models/encoder.py": "34263631329b930955ec9b8bd6d34081e3b0800b42069c6364781f2702e2faba",
+      "packages/core/src/clean_rtdetr/models/factory.py": "185d0e19e35a93f17a4a7e5a5c7654c801fc847c437531f3767a962226894c1a",
+      "packages/core/src/clean_rtdetr/models/interfaces.py": "896145bcf5751f2454a17d7dd70f3202d89c7926b7ee9700860187dd1a5ef7fc",
+      "packages/core/src/clean_rtdetr/models/memory.py": "4606dbb2ff63f7a8f80268a8342eaf13479fffe4651958170d0b6a374adbbf14",
+      "packages/core/src/clean_rtdetr/models/queries.py": "14dc345f2467271e864ceae061cff77f102c05913cbbdec4c7661c02a289f49d",
+      "packages/core/src/clean_rtdetr/models/rtdetr.py": "5d68dfb5a19729978167be2850011cc62a451359bfe11f71693d2fb6506d4b37",
+      "packages/core/src/clean_rtdetr/models/selector.py": "243112e6a554a3b6e851839bccc13c754dd9e7e19e64754ecc6d1c21a706656e"
+    },
+    "platform": "macOS-26.6.1-arm64-arm-64bit-Mach-O",
+    "python": "3.14.7",
+    "seed": null,
+    "seed_note": "No stochastic augmentation; all inference weights are loaded from the official EMA checkpoint.",
+    "torch_num_threads": 4,
+    "uv_lock_sha256": "03eb06e7011d6fad77638f6bd5eb78ba1ccaccd73a36f03625f4cdea09c2859a",
+    "worktree_dirty": false
+  },
+  "limitations": [
+    "Pretrained official EMA inference evaluation; not a full-training or convergence result.",
+    "Independent upstream full-dataset evaluation under identical conditions remains pending.",
+    "GPU, DDP, AMP, latency, ONNX dataset AP, dynamic shapes, and TensorRT remain outside this result.",
+    "Other architecture presets and research recipes are not evaluated by this run."
+  ],
+  "model": {
+    "decoder_layers": 6,
+    "eval_image_size_hw": [
+      640,
+      640
+    ],
+    "name": "rtdetr_r50vd",
+    "num_classes": 80,
+    "num_queries": 300
+  },
+  "native_checkpoint": {
+    "path": "checkpoints/rtdetr_r50vd.pth",
+    "sha256": "2663b90b77400da1f89ba4f5c1024261ceba1567a105d9aa161164e44eec3ae3"
+  },
+  "official_checkpoint": {
+    "artifact": "checkpoints/rtdetr_r50vd_6x_coco_from_paddle.pth",
+    "sha256": "dfaafa5a3d29958a360c35f1fad553a6f287bfae9967e8ee007e65cff21ddf45",
+    "source": "ema",
+    "url": "https://github.com/lyuwenyu/storage/releases/download/v0.1/rtdetr_r50vd_6x_coco_from_paddle.pth"
+  },
+  "postprocessing": {
+    "clipping": false,
+    "nms": false,
+    "top_k": 300
+  },
+  "preprocessing": {
+    "normalization": "uint8 RGB to float32 / 255",
+    "resampling": "Pillow bilinear",
+    "resize": "640x640",
+    "uint8_rgb": true
+  },
+  "schema_version": 1,
+  "upstream": {
+    "commit": "068dfde65f2667ad6555883c69d73de886518cad",
+    "config": "rtdetr_pytorch/configs/rtdetr/rtdetr_r50vd_6x_coco.yml",
+    "oracle_sha256": "c2837740cb66f128b72e802463db57ee3653e15d964baa3b9cf58cc27a817588",
+    "repository": "https://github.com/lyuwenyu/RT-DETR"
+  }
+}

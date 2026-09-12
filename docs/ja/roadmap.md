@@ -18,15 +18,17 @@ PyTorch の推論経路は、images → R50vd backbone → HybridEncoder → 投
 | Decoder と勾配 | 明示的な execution/output plan、self-attention、multi-scale deformable cross-attention、反復 refinement、content/reference detach 境界、微分可能な encoder auxiliary prediction | [勾配の所有権](extensions.md#gradient-ownership) |
 | 構成 | component を注入できる `RTDETR`、公式 RT-DETR/RT-DETRv2 PResNet 10 種の名前付き architecture factory、optional AIFI feature、model と学習 component 用の階層的 Hydra config | [拡張ガイド](extensions.md#名前付きモデルプリセット) |
 | Checkpoint と推論 | 公式推論 weight の strict loading、CPU FP32 full-model parity、Pillow/uint8 preprocessing、upstream 互換 top-k postprocessing | [Inference I/O](inference.md) |
-| COCO 評価 | synthetic annotation でテストした prediction JSON と optional bbox metric adapter。pycocotools は metric の場合のみ読み込む | [COCO 評価](evaluation.md) |
+| COCO 評価 | prediction JSON と optional bbox metric。公式 pretrained R50vd EMA の過去の CPU FP32 評価で COCO val2017 全5,000枚の AP 53.05 を記録 | [COCO 評価](evaluation.md) |
 | ONNX エクスポート | 固定 batch-1 640×640 向けの `FixedShapeRTDETR` と CPU FP32 ONNX Runtime parity。graph optimization は無効化 | [エクスポート設定](inference.md#fixed-shape-onnx-export) |
 | Matching と loss | decoder/encoder auxiliary supervision と CPU loss/gradient parity を含む 分散 target 数正規化に対応した Hungarian matching と Varifocal/L1/GIoU loss | [学習 loss](training.md) |
 | Denoising | contrastive query、training wrapper に登録された class embedding、CPU upstream parity を持つ layer ごとの DN loss | [Contrastive denoising](training.md#contrastive-denoising) |
-| 学習 loop | baseline AdamW group、EMA、CPU FP32 / CUDA FP32・AMP synthetic epoch-boundary resume を備えた Lightning adapter | [Lightning 学習](lightning.md) |
+| 学習 loop | baseline AdamW group、EMA、CPU FP32/`bf16-mixed` / CUDA FP32・AMP synthetic epoch-boundary resume を備えた Lightning adapter | [Lightning 学習](lightning.md) |
 
 Forward と gradient parity のテストは SHA-256 で固定した upstream method を使います。
-全データセットでの学習、research method の構成、
-全データセットでの COCO AP 測定、latency は未完了です。dynamic-shape ONNX と TensorRT は
+全データセットでの学習、公式 research method の再現、latency は未完了です。COCO AP は過去の
+学習済み weight 評価記録であり、学習結果ではありません。同一条件での上流実装との全データセット比較は
+未完了です。過去の限定的な native L4 bf16 検証は[レポート](../../benchmarks/bf16-l4.md)に記録しています。現在の CUDA 範囲は
+[GPU 実行](../gpu-validation.md) に記載します。dynamic-shape ONNX と TensorRT は
 検証済みエクスポートの範囲外です。
 
 ## 最初の段階
@@ -46,14 +48,15 @@ Forward と gradient parity のテストは SHA-256 で固定した upstream met
 2. [x] image-to-prediction R50vd を接続し、strict checkpoint loading を全推論 stage に拡張。
 3. [x] 固定した公式 artifact に対して CPU FP32 complete-model checkpoint/stage parity を検証。
 4. [x] Pillow/uint8 preprocessing、top-k postprocessing、画像推論の例を追加。
-5. [ ] category-ID mapping を含む固定した評価環境で COCO AP を取得。
+5. [x] category-ID mapping を含む固定した評価環境で COCO AP を取得。
    prediction JSON と optional metric adapter は実装済みで、synthetic annotation で
-   テスト済みです。全データセットでの精度測定は未完了です。
+   テスト済みです。過去の結果は[COCO の記録](../../benchmarks/coco-val2017.md)にあります。
 6. [x] 固定形状 ONNX エクスポートと CPU FP32 runtime parity を追加。
 7. [x] DN query、criterion、CPU loss/gradient parity を追加。
 8. [x] synthetic CPU FP32 Lightning 学習と epoch-boundary resume を追加。
 9. [ ] 全データセットでの学習を検証。短い合成データでの GPU/DDP/AMP 検証は [GPU 実行](../gpu-validation.md) を参照。
-10. [ ] research method composition を実装。
+10. [x] 範囲を限定した [research method composition recipe](../../recipes/README.md) を追加。
+11. [ ] 公式 research method、checkpoint、COCO 結果を再現。
 
 ## 検証の証拠
 
@@ -62,10 +65,10 @@ loss を実装し、decoder と encoder の auxiliary supervision を含みま�
 construction、training wrapper に登録された embedding、layer ごとの DN loss も実装済みです。
 CPU upstream query/loss/gradient parity はオフラインテストでカバーされています。詳細は
 [学習 loss](training.md) を参照してください。optional な [Lightning adapter](lightning.md)
-は optimizer、scheduler、EMA、application RNG state を含む CPU FP32 / CUDA FP32・AMP の学習 loop と
+は optimizer、scheduler、EMA、application RNG state を含む CPU FP32/`bf16-mixed` / CUDA FP32・AMP の学習 loop と
 epoch-boundary resume を追加します。階層的 Hydra config は baseline model stage と
-optimizer/scheduler factory を注入します。全データセットでの学習、
-research method の構成は未完了です。
+optimizer/scheduler factory を注入します。全データセットでの学習は未完了です。checkout の recipe は
+bounded composition であり、公式手法の再現は未完了です。
 
 image-to-prediction API は raw class logits と normalized cxcywh box を返します。分離された
 image I/O は Pillow image または CPU uint8 RGB tensor を受け取り、同じ 640×640 Pillow resize
@@ -88,5 +91,6 @@ AP、latency、dynamic shape、TensorRT の対応を確立するものでもあ�
 
 shared decoder weight を使う学習専用 branch、feature distillation と controller state、
 distribution regression、recipe/loss composition を検証します。各拡張は contract test、
-再現、エクスポート、backend verification を独立に進めます。これらの小規模な検査が通った後、
-公式 DEIM + D-FINE と RT-DETRv3/v4 の integration を開始します。
+再現、エクスポート、backend verification を独立に進めます。現在の recipe は bounded composition
+であり、公式手法の再現、checkpoint、収束、COCO 精度を主張しません。公式 DEIM + D-FINE と
+RT-DETRv3/v4 の完全な再現は未完了です。

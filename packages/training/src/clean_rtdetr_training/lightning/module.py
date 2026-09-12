@@ -137,10 +137,14 @@ class RTDETRLightningModule[PredictionT](LightningModule):
             raise ValueError(msg)
         if (self.device.type, trainer.precision) not in {
             ("cpu", "32-true"),
+            ("cpu", "bf16-mixed"),
             ("cuda", "32-true"),
             ("cuda", "16-mixed"),
         }:
-            msg = "Lightning training supports CPU 32-true or CUDA 32-true/16-mixed precision"
+            msg = (
+                "Lightning training supports CPU 32-true/bf16-mixed "
+                "or CUDA 32-true/16-mixed precision"
+            )
             raise ValueError(msg)
         if trainer.accumulate_grad_batches != 1:
             msg = "Gradient accumulation is not yet supported by the baseline recipe"

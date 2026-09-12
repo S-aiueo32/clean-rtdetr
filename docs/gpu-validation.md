@@ -17,8 +17,8 @@ support for pure FP16 optimizer training. The scaler may skip initial updates
 while reducing its scale; an attempted batch is not necessarily an optimizer
 step. The epoch scheduler still follows completed epochs.
 
-The Lightning recipe accepts single-process CPU `32-true` and CUDA `32-true`
-or `16-mixed`. Select the CUDA profile with:
+The Lightning recipe accepts single-process CPU `32-true` or `bf16-mixed`, and
+CUDA `32-true` or `16-mixed`. Select the CUDA profile with:
 
 ```sh
 uv run clean-rtdetr-train \
@@ -132,10 +132,13 @@ original ordered comparison as a diagnostic. Keep numerical comparison outcomes
 separate from finite-output execution checks, and do not loosen tolerances to
 hide selection changes. Official-weight AMP accuracy requires dataset evaluation.
 
-CPU BF16 autocast is covered for core inference and native DN training. CUDA
-BF16 has not been validated: the T4 reports
-`torch.cuda.is_bf16_supported(including_emulation=False) == False`. The Lightning
-adapter does not accept `bf16-mixed`.
+CPU BF16 autocast is covered for core inference, native DN training, and
+Lightning training with epoch-boundary resume. The T4 reports
+`torch.cuda.is_bf16_supported(including_emulation=False) == False`. A separate
+[historical L4 probe](../benchmarks/bf16-l4.md) established native CUDA BF16
+execution for a small synthetic model on its recorded source snapshot; it does
+not validate the later GPU implementation described here. The Lightning adapter
+does not accept CUDA `bf16-mixed`.
 
 These checks use synthetic inputs and short training runs. They do not validate
 full training convergence, mixed-precision COCO AP, parity across arbitrary

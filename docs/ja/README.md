@@ -52,4 +52,7 @@ COCO 予測には画像とアノテーションも必要です。各コマンド
 [モデル全体のレポート](../../benchmarks/full-model-parity.json)は、シードを固定した合成入力で公式 R50vd 重みの出力を比較しています。
 [ONNX レポート](../../benchmarks/onnx-parity.json)は、バッチ 1・640×640 固定形状で、グラフ最適化を無効にした CPU FP32 の一致検証を記録しています。
 学習テストは CPU 上の損失、勾配、合成データによるエポック境界での再開を対象とします。
-これらはデータセット全体の COCO AP、収束、GPU/DDP/AMP の挙動、レイテンシを実証するものではありません。
+これらは収束やレイテンシを実証するものではありません。範囲を限定した GPU/DDP/AMP の検証は [GPU 実行](../gpu-validation.md)に記録しています。
+別途、[COCO val2017 レポート](../../benchmarks/coco-val2017.json)に、公式学習済み R50vd EMA 重みを使った全 5,000 枚の CPU FP32 推論評価（AP 53.05）を記録しています。
+[再現手順](../../benchmarks/coco-val2017.md)も参照してください。同一条件での上流実装との全データセット比較は未完了です。
+[NVIDIA L4 native bf16 レポート](../../benchmarks/bf16-l4.md)と[機械可読な結果](../../benchmarks/bf16-l4.json)には、過去のソース snapshot に対するユーザー提供の単一 GPU 検証として、ランダム重みの R50 backbone と小規模 encoder/decoder による 64×64 推論、および raw denoising query 学習の smoke test が成功した結果を記録しています。これは COCO/AP 全体、性能、後続実装の Lightning GPU 対応を実証するものではありません。

@@ -70,4 +70,14 @@ R50vd weights on a seeded synthetic input. The
 [ONNX report](../benchmarks/onnx-parity.json) records fixed batch-1 640×640 CPU
 FP32 parity with graph optimizations disabled. Training tests cover CPU losses,
 gradients, and synthetic epoch-boundary resume. These checks do not establish
-full-dataset COCO AP, convergence, GPU/DDP/AMP behavior, or latency.
+convergence or latency. Bounded GPU/DDP/AMP checks are described in
+[GPU execution](gpu-validation.md). A separate
+[COCO val2017 report](../benchmarks/coco-val2017.json) records 53.05 AP for
+official pretrained R50vd EMA weights on all 5,000 images in CPU FP32; see the
+[reproduction commands](../benchmarks/coco-val2017.md). Independent upstream
+full-dataset comparison remains pending. A user-provided historical
+[NVIDIA L4 native-bf16 report](../benchmarks/bf16-l4.md) and its
+[machine-readable results](../benchmarks/bf16-l4.json) record a successful
+single-GPU smoke test with random-weight R50 backbone plus small encoder and
+decoder inference at 64×64, and raw denoising-query training. This does not
+establish full COCO/AP or performance results, or validate later Lightning GPU support.

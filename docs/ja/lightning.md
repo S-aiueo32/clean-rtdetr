@@ -4,7 +4,7 @@
 
 `clean_rtdetr_training.lightning` は training model と criterion の組を受け取る薄いアダプターです。標準の DN model と set criterion もこの組として使います。Lightning の `Trainer` が automatic optimization、gradient clipping、epoch scheduling、logging、checkpoint の保存と復元を管理します。本プロジェクトは RT-DETR の loss step、optimizer parameter group、EMA、アプリケーション RNG callback state を提供します。
 
-対応プロファイルは **単一プロセス CPU FP32 と CUDA FP32/FP16 AMP** です。batch ごとに optimizer step を 1 回試行し、DataLoader を 1 つ、専用 CPU generator を 1 つ使い、`num_workers=0` とします。GradScaler が更新をスキップした場合、EMA も進めません。テストは合成データを使います。COCO augmentation、完全な収束、Lightning の複数 rank DDP、epoch 途中の任意再開は対象外です。PyTorch を直接使う DDP の loss 正規化は別途対応します。詳細は [GPU 実行](../gpu-validation.md) を参照してください。個別の[recipe](recipe-boundaries.md)では、範囲を限定した手法の組み合わせを実装しています。
+対応プロファイルは **単一プロセス CPU FP32/bf16-mixed と CUDA FP32/FP16 AMP** です。CPU の `bf16-mixed` は model と optimizer state を FP32 に保ち、CPU autocast を使います。batch ごとに optimizer step を 1 回試行し、DataLoader を 1 つ、専用 CPU generator を 1 つ使い、`num_workers=0` とします。GradScaler が更新をスキップした場合、EMA も進めません。テストは合成データを使います。COCO augmentation、完全な収束、Lightning の複数 rank DDP、epoch 途中の任意再開は対象外です。PyTorch を直接使う DDP の loss 正規化は別途対応します。詳細は [GPU 実行](../gpu-validation.md) を参照してください。個別の[recipe](recipe-boundaries.md)では、範囲を限定した手法の組み合わせを実装しています。
 
 <a id="install-and-run"></a>
 
@@ -23,6 +23,11 @@ uv run clean-rtdetr-train \
   --config-dir configs --config-name lightning_training \
   trainer.max_epochs=2 output_dir=outputs/lightning \
   resume=outputs/lightning/last.ckpt
+
+# CPU bf16 mixed precision
+uv run clean-rtdetr-train \
+  --config-dir configs --config-name lightning_training \
+  trainer.precision=bf16-mixed trainer.max_epochs=1 output_dir=outputs/lightning-bf16
 ```
 
 `trainer.max_epochs` は復元済み epoch を含む最終的な目標 epoch 数です。例示 recipe は一部を freeze した R50vd backbone と合成 128×128 画像の小型 detector を使います。checkpoint や dataset はダウンロードしません。実行と再起動を確認するもので、公式学習済みモデルや精度を示しません。
