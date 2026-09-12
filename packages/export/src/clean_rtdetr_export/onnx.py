@@ -25,7 +25,7 @@ OUTPUT_NAMES = ("logits", "boxes")
 
 
 class ExportVerificationError(RuntimeError):
-    """Expose a failed numerical report so callers can persist the evidence."""
+    """Parity failure whose ``report`` attribute has the successful-report schema."""
 
     def __init__(self, report: dict[str, object]) -> None:
         """Retain the same report schema as a successful export."""
@@ -130,11 +130,12 @@ def export_onnx(
     *,
     input_shape: tuple[int, int, int, int] = DEFAULT_SHAPE,
 ) -> dict[str, object]:
-    """Write opset-18 ONNX and verify both held-out seeds against CPU FP32 eager.
+    """Write schema-v1 opset-18 ONNX and verify seeds 41 and 42 against CPU FP32 eager.
 
-    Install ``clean-rtdetr-export`` first. The model and its train/eval state remain
-    unchanged. The returned JSON-compatible report describes numerical parity,
-    not dataset accuracy or latency. Existing artifact paths are rejected.
+    The model is copied to CPU FP32 evaluation mode; its weights and mode remain
+    unchanged. The graph returns raw ``logits`` and normalized ``cxcywh``
+    ``boxes``. The report records parity, not AP or latency. Existing destinations
+    are rejected; a parity failure raises :class:`ExportVerificationError`.
     """
     # Runtime-loaded plugins keep the base development/type-check environment
     # independent of ONNX; dependency versions are pinned by the export package.

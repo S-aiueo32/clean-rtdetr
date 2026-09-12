@@ -64,7 +64,11 @@ class DenoisingTrainingModel[
     DetectorT: Detector,
     DenoisingT: DenoisingGenerator,
 ](TrainingModel[TrainingOutput]):
-    """Register a detector and DN generator together for optimizers and state dicts."""
+    """Compose a target-free detector with training-owned denoising parameters.
+
+    The wrapped detector receives prepared queries, while returned ordinary
+    predictions exclude the leading denoising slots for matching supervision.
+    """
 
     def __init__(self, model: DetectorT, denoising: DenoisingT) -> None:
         """Reject incompatible embeddings before connecting the training stages."""
@@ -92,7 +96,12 @@ class DenoisingTrainingModel[
         plan: DecoderPlan | None = None,
         collect_aifi: bool = False,
     ) -> TrainingOutput:
-        """Build DN during training and expose matching-only final predictions."""
+        """Prepare DN only in training mode and return matching-only predictions.
+
+        Training requires one target per image; evaluation rejects targets and
+        bypasses DN. If the generator returns ``None``, the detector runs without
+        a denoising prefix.
+        """
         if not self.training:
             if targets is not None:
                 msg = "Targets require training mode"
@@ -114,7 +123,7 @@ class DenoisingTrainingModel[
         return TrainingOutput(replace(output, decoder=matching), denoising)
 
     def predict(self, images: Float[Tensor, "batch channels height width"]) -> TrainingOutput:
-        """Return target-free predictions from the composed detector."""
+        """Return target-free detector predictions without preparing denoising queries."""
         return TrainingOutput(self.model(images))
 
     def checkpoint_config(self) -> dict[str, object]:

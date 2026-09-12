@@ -25,18 +25,21 @@ _RGB_CHANNELS = 3
 
 @dataclass(frozen=True)
 class PreprocessedImages:
-    """A fixed-size RGB batch and the source sizes in ``(width, height)`` order."""
+    """CPU FP32 RGB images and source sizes for postprocessing.
+
+    ``images`` contains values in ``[0,1]``; ``original_sizes_wh`` uses
+    ``(width, height)`` for postprocessing.
+    """
 
     images: Float[Tensor, "batch 3 640 640"]
     original_sizes_wh: Int64[Tensor, "batch 2"]
 
 
 def preprocess_images(images: Sequence[ImageInput]) -> PreprocessedImages:
-    """Convert PIL images or CPU uint8 CHW tensors to a normalized 640px batch.
+    """Convert a nonempty sequence of Pillow images or CPU uint8 RGB CHW tensors.
 
-    Every input is converted through Pillow's RGB and bilinear paths so that PIL
-    and tensor inputs have identical semantics.  Pillow is imported only when
-    this function is called, keeping importing the package tensor-only.
+    Every input follows Pillow RGB conversion and bilinear resize to 640x640.
+    There is no letterbox, mean/std normalization, or EXIF rotation.
     """
     if not isinstance(images, Sequence) or isinstance(images, (str, bytes)):
         msg = "images must be a nonempty sequence"

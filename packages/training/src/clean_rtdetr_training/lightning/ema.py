@@ -103,7 +103,7 @@ class RTDETREMA(pl.Callback):
                     value.add_((1.0 - factor) * source[name].detach())
 
     def state_dict(self) -> dict[str, Any]:
-        """Return callback state in the same shape as the upstream EMA."""
+        """Return EMA weights, update count, and the configured decay parameters."""
         module_state = None if self.module is None else self.module.state_dict()
         return {
             "module": module_state,

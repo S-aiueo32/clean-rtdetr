@@ -2,82 +2,57 @@
 
 English | [日本語](ja/README.md)
 
-Clean RT-DETR separates the core detector, ONNX export, and training into three
-packages. Start with the [repository quick start](../README.md#quick-start) for
-a synthetic CPU example that needs no external artifacts.
+Use these guides to run inference, evaluate predictions, train a model, or extend
+Clean RT-DETR. They assume Python and PyTorch knowledge. For a CPU example with
+no external artifacts, start with the [quick start](../README.md#quick-start).
 
-## Choose an environment
+## Choose a guide
 
-Run the commands below from the repository root with Python 3.13 or 3.14 and uv.
-Choose the environment for your task:
+| Task | Guide |
+| --- | --- |
+| Convert weights, predict from images, or export ONNX | [Inference and export](inference.md) |
+| Generate COCO prediction JSON and calculate bbox metrics | [COCO evaluation](evaluation.md) |
+| Prepare targets and use matching, losses, or denoising queries | [Training losses](training.md) |
+| Configure a training run and resume at an epoch boundary | [Lightning training](lightning.md) |
+| Check CUDA, AMP, and DDP execution limits and measured results | [GPU validation](gpu-validation.md) |
+| Change model components or tensor contracts | [Extension guide](extensions.md) |
+| Build a research recipe using public package APIs | [Recipe responsibilities](recipe-boundaries.md) and [recipes](../recipes/README.md) |
+| Develop, test, or build the packages | [Contributing](../CONTRIBUTING.md) |
+| Check source, weight, dataset, or checkpoint license scope | [Licensing](licensing.md) |
+
+## Prepare the environment
+
+Run the guides from the repository root with Python 3.13 or 3.14 and uv.
+Choose the setup for your task:
 
 | Task | Setup command |
 | --- | --- |
 | Develop and test all three packages | `uv sync --all-packages` |
-| Run core tensor APIs | `uv sync --package clean-rtdetr` |
+| Use core tensor APIs | `uv sync --package clean-rtdetr` |
 | Read images and generate detections | `uv sync --package clean-rtdetr --extra inference` |
 | Calculate COCO metrics from saved predictions | `uv sync --package clean-rtdetr --extra evaluation` |
 | Use image inference and COCO metrics together | `uv sync --package clean-rtdetr --extra inference --extra evaluation` |
-| Export ONNX and verify CPU runtime parity | `uv sync --package clean-rtdetr-export` |
+| Export ONNX and check CPU runtime parity | `uv sync --package clean-rtdetr-export` |
 | Use matching, losses, denoising, or Lightning | `uv sync --package clean-rtdetr-training` |
 
 Package-specific sync commands can remove other members or extras from the
-shared `.venv`. Re-run the setup for your next task when switching guides;
-restore `uv sync --all-packages` before full-workspace validation.
-The evaluation extra is optional and is not included by `--all-packages`.
-Package and extra selection happens during `uv sync`; subsequent guide commands
-use `uv run` with the installed environment. Re-run `uv sync` when package
-metadata or dependency selections change.
+shared `.venv`. Repeat setup when switching tasks, and restore
+`uv sync --all-packages` before full-workspace validation. The `evaluation`
+extra is optional and is not included by `--all-packages`. Subsequent `uv run`
+commands use the installed environment; repeat sync after changing dependencies.
+Recipes have their own environments and setup instructions.
 
-## User guides
+Image prediction and checkpoint-backed export need a local native state dict;
+the [inference guide](inference.md) explains conversion with
+`clean-rtdetr-convert`. COCO prediction also needs local images and annotations.
+The commands do not download these artifacts.
 
-- [License scope](licensing.md): source licenses, attribution, external data and
-  weights, and teacher-containing checkpoints.
-- [Inference I/O](inference.md): model and image contracts, a Python inference
-  example, checkpoint loading, postprocessing, and fixed-shape ONNX execution.
-- [COCO evaluation](evaluation.md): local dataset requirements, prediction JSON,
-  category mapping, subset evaluation, and metric reports.
-- [Training losses](training.md): target format, Hungarian matching, weighted
-  losses, denoising queries, and gradient/parity guarantees.
-- [Lightning training](lightning.md): synthetic training, Hydra configuration,
-  optimizer/EMA state, and epoch-boundary resume.
+## Check project status
 
-Image inference and checkpoint-backed export require a local converted native
-state dict. The installed `clean-rtdetr` package includes the
-`clean-rtdetr-convert` command for the pinned official R50vd envelope; the
-checkout-only `tools.compatibility` helpers remain available for full, stage,
-and training compatibility work.
-COCO prediction also requires local images and annotations. These commands do
-not download those artifacts; checkpoint provenance is recorded in
-[baseline metadata](../benchmarks/baseline.json).
+The [roadmap](roadmap.md) separates implemented features, validation evidence,
+and remaining work. It links the CPU parity reports, historical pretrained COCO
+evaluation, and bounded GPU checks. Use it to assess support for your workload.
 
-## Development and design
-
-- [Contributing](../CONTRIBUTING.md): workspace layout, branch conventions,
-  required validation, and distribution builds.
-- [Extension guide](extensions.md): component injection, tensor annotations,
-  and gradient ownership.
-- [Recipe responsibilities](recipe-boundaries.md): library APIs extracted from
-  four recipes, and user-owned algorithms, data, state and validation.
-- [Implementation roadmap](roadmap.md): completed work and remaining validation.
-- [Design proposal](design-proposal.md): intended research architecture and
-  future integrations; it is not a list of supported features.
-
-## Validation evidence
-
-The [full-model report](../benchmarks/full-model-parity.json) compares official
-R50vd weights on a seeded synthetic input. The
-[ONNX report](../benchmarks/onnx-parity.json) records fixed batch-1 640×640 CPU
-FP32 parity with graph optimizations disabled. Training tests cover CPU losses,
-gradients, and synthetic epoch-boundary resume. These checks do not establish
-convergence or latency. Bounded GPU/DDP/AMP checks are described in
-[GPU execution](gpu-validation.md). A separate
-[COCO val2017 report](../benchmarks/coco-val2017.json) records 53.05 AP for
-official pretrained R50vd EMA weights on all 5,000 images in CPU FP32; see the
-[reproduction commands](../benchmarks/coco-val2017.md). Independent upstream
-full-dataset comparison remains pending. A user-provided historical
-[NVIDIA L4 native-bf16 report](../benchmarks/bf16-l4.md) and its
-[machine-readable results](../benchmarks/bf16-l4.json) record a successful
-single-GPU smoke test with random-weight R50 backbone plus small encoder and
-decoder inference at 64×64, and raw denoising-query training. This does not
-establish full COCO/AP or performance results, or validate later Lightning GPU support.
+The [design proposal](design-proposal.md) explains the intended architecture and
+future deployment work. Proposed APIs and acceptance targets are not implemented
+features or measured results.

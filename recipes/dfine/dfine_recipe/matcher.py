@@ -5,7 +5,11 @@ from clean_rtdetr_training.losses.matcher import HungarianMatcher, MatcherConfig
 
 
 class DFINEMatcher(HungarianMatcher):
-    """Match raw D-FINE boxes without applying normalized-box validation."""
+    """Match D-FINE boxes whose normalized coordinates may lie outside [0, 1].
+
+    Predictions must remain finite with nonnegative width and height. Target
+    boxes still require unit-interval coordinates and positive width and height.
+    """
 
     def __init__(self, config: MatcherConfig | None = None) -> None:
         """Create a matcher with optional Hungarian cost settings."""

@@ -104,7 +104,7 @@ COCO_CATEGORY_IDS = (
 
 @dataclass(frozen=True)
 class CocoImage:
-    """Describe one annotated source image without loading pixels."""
+    """One annotation image: integer ID, relative filename, and positive dimensions."""
 
     image_id: int
     file_name: str
@@ -113,7 +113,7 @@ class CocoImage:
 
 
 class CocoPrediction(TypedDict):
-    """One COCO result: category ID, absolute xywh box, and probability score."""
+    """One COCO result with image/category IDs, absolute ``xywh`` box, and score."""
 
     image_id: int
     category_id: int
@@ -137,7 +137,7 @@ def _validate_category_ids(categories: object) -> None:
 
 
 def load_coco_images(annotations: Path) -> list[CocoImage]:
-    """Validate the official category space and return images in numeric ID order."""
+    """Require the official 80 category IDs and return images in numeric ID order."""
     dataset = json.loads(annotations.read_text())
     if not isinstance(dataset, dict):
         msg = "COCO annotations must be a JSON object"
@@ -171,7 +171,11 @@ def load_coco_images(annotations: Path) -> list[CocoImage]:
 def coco_predictions(
     detections: Detections, image_ids: Int64[Tensor, " batch"]
 ) -> list[CocoPrediction]:
-    """Map labels and convert xyxy to xywh without clipping, filtering, or NMS."""
+    """Convert detections to CPU COCO records without clipping, filtering, or NMS.
+
+    Labels 0-79 map through :data:`COCO_CATEGORY_IDS`; finite boxes become
+    absolute ``xywh`` records. ``image_ids`` must be unique and match the batch.
+    """
     labels, scores, boxes = detections.labels, detections.scores, detections.boxes_xyxy
     if (
         image_ids.ndim != 1
@@ -255,11 +259,12 @@ def evaluate_coco(
     *,
     image_ids: Sequence[int] | None = None,
 ) -> dict[str, float | None]:
-    """Return official bbox AP/AR in 0-100 units; undefined area metrics are None.
+    """Return official bbox AP/AR metrics in 0-100 units, with undefined values as ``None``.
 
     All annotated images are evaluated by default, including images with no
-    detections. Explicit subsets must contain unique, known image IDs. COCO's
-    standard IoU/recall thresholds and maxDets=[1,10,100] remain unchanged.
+    detections. Explicit subsets must be nonempty unique IDs in the annotations.
+    COCO's standard IoU/recall thresholds and ``maxDets=[1,10,100]`` remain
+    unchanged. Requires ``clean-rtdetr[evaluation]`` for the metric adapter.
     """
     available = {image.image_id for image in load_coco_images(annotations)}
     selected = sorted(available) if image_ids is None else list(image_ids)

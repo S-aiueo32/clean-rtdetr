@@ -40,7 +40,12 @@ def _factory_recipe(factory: object) -> dict[str, Any] | None:
 
 
 class RTDETRLightningModule[PredictionT](LightningModule):
-    """Keep the detector reusable while delegating loops and resume to Lightning."""
+    """Run injected training components through Lightning's loop and checkpoints.
+
+    The adapter supports one process, no gradient accumulation, CPU
+    ``32-true``/``bf16-mixed``, and CUDA ``32-true``/``16-mixed``. Native DDP
+    loss normalization belongs to the criterion, not this adapter.
+    """
 
     def __init__(  # noqa: PLR0913 - explicit training dependencies and callback requirements
         self,
@@ -98,7 +103,11 @@ class RTDETRLightningModule[PredictionT](LightningModule):
         return total
 
     def configure_optimizers(self) -> OptimizerLRScheduler:
-        """Bind runtime parameters to the injected optimizer and scheduler factories."""
+        """Bind every trainable model and criterion parameter exactly once.
+
+        Parameter groups apply to the training model; trainable criterion
+        parameters not shared with that model are appended as one default group.
+        """
         parameters = (
             self.parameter_groups_factory(self.training_model)
             if self.parameter_groups_factory is not None
@@ -130,7 +139,7 @@ class RTDETRLightningModule[PredictionT](LightningModule):
         }
 
     def on_fit_start(self) -> None:
-        """Fail early for execution modes outside the current loss and resume scope."""
+        """Reject unsupported execution profiles and missing required callbacks."""
         trainer = self.trainer
         if trainer.world_size != 1:
             msg = "Lightning training currently supports single-process execution only"

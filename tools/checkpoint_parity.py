@@ -114,7 +114,13 @@ def run(
     source: Literal["model", "ema"],
     full_model: bool = False,  # noqa: FBT001, FBT002
 ) -> dict[str, object]:
-    """Run deterministic stage parity against one official checkpoint."""
+    """Compare pinned official weights on seeded CPU FP32 synthetic inputs.
+
+    By default, compare projection, query selection, and decoder stages using
+    synthetic features. ``full_model=True`` includes the backbone and encoder
+    on a synthetic image. Return provenance and numerical comparisons without
+    measuring dataset accuracy or latency.
+    """
     if full_model:
         return _run_full_model(checkpoint, expected_sha256, source)
     torch.manual_seed(SEED)

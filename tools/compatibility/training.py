@@ -78,7 +78,14 @@ def load_official_training_weights(
     source: Literal["model", "ema"],
     expected_sha256: str,
 ) -> CheckpointLoadReport:
-    """Atomically validate and load official detector and DN embedding weights."""
+    """Validate official detector and DN weights before loading the training wrapper.
+
+    Select the explicit ``model`` or ``ema`` envelope and verify its SHA-256.
+    The default denoising generator and exact tensor shapes/dtypes are required.
+    The returned report maps official keys to wrapper-prefixed native keys.
+    This initializes weights only; optimizer, scheduler, and resume state are
+    not restored.
+    """
     data = Path(path).read_bytes()
     digest = hashlib.sha256(data).hexdigest()
     if digest != expected_sha256:

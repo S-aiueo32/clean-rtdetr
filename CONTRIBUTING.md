@@ -2,6 +2,10 @@
 
 [日本語版](CONTRIBUTING.ja.md)
 
+Use this guide to set up the workspace, make a focused change, and run the
+checks required before handoff. It assumes familiarity with Python, PyTorch,
+and `uv`.
+
 ## Branch strategy
 
 This repository uses lightweight trunk-based development. `main` should remain
@@ -27,33 +31,27 @@ branch only when a release requires independent stabilization or maintenance.
 
 ## Development setup
 
-Python 3.13 and 3.14 are supported; local development defaults to 3.14. The uv
-workspace contains the `clean-rtdetr`, `clean-rtdetr-export`, and
-`clean-rtdetr-training` distributions. Export and training depend on core, but
-not on each other. Each distribution owns a `packages/<member>/pyproject.toml`,
-README, source tree, and test tree. The root `pyproject.toml` is workspace and
-shared-tool configuration, not publishable package metadata. Runtime
-dependencies belong to the package that uses them; beartype, pytest,
-pytest-cov, Hypothesis, Ruff, and ty are development tools.
-Pillow is available through the optional `inference` extra and is also installed
-for development image tests. Core model imports and postprocessing remain
-independent of Pillow. Install the complete development workspace:
+Python 3.13 and 3.14 are supported; local development uses 3.14 by default.
+Install the complete workspace:
 
 ```sh
 uv sync --all-packages
 ```
 
-The base core distribution includes the internal `clean-rtdetr-convert` CLI and
-does not require Pillow, export, or training dependencies for checkpoint
-conversion. The public installed surface contains no compatibility API; full,
-stage, and training compatibility helpers under `tools.compatibility` are
-checkout-only.
+The workspace contains the independent `clean-rtdetr`, `clean-rtdetr-export`,
+and `clean-rtdetr-training` distributions. Export and training depend on core,
+not on each other. Each member owns its `pyproject.toml`, README, source, and
+tests under `packages/<member>/`; the root `pyproject.toml` configures the
+workspace and shared tools.
 
-`uv sync` uses the repository's `uv.lock` file and may update it when project
-dependencies change. When changing package dependencies, edit the owning member
-`pyproject.toml`, run `uv lock`, and include the resulting `uv.lock` change. Keep shared
-experiment-specific tools in the root `dev` dependency group unless a member
-requires them for its own development or runtime.
+Put runtime dependencies in the member that uses them. When dependencies
+change, update that member's `pyproject.toml`, run `uv lock`, and commit the
+`uv.lock` update. Keep shared experiment-only tools in the root `dev` group.
+
+The core distribution includes the private `clean-rtdetr-convert` CLI. Its
+checkpoint conversion does not require Pillow, export, or training. Full,
+stage, and training compatibility helpers in `tools/compatibility` are
+checkout-only and are not a public installed API.
 
 Install the repository hooks once per checkout:
 
@@ -61,12 +59,20 @@ Install the repository hooks once per checkout:
 uv run pre-commit install
 ```
 
-The hooks apply Ruff fixes and run ty before each commit. Run them manually on
-all tracked files with
-`uv run pre-commit run --all-files`.
-The full pytest
-suite remains a CI/handoff check because it is more expensive than a commit
-hook.
+The hooks apply Ruff fixes and run ty. Run `uv run pre-commit run --all-files`
+for all tracked files; run the full pytest suite before handoff.
+
+## Development smoke test
+
+Run the model path with synthetic features and random weights; no image,
+dataset, or checkpoint is required:
+
+```sh
+uv run python tools/query_selection.py
+```
+
+It prints the memory, selected-query, and decoder tensor shapes. This confirms
+the execution path and shapes, not detection accuracy.
 
 ## Validation
 
@@ -82,10 +88,10 @@ uv run ty check
 uv run python tools/query_selection.py
 ```
 
-The test command also emits a coverage report. New behavior should include
-focused tests. The suite checks contracts and parity; passing it does not
-establish dataset accuracy or training convergence. Before handoff, also run the
-builds and metadata dry runs in [Distribution artifacts](#distribution-artifacts).
+The test command emits coverage. Add focused tests for new behavior. These
+checks establish the tested contracts and parity, not dataset accuracy or
+training convergence. Before handoff, also run the builds and metadata dry runs
+in [Distribution artifacts](#distribution-artifacts).
 
 During development, run a focused test with, for example:
 
@@ -122,8 +128,8 @@ and attribution notices, and re-run all parity tests. Do not rewrite the oracle
 implementation into the package under test.
 
 Core and training CI run on Python 3.13 and 3.14; export, evaluation, quality,
-and distribution CI use Python 3.13. Package-boundary jobs select members explicitly. CI passes `--locked` to verify that the committed `uv.lock`
-is current. For example, the export job uses:
+and distribution jobs use Python 3.13. CI uses `--locked` to verify `uv.lock`.
+For example, the export job uses:
 
 ```sh
 uv sync --locked --package clean-rtdetr-export
@@ -131,13 +137,11 @@ uv run pytest \
   packages/export/tests/test_export.py packages/export/tests/test_export_cli.py
 ```
 
-CI is split into `ci-core.yml`, `ci-training.yml`, `ci-export.yml`,
-`ci-evaluation.yml`, `ci-quality.yml`, and three `ci-dist-<member>.yml`
-workflows. Four independent `recipe-<name>.yml` workflows validate the recipes.
-Automatic runs use native path filters on pull requests and pushes to `main`.
-All workflows support `workflow_dispatch` once present on the default branch.
-Each workflow cancels superseded runs on the same non-main ref; `main` groups
-include the run ID so every main run is retained.
+CI uses separate core, training, export, evaluation, quality, distribution, and
+recipe workflows. Native path filters select them on pull requests and pushes
+to `main`; changed paths select the union of their checks. Each workflow can be
+started with `workflow_dispatch` after it reaches the default branch. Superseded
+runs are cancelled for a non-main ref; every `main` run is retained.
 
 The filters follow these dependencies; multiple changed paths select the union
 of the corresponding workflows:
@@ -159,35 +163,26 @@ of the corresponding workflows:
 | Workflow YAML | That workflow |
 | Root README, `docs/**` Markdown, CONTRIBUTING, AGENTS, other benchmark reports | None |
 
-Workspace metadata intentionally selects all workspace workflows because locked
-uv operations resolve the shared workspace. Recipes have their own locks and
-Ruff/ty settings, so changes to the root lock, unrelated package tests, or export
-do not start recipe runs. Core source selects dependent workflows conservatively;
-the evaluation tests also scan the entire core source for optional-import boundaries.
-Core tests are discovered from their directory, with COCO tests handled separately.
-Distribution builds run separately from tests and static checks; the core build
-also checks the installed conversion command outside the checkout.
+Workspace metadata selects all workspace workflows because locked operations
+resolve the shared workspace. Recipes have independent locks and tool settings;
+unrelated package tests, root-lock changes, and export changes do not select
+them. Core changes select dependents conservatively. Distribution jobs are
+separate from tests and static checks; the core job also checks the installed
+conversion command outside the checkout.
 
-When adding dependencies or moving files, update both push and pull-request path
-filters, including any caller workflows. A renamed file affects both its old and
-new paths. Use manual dispatch for a full check of an individual workflow or when
-a very large diff may exceed GitHub's native path-filter limits. Workflows skipped
-by path filters cannot serve as unconditional required checks; if branch protection
-is introduced, use an always-running aggregate check with conditional jobs instead.
-See [GitHub's required-check guidance](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks).
+When adding dependencies or moving files, update both push and pull-request
+filters, including callers. A rename affects both paths. Use manual dispatch for
+a full workflow run or a very large diff. A skipped workflow cannot be an
+unconditional required check; see [GitHub's required-check guidance](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks).
 
-A local pass does not justify
-claiming complete-detector AP, latency, checkpoint, or export support; those
-claims require the corresponding implementation and fixtures.
+Ruff selects `ALL`, with documented exceptions for formatter/docstring conflicts,
+pytest assertions, upstream private-stage access, CLI output, and jaxtyping
+shape strings (`F722`). `F821` remains enabled. ty checks package `src` and
+`tests` trees plus `tools` without suppressions. Unchanged vendored upstream
+source is excluded from both tools.
 
-Ruff selects `ALL`, with documented exceptions for formatter/docstring
-conflicts, pytest assertions and upstream private-method access, and example
-output. The hash-verified oracle loader has one local `S102` exemption for
-executing the pinned methods. Modules with jaxtyping shape strings
-exempt `F722` because these strings are not Python forward references; `F821`
-remains enabled. ty checks package-local `src` and `tests` trees plus `tools`
-without rule suppressions. The unchanged vendored upstream source is outside
-both tools' check scope.
+A local pass does not establish complete-detector AP, latency, checkpoint, or
+export support. Those claims need the corresponding implementation and fixtures.
 
 ## Distribution artifacts
 
@@ -203,13 +198,12 @@ uv publish --dry-run dist/export/*
 uv publish --dry-run dist/training/*
 ```
 
-Inspect the resulting archives to ensure each contains only its own Python
-namespace, package data, README, license, and provenance files. The public
-namespaces are `clean_rtdetr`, `clean_rtdetr_export`, and
-`clean_rtdetr_training`; do not restore `clean_rtdetr.export` or
-`clean_rtdetr.training` compatibility shims. Release versions must satisfy the
-member dependency constraints, and `clean-rtdetr` must be available on the
-target index before publishing export or training.
+Inspect each archive for only its own Python namespace, package data, README,
+license, and provenance. The public namespaces are `clean_rtdetr`,
+`clean_rtdetr_export`, and `clean_rtdetr_training`; do not add
+`clean_rtdetr.export` or `clean_rtdetr.training` shims. Release versions must
+satisfy member constraints, and `clean-rtdetr` must be on the target index
+before publishing export or training.
 
 ## Implementation notes
 

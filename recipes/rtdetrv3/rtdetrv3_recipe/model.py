@@ -117,7 +117,12 @@ class RTDETRv3TrainingModel(TrainingModel[RTDETRv3Output]):
         *,
         targets: Sequence[DetectionTarget] | None = None,
     ) -> RTDETRv3Output:
-        """Run shared image stages once and supervise isolated query groups."""
+        """Return training branches, or only the main branch in evaluation mode.
+
+        Training requires one target per image and runs the shared image stages
+        once before decoding isolated query groups. Evaluation rejects targets
+        and skips the SAP, O2M, and CNN branches.
+        """
         if not self.training:
             if targets is not None:
                 msg = "Targets require training mode"

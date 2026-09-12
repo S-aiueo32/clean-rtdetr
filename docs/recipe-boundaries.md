@@ -4,6 +4,8 @@
 
 Clean RT-DETR is a readable PyTorch reference implementation. The four recipes
 exercise its extension points; they do not turn the core into a training framework.
+Use this guide to decide whether code belongs in a package or in an application,
+and to migrate a recipe to the current training contracts.
 
 | Owner | Responsibility | Examples |
 | --- | --- | --- |
@@ -11,11 +13,10 @@ exercise its extension points; they do not turn the core into a training framewo
 | `clean_rtdetr_training` | Reference RT-DETR supervision and its validated adapter | Targets, matching, DN assignments, VFL/L1/GIoU, distributed target-count normalization, epoch-boundary resume |
 | Recipe / application | Research method and experiment composition | MAL, FDR, SAP/O2M, DSI/GAM, data configuration, teacher weights, augmentation and schedules |
 
-Code shared by two recipes is a candidate for review, not sufficient reason to
-add a public API. An addition must express a stable contract within its package,
-work without knowing a recipe's identity, and have validation independent of
-that recipe. Method-specific flags, inactive settings, wrapper introspection
-and special cases for experiments belong in the recipe.
+Shared recipe code is a candidate for review, not automatically a public API.
+An API needs a stable package contract, independence from recipe identity, and
+validation independent of that recipe. Method-specific flags, inactive settings,
+wrapper introspection, and experimental special cases belong in the recipe.
 
 ## Core queries and training assignments
 
@@ -25,9 +26,9 @@ layout and owns the initial reference detach boundary. These model operations
 do not need target indices, DN groups or loss assignments.
 
 `RTDETR.forward(denoising=...)` receives prepared queries and returns every
-decoded slot, with DN slots first. `ModelOutput` contains only `decoder`,
-`encoder_aux` and `after_aifi`; its `final` includes every supplied slot.
-Core does not identify which slots should receive which supervision.
+decoded slot, with DN slots first. `ModelOutput` has `decoder`, `encoder_aux`,
+and `after_aifi`; `final` includes every supplied slot. Core does not assign
+supervision to slots.
 
 The training package owns `DenoisingMetadata`, `DenoisingBatch`,
 `DenoisingOutput`, `TrainingOutput` and `split_denoising_predictions`.
@@ -72,12 +73,11 @@ The public `clean_rtdetr_training.losses` functions expose reusable operations:
 | `matched_iou_targets` | Detached IoU scores and a separate mask including zero-IoU positive matches |
 | `matched_box_losses` | Unweighted L1/GIoU scalars using the supplied positive normalizer |
 
-These helpers encode standard RT-DETR supervision. They do not select a
-classification equation, own weights or dispatch recipe types. DEIM explicitly
-composes them in its `MALCriterion`; its `MALConfig` has only `gamma`,
-`weight_mal`, `weight_bbox` and `weight_giou`. Different assignments, stage
-aggregation or distributed normalization belong in that criterion.
-D-FINE's union matching and distribution losses remain in its recipe.
+These helpers encode standard RT-DETR supervision. They do not choose a
+classification equation, own weights, or dispatch recipe types. DEIM composes
+them in `MALCriterion`; different assignments, stage aggregation, and
+distributed normalization belong there. D-FINE's union matching and
+distribution losses remain in its recipe.
 
 `HungarianMatcher(prediction_box_range="unbounded")` stays in training because
 normalized coordinates need not be clipped predictions. The default `"unit"`
@@ -106,12 +106,11 @@ dataset_factory:
   image_size: 128
 ```
 
-A recipe may interpolate shared configuration into model and dataset. This is
-explicit application composition without passing a built model. Input stride
-alignment and enough projected memory for the query count are caller
-responsibilities. There is no `image_size=auto` or `from_training_model`
-constructor. Root synthetic, DEIM and RT-DETRv4 use 128; D-FINE and RT-DETRv3
-use 160. In particular, v3's 450-query branch exceeds the 336 positions at 128.
+A recipe may interpolate shared configuration into model and dataset without
+passing a built model. The caller ensures input-stride alignment and enough
+projected memory for its query count. There is no `image_size=auto` or
+`from_training_model` constructor. RT-DETRv3's 450-query branch, for example,
+exceeds the 336 positions produced by a 128 input.
 
 Augmentation, category remapping, validation metrics, private RNGs, batching and
 samplers remain application decisions. Reuse a loader where its contract fits;
@@ -167,7 +166,8 @@ complete configuration and validated epoch-boundary resume contract.
 
 Tests cover dependency direction, raw query outputs and gradients, DN splitting,
 reference loss parity, model-independent CLI data construction, recipe objectives
-and callback resume behavior. These are small CPU checks. Full training,
-convergence, full-dataset COCO AP, GPU/DDP/AMP and custom recipe export remain
-outside the validated scope. See [training](training.md),
+and callback resume behavior. These small CPU checks do not establish full
+recipe training, convergence, COCO AP, recipe-specific GPU/DDP/AMP execution,
+or custom recipe export. Baseline GPU evidence has its own
+[validation scope](gpu-validation.md). See [training](training.md),
 [Lightning](lightning.md) and the recipe READMEs for operational details.
