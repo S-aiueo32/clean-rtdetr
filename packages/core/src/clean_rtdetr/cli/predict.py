@@ -50,7 +50,12 @@ def run(
     conf_thresh: float = 0.0,
     visualize_dir: Path | None = None,
 ) -> list[dict[str, object]]:
-    """Return ranked predictions per image as JSON-compatible class-index records."""
+    """Run local native R50vd inference and return one JSON-compatible record per image.
+
+    All six decoder layers run; top-300 query/class candidates are ranked before
+    inclusive ``conf_thresh`` filtering. ``visualize_dir`` writes matching
+    annotated PNGs and rejects an output that would overwrite an input.
+    """
     _validate_conf_thresh(conf_thresh)
     if not image_paths:
         msg = "image_paths must contain at least one image"
@@ -119,7 +124,7 @@ def predict(
         Path | None, typer.Option(help="Optional directory for annotated PNG images.")
     ] = None,
 ) -> None:
-    """Read image paths and print detections without downloading any artifacts."""
+    """Print local image detections as JSON; no image or checkpoint is downloaded."""
     results = run(
         images,
         checkpoint,

@@ -1,5 +1,5 @@
 # Copyright 2026 Clean RT-DETR contributors
-"""Lightning callback state for reproducible CPU epoch-boundary restart."""
+"""Lightning callback state for reproducible single-process epoch-boundary restart."""
 
 import random
 from typing import Any
@@ -13,8 +13,10 @@ from torch.utils.data import DataLoader
 class EpochBoundaryState(Callback):
     """Save application RNG streams alongside Lightning's optimizer and loop states.
 
-    The supplied CPU generator must also be passed to the single training DataLoader.
-    Worker processes and mid-epoch checkpoints are deliberately outside this contract.
+    It preserves Python, NumPy, CPU torch, and DataLoader-generator RNG streams,
+    plus the active CUDA-device stream when applicable. The supplied CPU generator
+    must also be passed to the single training DataLoader. Worker processes and
+    mid-epoch checkpoints are outside this contract.
     """
 
     _CURRENT_VERSION = 2

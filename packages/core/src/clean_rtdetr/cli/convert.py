@@ -31,7 +31,12 @@ def convert(
         str, typer.Option(help="Expected official SHA-256; defaults to the pinned R50vd release.")
     ] = DEFAULT_SHA256,
 ) -> None:
-    """Save inference tensors and print conversion provenance and the output hash."""
+    """Convert a verified official R50vd envelope to a new native plain state dictionary.
+
+    The default source is the pinned EMA release and its SHA-256. Existing output
+    paths are rejected. Prints JSON with the output path and hash plus the load
+    report.
+    """
     if output.exists():
         message = f"Output already exists: {output}"
         raise FileExistsError(message)

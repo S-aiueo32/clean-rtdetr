@@ -71,7 +71,11 @@ class _EvaluationCommandArgs:
 
 
 def run(args: Any) -> dict[str, object]:  # noqa: ANN401
-    """Validate local predictions and write metric evidence without running inference."""
+    """Evaluate saved predictions and write a non-overwriting 0-100 metric report.
+
+    A supplied prediction report is hash-checked and selects its recorded image
+    IDs; without one, every annotated image is evaluated. No inference runs.
+    """
     annotations = args.annotations.resolve()
     predictions = args.predictions.resolve()
     report = args.report.resolve()
@@ -134,7 +138,7 @@ def evaluate(
     report: Annotated[Path, typer.Option(help="Metric report output path.")],
     prediction_report: Annotated[Path | None, typer.Option()] = None,
 ) -> None:
-    """Parse inputs for the optional official metric calculation."""
+    """Calculate local COCO bbox metrics and print them as JSON."""
     args = _EvaluationCommandArgs(
         annotations=annotations,
         predictions=predictions,

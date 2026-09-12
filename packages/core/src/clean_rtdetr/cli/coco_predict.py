@@ -145,7 +145,12 @@ def _resolve_paths(args: Any) -> tuple[Path, Path, Path, Path, Path]:  # noqa: A
 
 @torch.inference_mode()
 def run(args: Any) -> dict[str, object]:  # noqa: ANN401
-    """Generate predictions and a provenance report for selected COCO images."""
+    """Write COCO predictions and a provenance report from local native R50vd weights.
+
+    Images run in numeric ID order, limited to the first ``limit`` when supplied.
+    Each uses RGB 640x640 preprocessing and top-300 postprocessing. The default
+    report path replaces the ``output`` suffix with ``.report.json``.
+    """
     annotations, images_root, checkpoint, output, report = _resolve_paths(args)
     output.parent.mkdir(parents=True, exist_ok=True)
     report.parent.mkdir(parents=True, exist_ok=True)
@@ -216,7 +221,7 @@ def predict(  # noqa: PLR0913, PLR0917
     limit: Annotated[int | None, typer.Option(callback=_positive)] = None,
     device: Annotated[str, typer.Option(help="Torch device.")] = "cpu",
 ) -> None:
-    """Parse arguments and write local COCO predictions."""
+    """Write local COCO predictions and print their report summary as JSON."""
     args = _PredictionCommandArgs(
         images=images,
         annotations=annotations,

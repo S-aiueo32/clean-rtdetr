@@ -86,13 +86,13 @@ def match_stage(
     targets: Sequence[DetectionTarget],
     matcher: Matcher,
 ) -> MatchedStage:
-    """Match one detection stage with a clamped global target count."""
+    """Match one stage with a local or distributed-average target-count normalizer."""
     normalizer = _target_normalizer(targets, output.logits.device)
     return MatchedStage("", output, matcher(output, targets), normalizer)
 
 
 def _target_normalizer(targets: Sequence[DetectionTarget], device: torch.device) -> float:
-    """Average target count across ranks and clamp it to one."""
+    """Return the local count, or initialized-DDP global average, clamped to one."""
     local_count = float(sum(target.labels.numel() for target in targets))
     if not torch.distributed.is_available() or not torch.distributed.is_initialized():
         return max(local_count, 1.0)

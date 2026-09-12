@@ -1,5 +1,5 @@
 # Copyright 2026 Clean RT-DETR contributors
-"""Contracts and validation for training targets."""
+"""Contracts and validation for training targets, matching, and denoising outputs."""
 
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -61,7 +61,11 @@ class DenoisingOutput:
 
 @dataclass(frozen=True)
 class TrainingOutput:
-    """Pair matching model predictions with optional denoising supervision."""
+    """Pair model predictions with optional, separately supervised denoising outputs.
+
+    ``DenoisingTrainingModel`` places only matching predictions in ``predictions``.
+    Other producers of this contract are responsible for preserving that separation.
+    """
 
     predictions: ModelOutput
     denoising: DenoisingOutput | None = None
@@ -74,7 +78,12 @@ class TrainingOutput:
 
 @dataclass(frozen=True)
 class DetectionTarget:
-    """One image's labels and normalized target boxes."""
+    """One image's zero-based labels and normalized ``cxcywh`` target boxes.
+
+    Labels must be in the prediction class range. Both tensors use the prediction
+    device; boxes also share its floating dtype. Box coordinates lie in ``[0, 1]``
+    with positive widths and heights.
+    """
 
     labels: Int64[Tensor, " targets"]
     boxes: Float[Tensor, " targets 4"]

@@ -283,7 +283,13 @@ class Decoder(DecoderInterface):
         *,
         plan: DecoderPlan | None = None,
     ) -> DecoderOutput:
-        """Execute the requested layer prefix and collect predictions per the plan."""
+        """Execute the requested layer prefix and retain predictions per the plan.
+
+        In training, an omitted plan selects every layer. In evaluation, an omitted
+        plan uses ``default_eval_plan``. An explicit evaluation plan with
+        ``num_layers=None`` inherits the default depth while retaining its own
+        ``collect_intermediate`` choice.
+        """
         self._validate_inputs(queries, features)
         selected_plan = self._resolve_plan(plan)
         executed_layers = self._execution_depth(selected_plan)

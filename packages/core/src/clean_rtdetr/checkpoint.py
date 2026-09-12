@@ -13,7 +13,7 @@ from torch import Tensor, nn
 
 @dataclass(frozen=True)
 class CheckpointLoadReport:
-    """Record the native checkpoint digest and its loaded tensor keys."""
+    """SHA-256 of the loaded native file and its state-dictionary keys."""
 
     sha256: str
     keys: tuple[str, ...]
@@ -45,7 +45,7 @@ def load_model_weights(
     Keys, tensor shapes, and dtypes must match exactly; validation precedes
     parameter changes. Official, EMA, optimizer, and resume envelopes are not
     accepted. Supply ``expected_sha256`` to additionally verify the file digest.
-    The actual digest is always returned. Convert official weights with
+    The actual digest and loaded keys are returned. Convert official weights with
     ``clean-rtdetr-convert`` first.
     """
     data = Path(path).read_bytes()

@@ -16,7 +16,7 @@ from .model import RTDETRv3Output
 
 
 class RTDETRv3Criterion(TrainingCriterion[RTDETRv3Output]):
-    """Use independent Hungarian assignments for every decoder and encoder stage."""
+    """Combine O2O, repeated-target O2M, and CNN training losses."""
 
     def __init__(
         self,
@@ -45,7 +45,12 @@ class RTDETRv3Criterion(TrainingCriterion[RTDETRv3Output]):
     def forward(
         self, output: RTDETRv3Output, targets: Sequence[DetectionTarget]
     ) -> dict[str, Float[Tensor, ""]]:
-        """Normalize each O2O group, and O2M by its repeated target count."""
+        """Average weighted O2O losses and add O2M and CNN terms.
+
+        O2O includes the main and SAP groups, preserving their DN supervision.
+        O2M repeats targets before matching and normalization. Returned terms
+        already include branch weights; evaluation-only outputs are rejected.
+        """
         if output.o2m is None or output.cnn is None:
             msg = "RTDETRv3Criterion requires training branch outputs"
             raise ValueError(msg)

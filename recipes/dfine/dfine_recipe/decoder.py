@@ -33,7 +33,12 @@ from .distribution import distance_to_boxes, weighting_function
 
 @dataclass(frozen=True)
 class DistributionOutput(DecoderOutput):
-    """Decoder outputs with FDR corner distributions and fixed references."""
+    """Pair decoder predictions with FDR distribution logits and initial references.
+
+    ``corners`` contains unnormalized left/top/right/bottom bin logits for the
+    retained layers. ``references`` contains detached initial cxcywh boxes;
+    ``pre`` keeps the first layer's direct-box predictions for auxiliary loss.
+    """
 
     corners: Float[Tensor, "layers batch queries 4 bins"]
     references: Float[Tensor, "batch queries 4"]
@@ -202,7 +207,13 @@ class FDRDecoder(DecoderInterface):
         *,
         plan: DecoderPlan | None = None,
     ) -> DistributionOutput:
-        """Run the requested prefix and return FDR predictions and distributions."""
+        """Run the requested prefix and return FDR predictions and distribution logits.
+
+        With no explicit plan, evaluation uses ``default_eval_plan`` and training
+        runs all layers. An explicit plan with ``num_layers=None`` runs all
+        layers. Disabling intermediate collection retains only the final layer's
+        predictions and distributions; ``pre`` remains available for supervision.
+        """
         queries.validate()
         features.validate()
         if queries.content.shape[0] != features.memory.shape[0]:

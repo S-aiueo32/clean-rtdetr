@@ -19,7 +19,11 @@ from .teacher import FeatureTeacher
 
 @dataclass(frozen=True)
 class DistillationOutput:
-    """Carry detection predictions and explicit projected student/teacher maps."""
+    """Pair detection predictions with optional student and teacher feature maps.
+
+    Training retains gradients through the projected student features and
+    detaches teacher features. Both maps are absent on the evaluation path.
+    """
 
     detection: TrainingOutput
     student: Float[Tensor, "batch channels height width"] | None = None
@@ -57,7 +61,13 @@ class DistillationTrainingModel(TrainingModel[DistillationOutput]):
         *,
         targets: Sequence[DetectionTarget] | None = None,
     ) -> DistillationOutput:
-        """Extract the teacher only for training; preserve the student's DN losses."""
+        """Return detections and, during training, features for distillation.
+
+        Training requires exactly one student AIFI feature map, projects it to
+        the teacher channel count, and returns detached teacher features.
+        Evaluation skips the teacher and projector. Detection output retains
+        the student's matching and DN predictions for the paired criterion.
+        """
         detection = self.student(images, targets=targets, collect_aifi=self.training)
         if not self.training:
             return DistillationOutput(detection)

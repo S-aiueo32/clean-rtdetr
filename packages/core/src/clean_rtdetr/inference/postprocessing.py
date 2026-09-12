@@ -25,7 +25,7 @@ SIZE_DIMENSIONS = 2
 
 @dataclass(frozen=True)
 class Detections:
-    """Top-scoring detections, represented in image-space ``xyxy`` coordinates."""
+    """Ranked zero-based labels, sigmoid scores, and image-pixel ``xyxy`` boxes."""
 
     labels: Int64[Tensor, "batch top_k"]
     scores: Float[Tensor, "batch top_k"]
@@ -88,10 +88,11 @@ def postprocess(
     *,
     top_k: int = 300,
 ) -> Detections:
-    """Rank multi-label decoder predictions and scale boxes to original images.
+    """Rank decoder query/class pairs and scale normalized ``cxcywh`` boxes.
 
-    Predictions are flattened over query and class, so one query may contribute
-    multiple detections. No score thresholding, clipping, or NMS is performed.
+    Ranking spans every query/class pair, so a query can produce multiple labels.
+    ``original_sizes_wh`` uses ``(width, height)``. No thresholding, clipping, or
+    NMS is applied; ``top_k`` must be in ``[1, Q*K]``.
     """
     logits = predictions.logits
     boxes = predictions.boxes

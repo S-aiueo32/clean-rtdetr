@@ -25,6 +25,9 @@ class GradientAdaptiveModulation(Callback):
     The update follows RT-DETRv4's odds-ratio rule: an observed percentage
     outside ``rho ± delta`` is moved toward the opposite bound, with the resulting
     weight factor limited to one tenth through ten times its current value.
+    ``rho`` and ``delta`` are percentages. Updates use the epoch mean; a zero
+    mean restores ``default_weight``. If set, ``stop_epoch`` is zero-based and
+    restores that default at the end of that epoch and every later epoch.
     """
 
     def __init__(
