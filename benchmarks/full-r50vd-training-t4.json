@@ -1,0 +1,1047 @@
+{
+  "schema_version": 1,
+  "status": "passed_short_validation",
+  "scope": "Real COCO val2017 images used only for training execution and epoch-boundary resume; no convergence/AP claim",
+  "job": {
+    "url": "https://www.kaggle.com/code/souuchida/clean-rtdetr-full-training-20260911",
+    "version": 2,
+    "timeout_seconds": 3600,
+    "accelerator": "NvidiaTeslaT4",
+    "devices_used": 1
+  },
+  "environment": {
+    "gpu": "Tesla T4",
+    "driver": "580.159.04",
+    "python": "3.13.13",
+    "torch": "2.13.0+cu126",
+    "lightning": "2.6.6",
+    "tf32": false,
+    "deterministic": "warn; grid_sample CUDA backward is nondeterministic"
+  },
+  "manifest": {
+    "source_commit": "cc2d7831381c992a931aaba562ea43d717fe453a",
+    "source_archive_sha256": "660e45f70c96f0572343c9a161c324cc91ceedc6d4e447a9d85c2e388f6fb4ab",
+    "probe_sha256": "83d98c127918eb1f54321032aa3e8a754bda3293e2936e8f72db0000c5b92304",
+    "source": "PR36 plus full R50vd training acceptance tool; archive hash identifies snapshot",
+    "profile": "Python 3.13 / torch 2.13.0+cu126 / NvidiaTeslaT4",
+    "scope": "Short real COCO image R50vd training and checkpoint resume, FP32 and AMP"
+  },
+  "input_archives": {
+    "images": {
+      "name": "images",
+      "url": "https://s3.amazonaws.com/images.cocodataset.org/zips/val2017.zip",
+      "path": "/kaggle/temp/clean-rtdetr-t4-coco/val2017.zip",
+      "sha256": "4f7e2ccb2866ec5041993c9cf2a952bbed69647b115d0f74da7ce8f4bef82f05",
+      "size_bytes": 815585330
+    },
+    "annotations": {
+      "name": "annotations",
+      "url": "https://s3.amazonaws.com/images.cocodataset.org/annotations/annotations_trainval2017.zip",
+      "path": "/kaggle/temp/clean-rtdetr-t4-coco/annotations_trainval2017.zip",
+      "sha256": "113a836d90195ee1f884e704da6304dfaaecff1f023f49b6ca93c4aaae470268",
+      "size_bytes": 252907541
+    }
+  },
+  "reports": {
+    "32-true": {
+      "status": "passed",
+      "scope": "short real-image execution and epoch-boundary resume; no convergence claim",
+      "dataset_identity": {
+        "version": 1,
+        "annotation_sha256": "e8c7f7908f1d7278341fae127d0da654f102f11bd7b21d8aeefa635b8c810b6f",
+        "samples": [
+          {
+            "image_id": 139,
+            "image_sha256": "ffe0f0cec3b2e27aab1967229cdf0a0d7751dcdd5800322f0b8ac0dffb3b8a8d",
+            "width": 640,
+            "height": 426,
+            "annotations": [
+              [
+                58,
+                236.98,
+                142.51,
+                24.700000000000017,
+                69.5
+              ],
+              [
+                62,
+                7.03,
+                167.76,
+                149.32,
+                94.87
+              ],
+              [
+                62,
+                557.21,
+                209.19,
+                81.35000000000002,
+                78.73000000000002
+              ],
+              [
+                56,
+                358.98,
+                218.05,
+                56.0,
+                102.82999999999998
+              ],
+              [
+                56,
+                290.69,
+                218.0,
+                61.829999999999984,
+                98.48000000000002
+              ],
+              [
+                56,
+                413.2,
+                223.01,
+                30.170000000000016,
+                81.36000000000001
+              ],
+              [
+                56,
+                317.4,
+                219.24,
+                21.579999999999984,
+                11.590000000000003
+              ],
+              [
+                0,
+                412.8,
+                157.61,
+                53.05000000000001,
+                138.01
+              ],
+              [
+                0,
+                384.43,
+                172.21,
+                15.120000000000005,
+                35.74000000000001
+              ],
+              [
+                68,
+                512.22,
+                205.75,
+                14.740000000000009,
+                15.969999999999999
+              ],
+              [
+                72,
+                493.1,
+                174.34,
+                20.289999999999964,
+                108.30999999999997
+              ],
+              [
+                73,
+                604.77,
+                305.89,
+                14.340000000000032,
+                45.70999999999998
+              ],
+              [
+                73,
+                613.24,
+                308.24,
+                12.879999999999995,
+                46.44
+              ],
+              [
+                74,
+                447.77,
+                121.12,
+                13.970000000000027,
+                21.879999999999995
+              ],
+              [
+                75,
+                549.06,
+                309.43,
+                36.67999999999995,
+                89.67000000000002
+              ],
+              [
+                75,
+                350.76,
+                208.84,
+                11.370000000000005,
+                22.55000000000001
+              ],
+              [
+                56,
+                412.25,
+                219.02,
+                9.629999999999995,
+                12.52000000000001
+              ],
+              [
+                75,
+                241.24,
+                194.99,
+                14.219999999999999,
+                17.629999999999995
+              ],
+              [
+                75,
+                336.79,
+                199.5,
+                9.730000000000018,
+                16.72999999999999
+              ],
+              [
+                60,
+                321.21,
+                231.22,
+                125.56,
+                88.92999999999998
+              ]
+            ]
+          },
+          {
+            "image_id": 285,
+            "image_sha256": "f3a2974ce3686332609124c70e3e6a2e3aca43fccf1cd1bd7c5c03820977f57d",
+            "width": 586,
+            "height": 640,
+            "annotations": [
+              [
+                21,
+                1.43,
+                68.81,
+                584.57,
+                563.94
+              ]
+            ]
+          },
+          {
+            "image_id": 632,
+            "image_sha256": "a4cd7f45ac1ce27eaafb254b23af7c0b18a064be08870ceaaf03b2147f2ce550",
+            "width": 640,
+            "height": 483,
+            "annotations": [
+              [
+                59,
+                3.27,
+                266.85,
+                401.23,
+                208.25
+              ],
+              [
+                58,
+                183.36,
+                136.56,
+                60.78,
+                92.38999999999999
+              ],
+              [
+                73,
+                455.98,
+                192.5,
+                8.569999999999993,
+                35.59
+              ],
+              [
+                73,
+                453.31,
+                252.97,
+                8.019999999999982,
+                33.92999999999998
+              ],
+              [
+                73,
+                444.76,
+                297.63,
+                5.319999999999993,
+                39.68000000000001
+              ],
+              [
+                73,
+                505.95,
+                191.02,
+                12.150000000000034,
+                36.78
+              ],
+              [
+                73,
+                487.51,
+                199.33,
+                7.480000000000018,
+                28.05000000000001
+              ],
+              [
+                56,
+                244.82,
+                230.45,
+                104.71999999999997,
+                87.69
+              ],
+              [
+                58,
+                347.35,
+                212.37,
+                82.50999999999999,
+                143.0
+              ],
+              [
+                73,
+                460.91,
+                191.67,
+                29.329999999999984,
+                36.03999999999999
+              ],
+              [
+                73,
+                527.02,
+                248.57,
+                24.399999999999977,
+                40.43000000000001
+              ],
+              [
+                73,
+                519.39,
+                193.43,
+                4.080000000000041,
+                34.19
+              ],
+              [
+                73,
+                497.39,
+                55.43,
+                4.079999999999984,
+                27.359999999999992
+              ],
+              [
+                73,
+                524.32,
+                97.38,
+                2.7999999999999545,
+                37.77000000000001
+              ],
+              [
+                73,
+                493.36,
+                155.72,
+                32.59000000000003,
+                6.360000000000014
+              ],
+              [
+                73,
+                454.66,
+                245.27,
+                48.55000000000001,
+                12.140000000000015
+              ],
+              [
+                73,
+                461.77,
+                253.68,
+                8.240000000000009,
+                33.31
+              ]
+            ]
+          },
+          {
+            "image_id": 724,
+            "image_sha256": "5c0e559c75d3969c8e3e297b61f61063f78045c9d4802b526ba616361f3823fd",
+            "width": 375,
+            "height": 500,
+            "annotations": [
+              [
+                11,
+                120.07,
+                71.83,
+                134.49,
+                153.08000000000004
+              ],
+              [
+                7,
+                123.39,
+                279.44,
+                21.739999999999995,
+                30.170000000000016
+              ],
+              [
+                2,
+                128.26,
+                267.21,
+                12.879999999999995,
+                8.149999999999977
+              ],
+              [
+                11,
+                202.38,
+                259.9,
+                19.00999999999999,
+                26.060000000000002
+              ]
+            ]
+          }
+        ],
+        "image_size": 640,
+        "num_classes": 80
+      },
+      "settings": {
+        "model": "rtdetr_r50vd",
+        "seed": 41,
+        "batch_size": 2,
+        "dataset_samples": 4,
+        "precision": "32-true",
+        "optimizer": {
+          "name": "AdamW",
+          "lr": 0.0001,
+          "backbone_lr": 1e-05,
+          "weight_decay": 0.0001
+        },
+        "scheduler": {
+          "name": "MultiStepLR",
+          "milestones": [
+            1000
+          ],
+          "gamma": 0.1
+        },
+        "gradient_clip_val": 0.1,
+        "num_denoising": 100
+      },
+      "checkpoint": "/kaggle/working/full-training/32-true/split/checkpoints/last.ckpt",
+      "checkpoint_required_state": [
+        "callbacks",
+        "clean_rtdetr_execution",
+        "clean_rtdetr_recipe",
+        "clean_rtdetr_required_callbacks",
+        "loops",
+        "lr_schedulers",
+        "optimizer_states",
+        "state_dict"
+      ],
+      "first_epoch": {
+        "global_step": 2,
+        "successful_optimizer_steps_this_fit": 2,
+        "ema_updates_total": 2,
+        "finite_losses_this_fit": 2,
+        "loss_first": 38.42878723144531,
+        "loss_last": 51.961517333984375,
+        "amp_scales": [],
+        "exact_restoration_checked": false,
+        "parameters_changed": true,
+        "scheduler": {
+          "milestones": {
+            "1000": 1
+          },
+          "gamma": 0.1,
+          "base_lrs": [
+            1e-05,
+            0.0001,
+            0.0001
+          ],
+          "last_epoch": 1,
+          "_step_count": 2,
+          "_is_initial": false,
+          "_get_lr_called_within_step": false,
+          "_last_lr": [
+            1e-05,
+            0.0001,
+            0.0001
+          ]
+        },
+        "precision_state": {}
+      },
+      "uninterrupted": {
+        "global_step": 4,
+        "successful_optimizer_steps_this_fit": 4,
+        "ema_updates_total": 4,
+        "finite_losses_this_fit": 4,
+        "loss_first": 38.42878723144531,
+        "loss_last": 37.087921142578125,
+        "amp_scales": [],
+        "exact_restoration_checked": false,
+        "parameters_changed": true,
+        "scheduler": {
+          "milestones": {
+            "1000": 1
+          },
+          "gamma": 0.1,
+          "base_lrs": [
+            1e-05,
+            0.0001,
+            0.0001
+          ],
+          "last_epoch": 2,
+          "_step_count": 3,
+          "_is_initial": false,
+          "_get_lr_called_within_step": false,
+          "_last_lr": [
+            1e-05,
+            0.0001,
+            0.0001
+          ]
+        },
+        "precision_state": {}
+      },
+      "resumed": {
+        "global_step": 4,
+        "successful_optimizer_steps_this_fit": 2,
+        "ema_updates_total": 4,
+        "finite_losses_this_fit": 2,
+        "loss_first": 49.2657585144043,
+        "loss_last": 37.087928771972656,
+        "amp_scales": [],
+        "exact_restoration_checked": true,
+        "parameters_changed": true,
+        "scheduler": {
+          "milestones": {
+            "1000": 1
+          },
+          "gamma": 0.1,
+          "base_lrs": [
+            1e-05,
+            0.0001,
+            0.0001
+          ],
+          "last_epoch": 2,
+          "_step_count": 3,
+          "_is_initial": false,
+          "_get_lr_called_within_step": false,
+          "_last_lr": [
+            1e-05,
+            0.0001,
+            0.0001
+          ]
+        },
+        "precision_state": {}
+      },
+      "continuation_tolerance": 0.0001,
+      "max_model_abs_diff": 4.8007816076278687e-05,
+      "max_ema_abs_diff": 4.791468381881714e-05
+    },
+    "16-mixed": {
+      "status": "passed",
+      "scope": "short real-image execution and epoch-boundary resume; no convergence claim",
+      "dataset_identity": {
+        "version": 1,
+        "annotation_sha256": "e8c7f7908f1d7278341fae127d0da654f102f11bd7b21d8aeefa635b8c810b6f",
+        "samples": [
+          {
+            "image_id": 139,
+            "image_sha256": "ffe0f0cec3b2e27aab1967229cdf0a0d7751dcdd5800322f0b8ac0dffb3b8a8d",
+            "width": 640,
+            "height": 426,
+            "annotations": [
+              [
+                58,
+                236.98,
+                142.51,
+                24.700000000000017,
+                69.5
+              ],
+              [
+                62,
+                7.03,
+                167.76,
+                149.32,
+                94.87
+              ],
+              [
+                62,
+                557.21,
+                209.19,
+                81.35000000000002,
+                78.73000000000002
+              ],
+              [
+                56,
+                358.98,
+                218.05,
+                56.0,
+                102.82999999999998
+              ],
+              [
+                56,
+                290.69,
+                218.0,
+                61.829999999999984,
+                98.48000000000002
+              ],
+              [
+                56,
+                413.2,
+                223.01,
+                30.170000000000016,
+                81.36000000000001
+              ],
+              [
+                56,
+                317.4,
+                219.24,
+                21.579999999999984,
+                11.590000000000003
+              ],
+              [
+                0,
+                412.8,
+                157.61,
+                53.05000000000001,
+                138.01
+              ],
+              [
+                0,
+                384.43,
+                172.21,
+                15.120000000000005,
+                35.74000000000001
+              ],
+              [
+                68,
+                512.22,
+                205.75,
+                14.740000000000009,
+                15.969999999999999
+              ],
+              [
+                72,
+                493.1,
+                174.34,
+                20.289999999999964,
+                108.30999999999997
+              ],
+              [
+                73,
+                604.77,
+                305.89,
+                14.340000000000032,
+                45.70999999999998
+              ],
+              [
+                73,
+                613.24,
+                308.24,
+                12.879999999999995,
+                46.44
+              ],
+              [
+                74,
+                447.77,
+                121.12,
+                13.970000000000027,
+                21.879999999999995
+              ],
+              [
+                75,
+                549.06,
+                309.43,
+                36.67999999999995,
+                89.67000000000002
+              ],
+              [
+                75,
+                350.76,
+                208.84,
+                11.370000000000005,
+                22.55000000000001
+              ],
+              [
+                56,
+                412.25,
+                219.02,
+                9.629999999999995,
+                12.52000000000001
+              ],
+              [
+                75,
+                241.24,
+                194.99,
+                14.219999999999999,
+                17.629999999999995
+              ],
+              [
+                75,
+                336.79,
+                199.5,
+                9.730000000000018,
+                16.72999999999999
+              ],
+              [
+                60,
+                321.21,
+                231.22,
+                125.56,
+                88.92999999999998
+              ]
+            ]
+          },
+          {
+            "image_id": 285,
+            "image_sha256": "f3a2974ce3686332609124c70e3e6a2e3aca43fccf1cd1bd7c5c03820977f57d",
+            "width": 586,
+            "height": 640,
+            "annotations": [
+              [
+                21,
+                1.43,
+                68.81,
+                584.57,
+                563.94
+              ]
+            ]
+          },
+          {
+            "image_id": 632,
+            "image_sha256": "a4cd7f45ac1ce27eaafb254b23af7c0b18a064be08870ceaaf03b2147f2ce550",
+            "width": 640,
+            "height": 483,
+            "annotations": [
+              [
+                59,
+                3.27,
+                266.85,
+                401.23,
+                208.25
+              ],
+              [
+                58,
+                183.36,
+                136.56,
+                60.78,
+                92.38999999999999
+              ],
+              [
+                73,
+                455.98,
+                192.5,
+                8.569999999999993,
+                35.59
+              ],
+              [
+                73,
+                453.31,
+                252.97,
+                8.019999999999982,
+                33.92999999999998
+              ],
+              [
+                73,
+                444.76,
+                297.63,
+                5.319999999999993,
+                39.68000000000001
+              ],
+              [
+                73,
+                505.95,
+                191.02,
+                12.150000000000034,
+                36.78
+              ],
+              [
+                73,
+                487.51,
+                199.33,
+                7.480000000000018,
+                28.05000000000001
+              ],
+              [
+                56,
+                244.82,
+                230.45,
+                104.71999999999997,
+                87.69
+              ],
+              [
+                58,
+                347.35,
+                212.37,
+                82.50999999999999,
+                143.0
+              ],
+              [
+                73,
+                460.91,
+                191.67,
+                29.329999999999984,
+                36.03999999999999
+              ],
+              [
+                73,
+                527.02,
+                248.57,
+                24.399999999999977,
+                40.43000000000001
+              ],
+              [
+                73,
+                519.39,
+                193.43,
+                4.080000000000041,
+                34.19
+              ],
+              [
+                73,
+                497.39,
+                55.43,
+                4.079999999999984,
+                27.359999999999992
+              ],
+              [
+                73,
+                524.32,
+                97.38,
+                2.7999999999999545,
+                37.77000000000001
+              ],
+              [
+                73,
+                493.36,
+                155.72,
+                32.59000000000003,
+                6.360000000000014
+              ],
+              [
+                73,
+                454.66,
+                245.27,
+                48.55000000000001,
+                12.140000000000015
+              ],
+              [
+                73,
+                461.77,
+                253.68,
+                8.240000000000009,
+                33.31
+              ]
+            ]
+          },
+          {
+            "image_id": 724,
+            "image_sha256": "5c0e559c75d3969c8e3e297b61f61063f78045c9d4802b526ba616361f3823fd",
+            "width": 375,
+            "height": 500,
+            "annotations": [
+              [
+                11,
+                120.07,
+                71.83,
+                134.49,
+                153.08000000000004
+              ],
+              [
+                7,
+                123.39,
+                279.44,
+                21.739999999999995,
+                30.170000000000016
+              ],
+              [
+                2,
+                128.26,
+                267.21,
+                12.879999999999995,
+                8.149999999999977
+              ],
+              [
+                11,
+                202.38,
+                259.9,
+                19.00999999999999,
+                26.060000000000002
+              ]
+            ]
+          }
+        ],
+        "image_size": 640,
+        "num_classes": 80
+      },
+      "settings": {
+        "model": "rtdetr_r50vd",
+        "seed": 41,
+        "batch_size": 2,
+        "dataset_samples": 4,
+        "precision": "16-mixed",
+        "optimizer": {
+          "name": "AdamW",
+          "lr": 0.0001,
+          "backbone_lr": 1e-05,
+          "weight_decay": 0.0001
+        },
+        "scheduler": {
+          "name": "MultiStepLR",
+          "milestones": [
+            1000
+          ],
+          "gamma": 0.1
+        },
+        "gradient_clip_val": 0.1,
+        "num_denoising": 100
+      },
+      "checkpoint": "/kaggle/working/full-training/16-mixed/split/checkpoints/last.ckpt",
+      "checkpoint_required_state": [
+        "callbacks",
+        "clean_rtdetr_execution",
+        "clean_rtdetr_recipe",
+        "clean_rtdetr_required_callbacks",
+        "loops",
+        "lr_schedulers",
+        "optimizer_states",
+        "state_dict"
+      ],
+      "first_epoch": {
+        "global_step": 2,
+        "successful_optimizer_steps_this_fit": 2,
+        "ema_updates_total": 2,
+        "finite_losses_this_fit": 2,
+        "loss_first": 38.523216247558594,
+        "loss_last": 50.58597183227539,
+        "amp_scales": [
+          128.0,
+          128.0
+        ],
+        "exact_restoration_checked": false,
+        "parameters_changed": true,
+        "scheduler": {
+          "milestones": {
+            "1000": 1
+          },
+          "gamma": 0.1,
+          "base_lrs": [
+            1e-05,
+            0.0001,
+            0.0001
+          ],
+          "last_epoch": 1,
+          "_step_count": 2,
+          "_is_initial": false,
+          "_get_lr_called_within_step": false,
+          "_last_lr": [
+            1e-05,
+            0.0001,
+            0.0001
+          ]
+        },
+        "precision_state": {
+          "scale": 128.0,
+          "growth_factor": 2.0,
+          "backoff_factor": 0.5,
+          "growth_interval": 2000,
+          "_growth_tracker": 2
+        }
+      },
+      "uninterrupted": {
+        "global_step": 4,
+        "successful_optimizer_steps_this_fit": 4,
+        "ema_updates_total": 4,
+        "finite_losses_this_fit": 4,
+        "loss_first": 38.523216247558594,
+        "loss_last": 37.04060363769531,
+        "amp_scales": [
+          128.0,
+          128.0,
+          128.0,
+          128.0
+        ],
+        "exact_restoration_checked": false,
+        "parameters_changed": true,
+        "scheduler": {
+          "milestones": {
+            "1000": 1
+          },
+          "gamma": 0.1,
+          "base_lrs": [
+            1e-05,
+            0.0001,
+            0.0001
+          ],
+          "last_epoch": 2,
+          "_step_count": 3,
+          "_is_initial": false,
+          "_get_lr_called_within_step": false,
+          "_last_lr": [
+            1e-05,
+            0.0001,
+            0.0001
+          ]
+        },
+        "precision_state": {
+          "scale": 128.0,
+          "growth_factor": 2.0,
+          "backoff_factor": 0.5,
+          "growth_interval": 2000,
+          "_growth_tracker": 4
+        }
+      },
+      "resumed": {
+        "global_step": 4,
+        "successful_optimizer_steps_this_fit": 2,
+        "ema_updates_total": 4,
+        "finite_losses_this_fit": 2,
+        "loss_first": 48.743995666503906,
+        "loss_last": 37.235774993896484,
+        "amp_scales": [
+          128.0,
+          128.0
+        ],
+        "exact_restoration_checked": true,
+        "parameters_changed": true,
+        "scheduler": {
+          "milestones": {
+            "1000": 1
+          },
+          "gamma": 0.1,
+          "base_lrs": [
+            1e-05,
+            0.0001,
+            0.0001
+          ],
+          "last_epoch": 2,
+          "_step_count": 3,
+          "_is_initial": false,
+          "_get_lr_called_within_step": false,
+          "_last_lr": [
+            1e-05,
+            0.0001,
+            0.0001
+          ]
+        },
+        "precision_state": {
+          "scale": 128.0,
+          "growth_factor": 2.0,
+          "backoff_factor": 0.5,
+          "growth_interval": 2000,
+          "_growth_tracker": 4
+        }
+      },
+      "continuation_tolerance": 0.002,
+      "max_model_abs_diff": 0.0019473433494567871,
+      "max_ema_abs_diff": 0.0019445419311523438
+    }
+  },
+  "artifacts": {
+    "clean-rtdetr-full-training-20260911.log": "72edcf79ef4f1e3e6e5c3cc9228dcbede0371311a22516ca0f89da895f63a5e2",
+    "requirements-freeze.txt": "99026794f35e217ae56e0bf7cdf2a01c0a988e7fcb197b96d8d02a5d43585e75",
+    "job-manifest.json": "51df8e0ebc5c99f5ec3f9b8e254090a179c735dff3f536ff5130eb9f2cb549b2",
+    "bootstrap.log": "8a8014816a9e29b3427f6f5d59c6b0e72b82c9cec16d49a8653098fe79e58a40",
+    "full-training/inputs.json": "c8fac3ea2934be4b2ba722d1ce03c353a3d1a68c368213f63607be05def76e5d",
+    "full-training/32-true/training-report.json": "30e85806082a36873cacbc14a89404a18ae704b67e229807189510d89417dce9",
+    "full-training/32-true/continuation-diagnostic.json": "cc71a52aa5d54b1918b98a6717c54d7358b755b88b54d40dd4ae30b37bcd257d",
+    "full-training/16-mixed/training-report.json": "8cdab83950584ca7054f815d3dad35ef44939890ae60abe6973a5ee8b629991a",
+    "full-training/16-mixed/continuation-diagnostic.json": "0c86e8ae4cd34d6e61120fe1278494af06d871b4f1d7fc23c37bd619d3a7d8e1"
+  },
+  "prior_longer_probe": {
+    "version": 1,
+    "source_archive_sha256": "ef52e63930e3fd353b39c40224acf3417c2f50bfe8b5feb5a6218d15bab24a6e",
+    "amp_epochs": 12,
+    "resume_after_epochs": 6,
+    "exact_restore": "passed before continuation",
+    "continuation": "failed optimizer exp_avg tolerance rtol=atol=0.002; observed absolute difference 0.002686160383746028",
+    "interpretation": "No long-run numerical equivalence claim. The accepted short probe requires four real updates with two after resume and retains the same tolerance."
+  },
+  "local_validation": {
+    "pytest": "482 passed, 19 skipped",
+    "coverage_percent": 90,
+    "ruff": "passed",
+    "ruff_format": "passed",
+    "ty": "passed",
+    "query_selection": "passed",
+    "builds": "all three packages passed",
+    "publish_dry_runs": "all three passed; no upload",
+    "dataset_smoke": "clipped normalized geometry, contiguous category, pixel contract, changed-image and settings rejection passed"
+  }
+}
